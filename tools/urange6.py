@@ -1,0 +1,345 @@
+import enum
+from re import ASCII
+
+class Inst:
+    def __init__(self):
+        self.next = 0
+    
+    def set_next(self, next):
+        self.next = next
+
+class Split(Inst):
+    def __init__(self):
+        self.next1 = 0
+        Inst.__init__(self)
+    
+    def __str__(self):
+        return "SPLIT -> 0x%02X, 0x%02X" % (self.next, self.next1)
+
+    def set_next1(self, next1):
+        self.next1 = next1
+
+class Byte(Inst):
+    def __init__(self, val):
+        assert val <= 255
+        self.val = val
+        Inst.__init__(self)
+    
+    def __str__(self):
+        return "BYTE %s -> 0x%02X" % (printable(self.val), self.next)
+
+class Any(Inst):
+    def __init__(self):
+        Inst.__init__(self)
+    
+    def __str__(self):
+        return "ANY -> 0x%02X" % self.next
+
+class Range(Inst):
+    def __init__(self, val_lo, val_hi):
+        assert val_lo != val_hi
+        assert val_lo <= val_hi
+        assert val_lo >= 0
+        assert val_hi <= 255
+        self.val_lo = val_lo
+        self.val_hi = val_hi
+        Inst.__init__(self)
+    
+    def __str__(self):
+        return "RANGE %s - %s -> 0x%02X" % (printable(self.val_lo), printable(self.val_hi), self.next)
+
+class Match(Inst):
+    def __init__(self):
+        Inst.__init__(self)
+    
+    def __str__(self):
+        return "MATCH!"
+
+class Fail(Inst):
+    def __init__(self):
+        Inst.__init__(self)
+    
+    def __str__(self):
+        return "FAIL"
+
+import string
+
+def printable(ch):
+    if chr(ch) in string.printable:
+        return "0x%02X ('%s')" % (ch, chr(ch))
+    else:
+        return "0x%02X" % ch
+
+def dump_program(prog):
+    for pc, inst in enumerate(prog):
+        print("0x%02X | " % pc, end="")
+        print(str(inst))
+
+class UClass(enum.IntEnum):
+    ASCII = 0
+    BYTES2 = 1
+    BYTES3 = 2
+    BYTES4 = 3
+    CONT1 = 4
+    CONT2 = 5
+    CONT3 = 6
+    OVERLAP_TOP = 7
+
+yx_bits = (
+    (7, 0),
+    (5, 6),
+    (4, 12),
+    (3, 18),
+    (6, 0),
+    (6, 6),
+    (6, 12)
+)
+
+class BRange:
+    def __init__(self, min, max):
+        assert min >= 0
+        assert max <= 255
+        assert min <= max
+        self.min = min
+        self.max = max
+
+    def __repr__(self):
+        return "B[%02X-%02X]" % (self.min, self.max)
+    
+    def __str__(self):
+        return repr(self)
+    
+    def __hash__(self):
+        return hash((self.min, self.max))
+    
+    def __eq__(self, other):
+        return self.min == other.min and self.max == other.max
+
+class RRange:
+    def __init__(self, min, max):
+        assert min >= 0
+        assert min <= max
+        self.min = min
+        self.max = max
+    
+    def __repr__(self):
+        return "R[%X-%X]" % (self.min, self.max)
+    
+    def __str__(self):
+        return repr(self)
+    
+    def __hash__(self):
+        assert False
+
+def intersects(r, b):
+    return r.min <= b.max and b.min <= r.max
+
+class BRangeTree:
+    def __init__(self, br):
+        self.br = br
+        self.down = None
+        self.next = None
+
+    def append(self, other):
+        obj = self
+        while obj.next != None:
+            obj = obj.next
+        obj.next = other
+    
+    def __getitem__(self, br):
+        return self.find(br)
+
+    def find(self, br):
+        obj = self
+        while obj != None:
+            if obj.br == br:
+                return obj
+            obj = obj.next
+        return None
+
+    def new(self, br):
+        if self.down == None:
+            self.down = BRangeTree(br)
+            return self.down
+        else:
+            found = self.down.find(br)
+            if found == None:
+                self.down.append(BRangeTree(br))
+                return self.down[br]
+            else:
+                return found
+
+    def __hash__(self):
+        return hash((self.down, self.next))
+    
+    def __eq__(self, other):
+        if other == None:
+            return False
+        return self.br == other.br and self.down == other.down and self.next == other.next
+
+class BRanges:
+    def __init__(self):
+        self.nodes = {}
+    
+    def new(self, br):
+        if br not in self.nodes:
+            self.nodes[br] = BRanges()
+        return self.nodes[br]
+    
+    def new_term(self, br):
+        self.nodes[br] = None
+    
+    def __eq__(self, other):
+        return self.nodes == other.nodes
+    
+    def __hash__(self):
+        out = 0
+        for k, v in self.nodes:
+            out += hash(k)
+            if v is not None:
+                out += hash(v)
+
+def clamp(r, b):
+    out = RRange(r.min, r.max)
+    if r.min < b.min:
+        out.min = b.min
+    if r.max > b.max:
+        out.max = b.max
+    return out
+
+def split_range(tree, r):
+    begin_classes = [UClass.ASCII, UClass.BYTES2, UClass.BYTES3, UClass.BYTES4]
+    min_value = 0
+    for cls in begin_classes:
+        y_bits, x_bits = yx_bits[cls]
+        max_value = (1 << (y_bits + x_bits)) - 1
+        bounds = RRange(min_value, max_value)
+        if intersects(r, bounds):
+            compile_range(tree, cls, clamp(r, bounds))
+        min_value = max_value+1
+
+def next_ucls(ucls):
+    return [None, UClass.CONT1, UClass.CONT2, UClass.CONT3, None, UClass.CONT1, UClass.CONT2][ucls]
+
+def print_tree(tree, lvl=0):
+    if tree == None:
+        print("  " * lvl, "<term>")
+    obj = tree
+    while obj != None:
+        print("  " * lvl, obj.br)
+        print_tree(obj.down, lvl+1)
+        obj = obj.next
+
+def compile_range(tree, cls, r):
+    y_bits, x_bits = yx_bits[cls]
+    y_mask = (1 << y_bits) - 1
+    x_mask = (1 << x_bits) - 1
+    byte_mask = 0b11111111
+    u_mask = (0b11111110 << y_bits) & byte_mask
+    if x_bits == 0:
+        byte_min = (r.min & byte_mask) | u_mask
+        byte_max = (r.max & byte_mask) | u_mask
+        br = BRange(byte_min, byte_max)
+        tree.new(br)
+    else:
+        y_min = r.min >> x_bits
+        y_max = r.max >> x_bits
+        x_min = r.min & x_mask
+        x_max = r.max & x_mask
+        byte_min = (y_min & byte_mask) | u_mask
+        byte_max = (y_max & byte_mask) | u_mask
+        if y_min == y_max:
+            y_tree_0 = tree.new(BRange(byte_min, byte_max))
+            compile_range(y_tree_0, next_ucls(cls), RRange(x_min, x_max))
+        elif x_min == 0 and x_max == x_mask:
+            y_tree_0 = tree.new(BRange(byte_min, byte_max))
+            compile_range(y_tree_0, next_ucls(cls), RRange(x_min, x_max))
+        elif x_min == 0:
+            y_tree_0 = tree.new(BRange(byte_min, byte_max - 1))
+            compile_range(y_tree_0, next_ucls(cls), RRange(0, x_mask))
+            y_tree_1 = tree.new(BRange(byte_max, byte_max))
+            compile_range(y_tree_1, next_ucls(cls), RRange(0, x_max))
+        elif x_max == x_mask:
+            y_tree_0 = tree.new(BRange(byte_min, byte_min))
+            compile_range(y_tree_0, next_ucls(cls), RRange(x_min, x_mask))
+            y_tree_1 = tree.new(BRange(byte_min + 1, byte_max))
+            compile_range(y_tree_1, next_ucls(cls), RRange(0, x_mask))
+        else:
+            y_tree_0 = tree.new(BRange(byte_min, byte_min))
+            compile_range(y_tree_0, next_ucls(cls), RRange(x_min, x_mask))
+            y_tree_1 = tree.new(BRange(byte_min + 1, byte_max - 1))
+            compile_range(y_tree_1, next_ucls(cls), RRange(0, x_mask))
+            y_tree_2 = tree.new(BRange(byte_max, byte_max))
+            compile_range(y_tree_2, next_ucls(cls), RRange(0, x_max))
+
+def link(prog, origin=None, dest=None, secondary=False):
+    src = prog[-1] if origin is None else prog[origin]
+    dst = len(prog) if dest is None else dest
+    func = src.set_next if not secondary else src.set_next1
+    func(dst)
+
+def dump_prog_graph(prog):
+    import graphviz
+    dot = graphviz.Digraph(comment="NFA Program")
+
+    nodes = list(range(len(prog)))
+    edges = []
+    for i, inst in enumerate(prog):
+        if isinstance(inst, Split):
+            edges.append((i, inst.next, "red"))
+            edges.append((i, inst.next1, "red"))
+        elif isinstance(inst, Byte):
+            edges.append((i, inst.next, "black"))
+        elif isinstance(inst, Range):
+            edges.append((i, inst.next, "black"))
+    
+    for node in nodes:
+        shape = "box"
+        if node == 1:
+            shape = "box"
+        if type(prog[node]) is Match:
+            shape = "box"
+        color = "white"
+        dot.node(str(node), shape=shape, label=str(prog[node]), style="filled", fillcolor=color)
+    
+    for begin, end, color in edges:
+        dot.edge(str(begin), str(end), color=color, taillabel="0x%02X" % begin, headlabel="0x%02X" % end)
+    
+    dot.render(filename="graph", format="png", cleanup=True)
+
+def compile_tree(prog, cache, tree):
+    start_pc = len(prog)
+    if tree == None:
+        prog.append(Match())
+        return start_pc
+    if tree in cache:
+        return cache[tree]
+    split_from = -1
+    if tree.next is not None:
+        split_from = len(prog)
+        prog.append(Split())
+        link(prog)
+    br = tree.br
+    link_from = len(prog)
+    if br.min == br.max:
+        prog.append(Byte(br.min))
+    else:
+        prog.append(Range(br.min, br.max))
+    next_pc = compile_tree(prog, cache, tree.down)
+    link(prog, origin=link_from, dest=next_pc)
+    if tree.next is not None:
+        split_to = compile_tree(prog, cache, tree.next)
+        link(prog, origin=split_from, dest=split_to, secondary=True)
+    cache[tree] = start_pc
+    return start_pc
+
+prog = []
+cache = {}
+ranges = [(0, 0x05), (0x800, 0x801)]
+tree = BRangeTree(BRange(0, 0xFF))
+for r in ranges:
+    split_range(tree, RRange(r[0], r[1]))
+print_tree(tree)
+compile_tree(prog, cache, tree.down)
+print(cache)
+dump_prog_graph(prog)
