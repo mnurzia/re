@@ -109,7 +109,10 @@ typedef enum re__ast_type {
 } re__ast_type;
 
 RE_VEC_DECL(re__ast);
-RE_VEC_DECL_FUNC(re__ast, get);
+RE_VEC_DECL_FUNC(re__ast, init);
+RE_VEC_DECL_FUNC(re__ast, destroy);
+RE_VEC_DECL_FUNC(re__ast, push);
+RE_VEC_DECL_FUNC(re__ast, getref);
 RE_VEC_DECL_FUNC(re__ast, size);
 
 #define RE__AST_QUANTIFIER_MAX 2000
@@ -165,22 +168,15 @@ typedef union re__ast_data {
     re__ast_assert_type assert_type;
 } re__ast_data;
 
+#define RE__AST_NONE -1
+
 struct re__ast {
     re__ast_type type;
-    re_size children;
-    re_size prev;
-    re_size next;
+    re_int32 first_child_ref;
+    re_int32 prev_sibling_ref;
+    re_int32 next_sibling_ref;
     re__ast_data _data;
 };
-
-RE_VEC_DECL(re_size);
-RE_VEC_DECL_FUNC(re_size, init);
-RE_VEC_DECL_FUNC(re_size, destroy);
-RE_VEC_DECL_FUNC(re_size, push);
-RE_VEC_DECL_FUNC(re_size, pop);
-RE_VEC_DECL_FUNC(re_size, peek);
-RE_VEC_DECL_FUNC(re_size, set);
-RE_VEC_DECL_FUNC(re_size, size);
 
 RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
 RE_INTERNAL void re__ast_init_class(re__ast* ast, re__charclass charclass);
@@ -202,9 +198,23 @@ RE_INTERNAL void re__ast_set_children_count(re__ast* ast, re_size size);
 RE_INTERNAL re_size re__ast_get_children_count(re__ast* ast);
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
 
+typedef struct re__ast_root {
+    re__ast_vec ast_vec;
+    re_int32 last_empty_ref;
+} re__ast_root;
+
+RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
+RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root);
+RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref);
+RE_INTERNAL re_error re__ast_root_add(re__ast_root* ast_root, re__ast ast, re_int32* out_ref);
+RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
+RE_INTERNAL void re__ast_root_link_siblings(re__ast_root* ast_root, re_int32 first_sibling_ref, re_int32 next_sibling_ref);
+RE_INTERNAL void re__ast_root_set_child(re__ast_root* ast_root, re_int32 root_ref, re_int32 child_ref);
+RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re_int32 outer_ref);
+
 #if RE_DEBUG
 
-RE_INTERNAL re_size re__ast_debug_dump(const re__ast* ast, re_size lvl);
+RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_ref, re_int32 lvl);
 
 #endif
 
@@ -240,12 +250,12 @@ typedef enum re__parse_state {
 } re__parse_state;
 
 typedef struct re__parse_frame {
-    re_size ast_frame_ptr;
-    re_size ast_prev_child_ptr;
+    re_int32 ast_frame_root_ref;
+    re_int32 ast_prev_child_ref;
     re__parse_state ret_state;
     re__ast_group_flags group_flags;
-    re_size depth;
-    re_size depth_max;
+    re_int32 depth;
+    re_int32 depth_max;
 } re__parse_frame;
 
 RE_VEC_DECL(re__parse_frame);
@@ -253,10 +263,9 @@ RE_VEC_DECL(re__parse_frame);
 typedef struct re__parse {
     re* re;
     re__parse_frame_vec frames;
-    re__ast_vec ast_stk;
-    re_size ast_stk_ptr;
-    re_size ast_prev_child_ptr;
-    re_size ast_frame_ptr;
+    re__ast_root ast_root;
+    re_int32 ast_frame_root_ref;
+    re_int32 ast_prev_child_ref;
     re__parse_state state;
     re_int32 radix_num;
     int radix_digits;
@@ -268,9 +277,9 @@ typedef struct re__parse {
     const re_char* str_end;
     re_int32 counting_first_num;
     re_rune charclass_lo_rune;
-    re_size depth;
-    re_size depth_max;
-    re_size depth_max_prev;
+    re_int32 depth;
+    re_int32 depth_max;
+    re_int32 depth_max_prev;
 } re__parse;
 
 RE_INTERNAL void re__parse_init(re__parse* parse, re* re);
@@ -598,19 +607,20 @@ void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_
 #endif
 
 typedef struct re__compile_frame {
-    re_size ast_root;
-    re_size ast_child_idx;
+    re_int32 ast_root_ref;
+    re_int32 ast_child_ref;
     re__compile_patches patches;
     re__prog_loc start;
     re__prog_loc end;
+    re_int32 rep_idx;
 } re__compile_frame;
 
 typedef struct re__compile {
     re* re;
     re__compile_frame* frames;
-    re_size frames_size;
-    re_size frame_ptr;
-    re_size ast_ptr;
+    re_int32 frames_size;
+    re_int32 frame_ptr;
+    re_int32 ast_ref;
     re__compile_charclass char_comp;
 } re__compile;
 

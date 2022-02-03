@@ -8,8 +8,8 @@ int main(void) {
     re_init(&reg, "");
     {
         re_error err = RE_ERROR_NONE;
-        const char* regex = "[0-9a-fA-F]*";
-        char text[] = "092321af32c";
+        const char* regex = "";
+        char text[] = "";
         if ((err = re__parse_regex(&reg.data->parse, strlen(regex), (const re_char*)regex))) {
             printf("error: %s\n", re_get_error(&reg, RE_NULL));
             goto err;

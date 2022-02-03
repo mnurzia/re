@@ -21,11 +21,10 @@ RE_VEC_IMPL_FUNC(re__parse_frame, size)
 RE_INTERNAL void re__parse_init(re__parse* parse, re* reg) {
     parse->re = reg;
     re__parse_frame_vec_init(&parse->frames);
-    re__ast_vec_init(&parse->ast_stk);
+    re__ast_root_init(&parse->ast_root);
     re__charclass_builder_init(&parse->charclass_builder);
-    parse->ast_stk_ptr = 0;
-    parse->ast_prev_child_ptr = 0;
-    parse->ast_frame_ptr = 0;
+    parse->ast_prev_child_ref = RE__AST_NONE;
+    parse->ast_frame_root_ref = RE__AST_NONE;
     parse->state = RE__PARSE_STATE_GND;
     parse->radix_num = 0;
     parse->radix_digits = 0;
@@ -42,7 +41,7 @@ RE_INTERNAL void re__parse_init(re__parse* parse, re* reg) {
 
 RE_INTERNAL void re__parse_destroy(re__parse* parse) {
     re__charclass_builder_destroy(&parse->charclass_builder);
-    re__ast_vec_destroy(&parse->ast_stk);
+    re__ast_root_destroy(&parse->ast_root);
     re__parse_frame_vec_destroy(&parse->frames);
 }
 
@@ -63,13 +62,16 @@ RE_INTERNAL re_error re__parse_error_invalid_escape(re__parse* parse, re_rune es
     /* Build error message */
     re_error err = RE_ERROR_NONE;
     re__str err_str;
-    re_char esc_ch = (re_char)esc;
+    re_char esc_ch[2];
+    esc_ch[0] = (re_char)esc;
+    esc_ch[1] = '\'';
     if ((err = re__str_init_s(&err_str, (const re_char*)"invalid escape sequence '\\"))) {
         goto destroy_err_str;
     }
-    if ((err = re__str_cat_n(&err_str, 1, &esc_ch))) {
+    if ((err = re__str_cat_n(&err_str, 2, esc_ch))) {
         goto destroy_err_str;
     }
+
     re__set_error_str(parse->re, &err_str);
 destroy_err_str:
     re__str_destroy(&err_str);
@@ -78,44 +80,33 @@ destroy_err_str:
 
 #include "re_internal.h"
 
-/* Check if the current frame has any children. */
 RE_INTERNAL int re__parse_frame_is_empty(re__parse* parse) {
-    /* The frame is empty when frame_ptr == prev_child_ptr. */
-    return parse->ast_stk_ptr == parse->ast_prev_child_ptr;
+    return parse->ast_prev_child_ref == RE__AST_NONE;
 }
 
-/* Get the parent AST node, that is, the node at frame_ptr. */
 RE_INTERNAL re__ast* re__parse_get_frame(re__parse* parse) {
-    /* Assure that frame_ptr is within bounds. */
-    RE_ASSERT(parse->ast_frame_ptr < re__ast_vec_size(&parse->ast_stk));
-    return re__ast_vec_getref(&parse->ast_stk, parse->ast_frame_ptr);
+    return re__ast_root_get(&parse->ast_root, parse->ast_frame_root_ref);
 }
 
-/* Push a node to the end of the AST stack. */
-RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast node) {
+RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32* new_ast_ref) {
     re_error err = RE_ERROR_NONE;
-    if (re__parse_frame_is_empty(parse)) {
-        node.prev = 0;
-        node.next = 0;
-    } else {
-        re__ast* prev_node = re__ast_vec_getref(&parse->ast_stk, parse->ast_prev_child_ptr);
-        prev_node->next = parse->ast_stk_ptr - parse->ast_prev_child_ptr;
-        node.prev = prev_node->next;
-        node.next = 0;
-    }
-    if ((err = re__ast_vec_push(&parse->ast_stk, node))) {
+    int was_empty = re__parse_frame_is_empty(parse);
+    if ((err = re__ast_root_add(&parse->ast_root, ast, new_ast_ref))) {
         return err;
     }
-    if (parse->ast_stk_ptr == parse->ast_prev_child_ptr) {
+    if (was_empty) {
+        re__ast_root_set_child(&parse->ast_root, parse->ast_frame_root_ref, *new_ast_ref);
+    } else {
+        re__ast_root_link_siblings(&parse->ast_root, parse->ast_prev_child_ref, *new_ast_ref);
+    }
+    if (!was_empty) {
         /* Empty frame: increment stk_ptr, leaving prev_child_ptr untouched */
         /* Since we just pushed the first node, prev_child_ptr should now
          * point to it. */
-        parse->ast_stk_ptr += 1;
     } else {
         /* Non-empty frame: increment stk_ptr, and set prev_child_ptr to 
          * stk_ptr - 1, so that it points to the just-pushed node. */
-        parse->ast_stk_ptr += 1;
-        parse->ast_prev_child_ptr = parse->ast_stk_ptr - 1;
+        parse->ast_prev_child_ref = *new_ast_ref;
         parse->depth_max_prev = parse->depth;
     }
     return err;
@@ -123,34 +114,29 @@ RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast node) {
 
 /* Insert a node right before the previous child, making the previous child the
  * new node's parent. */
-RE_INTERNAL re_error re__parse_wrap_node(re__parse* parse, re__ast node) {
+RE_INTERNAL re_error re__parse_link_wrap_node(re__parse* parse, re__ast outer, re_int32* new_outer) {
     re_error err = RE_ERROR_NONE;
-    re__ast* old_node = re__ast_vec_getref(&parse->ast_stk, parse->ast_prev_child_ptr);
-    /* Set the new node's prev and next pointers. */
-    node.prev = old_node->prev;
-    node.next = 0;
-    /* Set the old node's prev pointer. */
-    old_node->prev = 0;
-    /* Increment last child's max depth, and then see if it exceeds */
-    parse->depth_max_prev += 1;
-    parse->depth_max = RE__MAX(parse->depth_max_prev, parse->depth_max);
-    /* Increment children count */
-    re__ast_set_children_count(
-        &node,
-        re__ast_get_children_count(&node) + 1
-    );
-    if ((err = re__ast_vec_insert(&parse->ast_stk, parse->ast_prev_child_ptr, node))) {
+    re_int32 new_ref;
+    if ((err = re__ast_root_add(&parse->ast_root, outer, &new_ref))) {
         return err;
     }
-    /* Increment stk_ptr, because we inserted into the stack */
-    parse->ast_stk_ptr += 1;
+    re__ast_root_wrap(&parse->ast_root, parse->ast_frame_root_ref, parse->ast_prev_child_ref, new_ref);
+    *new_outer = new_ref;
+    parse->depth_max_prev += 1;
+    parse->depth_max = RE__MAX(parse->depth_max_prev, parse->depth_max);
+    parse->ast_prev_child_ref = new_ref;
     return err;
+}
+
+RE_INTERNAL re_error re__parse_wrap_node(re__parse* parse, re__ast outer) {
+    re_int32 dummy;
+    return re__parse_link_wrap_node(parse, outer, &dummy);
 }
 
 RE_INTERNAL re_error re__parse_frame_push(re__parse* parse) {
     re__parse_frame op;
-    op.ast_frame_ptr = parse->ast_frame_ptr;
-    op.ast_prev_child_ptr = parse->ast_prev_child_ptr;
+    op.ast_frame_root_ref = parse->ast_frame_root_ref;
+    op.ast_prev_child_ref = parse->ast_prev_child_ref;
     op.ret_state = parse->state;
     op.group_flags = parse->group_flags;
     op.depth = parse->depth;
@@ -162,8 +148,8 @@ RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
     re__parse_frame op;
     RE_ASSERT(re__parse_frame_vec_size(&parse->frames) > 0);
     op = re__parse_frame_vec_pop(&parse->frames);
-    parse->ast_frame_ptr = op.ast_frame_ptr;
-    parse->ast_prev_child_ptr = op.ast_prev_child_ptr;
+    parse->ast_frame_root_ref = op.ast_frame_root_ref;
+    parse->ast_prev_child_ref = op.ast_prev_child_ref;
     parse->state = op.ret_state;
     parse->group_flags = op.group_flags;
     parse->depth_max_prev = parse->depth_max;
@@ -178,7 +164,7 @@ RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
  * 
  * To maintain these, when we have to add a second child to an alt/group node, 
  * we convert it into a concatenation of the first and second children. */
-RE_INTERNAL re_error re__parse_add_new_node(re__parse* parse, re__ast node) {
+RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, re_int32* new_ast_ref) {
     re__ast* frame = re__parse_get_frame(parse);
     re__ast_type frame_type = frame->type;
     re_error err = RE_ERROR_NONE;
@@ -186,43 +172,45 @@ RE_INTERNAL re_error re__parse_add_new_node(re__parse* parse, re__ast node) {
      * assertion below. */
     if (frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT) {
         if (re__parse_frame_is_empty(parse)) {
-            /* Push node */
+            /* Push node, fallthrough */
         } else {
             re__ast new_concat;
+            re_int32 old_inner;
+            re_int32 new_outer;
             /* Push the current frame */
             if ((err = re__parse_frame_push(parse))) {
                 return err;
             }
-            /* Set frame_ptr to right before the last child, as it is where the 
-             * concatenation wrap will reside */
-            parse->ast_frame_ptr = parse->ast_prev_child_ptr;
+            old_inner = parse->ast_prev_child_ref;
             /* Wrap the last child(ren) in a concatenation */
             re__ast_init_concat(&new_concat);
-            if ((err = re__parse_wrap_node(parse, new_concat))) {
+            if ((err = re__parse_link_wrap_node(parse, new_concat, &new_outer))) {
                 return err;
             }
+            /* Set frame_ref to the new outer node */
+            parse->ast_frame_root_ref = new_outer;
             parse->depth += 1;
-            /* Set prev_child_ptr to the last child */
-            parse->ast_prev_child_ptr += 1;
+            /* Set prev_child_ref to the last child */
+            parse->ast_prev_child_ref = old_inner;
             /* frame is now invalid */
             /* new_concat is moved */
         }
     } else if (frame_type == RE__AST_TYPE_CONCAT) {
-        /* Push node */
+        /* Push node, fallthrough */
     } else {
         /* Due to operator precedence, we should never arrive here. */
         RE__ASSERT_UNREACHED();
     }
-    /* Now, add the current node to the frame. */
-    if ((err = re__parse_push_node(parse, node))) {
+    /* Add the new node to the frame. */
+    if ((err = re__parse_push_node(parse, new_ast, new_ast_ref))) {
         return err;
     }
-    /* frame is now invalidated */
-    /* Get new frame -- it may have changed */
-    frame = re__parse_get_frame(parse);
-    /* Increment frame's children. */
-    re__ast_set_children_count(frame, re__ast_get_children_count(frame) + 1);
     return err;
+}
+
+RE_INTERNAL re_error re__parse_add_new_node(re__parse* parse, re__ast new_ast) {
+    re_int32 dummy;
+    return re__parse_link_new_node(parse, new_ast, &dummy);
 }
 
 RE_INTERNAL re_error re__parse_finish(re__parse* parse) {
@@ -231,7 +219,7 @@ RE_INTERNAL re_error re__parse_finish(re__parse* parse) {
     while (1) {
         re__ast* frame = re__parse_get_frame(parse);
         re__ast_type peek_type = frame->type;
-        if (parse->ast_frame_ptr == 0) {
+        if (parse->ast_frame_root_ref == 0) {
             /* We have hit the base frame successfully. */
             /* Since the base frame is a group, if we continue the loop we will
              * run into an error. */
@@ -241,13 +229,13 @@ RE_INTERNAL re_error re__parse_finish(re__parse* parse) {
             /* These operators are binary and can be popped, but only if they
              * have more than one node. */
             /* Currently, we disallow unary alternations and concatenations. */
-            if (re__ast_get_children_count(frame) == 1) {
+            /*if (re__ast_get_children_count(frame) == 1) {
                 if (peek_type == RE__AST_TYPE_ALT) {
                     return re__parse_error(parse, "cannot use '|' operator with only one value");
                 } else if (peek_type == RE__AST_TYPE_CONCAT) {
                     return re__parse_error(parse, "cannot concatenate only one value");
                 }
-            }
+            }*/
             re__parse_frame_pop(parse);
         } else if (peek_type == RE__AST_TYPE_GROUP) {
             /* If we find a group, that means it has not been closed. */
@@ -262,10 +250,11 @@ RE_INTERNAL re_error re__parse_finish(re__parse* parse) {
 RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
     re__ast new_group;
     re_error err = RE_ERROR_NONE;
+    re_int32 new_group_ref;
     re__ast_init_group(&new_group);
     /* Set group's flags */
     re__ast_set_group_flags(&new_group, parse->group_flags_new);
-    if ((err = re__parse_add_new_node(parse, new_group))) {
+    if ((err = re__parse_link_new_node(parse, new_group, &new_group_ref))) {
         return err;
     }
     /* Also pushes old group flags so they can be restored later */
@@ -281,12 +270,11 @@ RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
     parse->depth_max = parse->depth;
     /* Set running group flags to the new group flags */
     parse->group_flags = parse->group_flags_new;
-    /* The frame is now the location right behind the newly pushed Group node. */
-    parse->ast_frame_ptr = parse->ast_stk_ptr - 1;
-    /* There is no previous child, so indicate that by setting prev_child_ptr to
-     * stk_ptr. */
-    parse->ast_prev_child_ptr = parse->ast_stk_ptr;
-    return err;   
+    /* The frame is now the newly pushed Group node. */
+    parse->ast_frame_root_ref = new_group_ref;
+    /* There is no previous child */
+    parse->ast_prev_child_ref = RE__AST_NONE;
+    return err;
 }
 
 /* End a group. Pop operators until we get a group node. */
@@ -296,7 +284,7 @@ RE_INTERNAL re_error re__parse_group_end(re__parse* parse) {
         re__ast_type peek_type = re__parse_get_frame(parse)->type;
         /* If we are at the absolute bottom of the stack, there was no opening
          * parentheses to begin with. */
-        if (parse->ast_frame_ptr == 0) {
+        if (parse->ast_frame_root_ref == 0) {
             return re__parse_error(parse, "unmatched ')'");
         }
         /* Now pop the current frame */
@@ -327,8 +315,9 @@ RE_INTERNAL re_error re__parse_alt(re__parse* parse) {
              * don't need to mess around with the amount of children for either
              * node. */
             re__ast new_alt;
+            re_int32 new_alt_ref;
             re__ast_init_alt(&new_alt);
-            if ((err = re__parse_wrap_node(parse, new_alt))) {
+            if ((err = re__parse_link_wrap_node(parse, new_alt, &new_alt_ref))) {
                 return err;
             }
             /* frame is now invalid */
@@ -342,16 +331,16 @@ RE_INTERNAL re_error re__parse_alt(re__parse* parse) {
             /* Perform a MAX here because we need to keep track of the previous
              * node that started the ALT */
             parse->depth_max = RE__MAX(parse->depth_max, parse->depth);
-            /* Set base_ptr to right before the ALT node. */
-            parse->ast_frame_ptr = parse->ast_prev_child_ptr;
+            /* Set base_ptr to the ALT node */
+            parse->ast_frame_root_ref = new_alt_ref;
             /* Indicate that there are no new children. */
-            parse->ast_prev_child_ptr = parse->ast_stk_ptr;
+            parse->ast_prev_child_ref = RE__AST_NONE;
             return err;
         } else if (peek_type == RE__AST_TYPE_ALT) {
             /* Third+ part of the alteration: "a|b|" or "(a|b|" */
             /* Indicate that there are no new children (this is the beginning
              * of the second+ part of an alteration) */
-            parse->ast_prev_child_ptr = parse->ast_stk_ptr;
+            parse->ast_prev_child_ref = RE__AST_NONE;
             parse->depth_max = RE__MAX(parse->depth_max, parse->depth_max_prev);
             return err;
         }
@@ -739,7 +728,7 @@ RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
     re__ast* quant;
     /* Cannot make nothing ungreedy */
     RE_ASSERT(!re__parse_frame_is_empty(parse));
-    quant = re__ast_vec_getref(&parse->ast_stk, parse->ast_prev_child_ptr);
+    quant = re__ast_root_get(&parse->ast_root, parse->ast_prev_child_ref);
     /* Must be a quantifier */
     RE_ASSERT(quant->type == RE__AST_TYPE_QUANTIFIER);
     re__ast_set_quantifier_greediness(quant, !re__ast_get_quantifier_greediness(quant));
@@ -747,8 +736,9 @@ RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
 
 #define RE__IS_LAST() (ch == -1)
 /* This macro is only used within re__parse_regex. */
-/* Try-except encourages forgetting to clean stuff up, but the constraints on
- * code within this function allow us to always use this macro safely. */
+/* Try-except usually encourages forgetting to clean stuff up, but the 
+ * constraints on code within this function allow us to always use this macro 
+ * safely. */
 /* I think it's a good design choice. */
 #define RE__TRY(expr) \
     if ((err = expr)) { \
@@ -760,14 +750,14 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
     const re_char* end = regex + regex_size;
     re_error err = RE_ERROR_NONE;
     re__ast new_group;
+    re_int32 new_group_ref;
     /* Start by pushing the initial GROUP node. */
     re__ast_init_group(&new_group);
-    if ((err = re__ast_vec_push(&parse->ast_stk, new_group))) {
+    if ((err = re__ast_root_add(&parse->ast_root, new_group, &new_group_ref))) {
         return err;
     }
     /* Set stack/previous pointers accordingly. */
-    parse->ast_stk_ptr = 1;
-    parse->ast_prev_child_ptr = 1;
+    parse->ast_prev_child_ref = RE__AST_NONE;
     /* Set initial depth. */
     parse->depth = 1; /* 1 because of initial group */
     parse->depth_max = 1;
@@ -777,7 +767,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
         return err;
     }
     /* Set the frame pointer to the group node. */
-    parse->ast_frame_ptr = 0;
+    parse->ast_frame_root_ref = new_group_ref;
     while (regex <= end) {
         /* ch will only be -1 if the if this is the last character, a.k.a.
          * "epsilon" as all the cool kids call it */
@@ -1453,7 +1443,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
         }
     }
     RE_ASSERT(re__parse_frame_vec_size(&parse->frames) == 1);
-    re__ast_debug_dump(re__ast_vec_get_data(&parse->ast_stk), 0);
+    re__ast_root_debug_dump(&parse->ast_root, 0, 0);
     return RE_ERROR_NONE;
 error:
     if (err == RE_ERROR_PARSE) {
