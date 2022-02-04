@@ -252,6 +252,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
              *         |      |  +--|---...---+     +----5-> ...
              *         +------+     |         |
              *                      +---...---+                 */
+            RE_ASSERT(top_node->first_child_ref != RE__AST_NONE);
             if (top_frame.ast_child_ref != RE__AST_NONE) {
                 re__ast* child = re__ast_root_get(ast_root, top_frame.ast_child_ref);
                 if (child->prev_sibling_ref == RE__AST_NONE) {
@@ -301,6 +302,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
              *                                                      |
              *                                                      +---10-> ...
              */
+            RE_ASSERT(top_node->first_child_ref != RE__AST_NONE);
             if (top_frame.ast_child_ref != RE__AST_NONE) {
                 re__ast* child = re__ast_root_get(ast_root, top_frame.ast_child_ref);
                 if (child->prev_sibling_ref == RE__AST_NONE) {
@@ -479,6 +481,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
         if (push_child) {
             re__compile_frame up_frame;
             re__compile_patches up_patches;
+            RE_ASSERT(compile->ast_ref != RE__AST_NONE);
             re__compile_frame_push(compile, top_frame);
             /* Prepare the child's patches */
             re__compile_patches_init(&up_patches);

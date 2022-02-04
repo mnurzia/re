@@ -163,6 +163,79 @@ RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, 
 
 #if RE_DEBUG
 
+RE_INTERNAL void re__ast_root_debug_dump_sexpr_rec(re__ast_root* ast_root, re__debug_sexpr* sexpr, re_int32 ast_root_ref, re_int32 sexpr_root_ref) {
+    while (ast_root_ref != RE__AST_NONE) {
+        const re__ast* ast = re__ast_root_get(ast_root, ast_root_ref);
+        re_int32 ast_sexpr_ref = re__debug_sexpr_new_node(sexpr, sexpr_root_ref);
+        switch (ast->type) {
+            case RE__AST_TYPE_NONE:
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "none");
+                break;
+            case RE__AST_TYPE_RUNE:
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "char");
+                re__debug_sexpr_new_int(sexpr, ast_sexpr_ref, ast->_data.rune);
+                break;
+            case RE__AST_TYPE_CLASS:
+                /*re__charclass_dump(&ast->_data.charclass, (re_size)(lvl+1));*/
+                break;
+            case RE__AST_TYPE_CONCAT:
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "concat");
+                break;
+            case RE__AST_TYPE_ALT:
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "alt");
+                break;
+            case RE__AST_TYPE_QUANTIFIER:
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "quantifier");
+                re__debug_sexpr_new_int(sexpr, ast_sexpr_ref, ast->_data.quantifier_info.min);
+                re__debug_sexpr_new_int(sexpr, ast_sexpr_ref, ast->_data.quantifier_info.max);
+                if (ast->_data.quantifier_info.greediness) {
+                    re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "greedy");
+                } else {
+                    re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "non-greedy");
+                }
+                break;
+            case RE__AST_TYPE_GROUP: {
+                re_int32 flags_node;
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "group");
+                flags_node = re__debug_sexpr_new_node(sexpr, ast_sexpr_ref);
+                if (ast->_data.group_info.flags & RE__AST_GROUP_FLAG_CASE_INSENSITIVE) {
+                    re__debug_sexpr_new_atom(sexpr, flags_node, "i");
+                } else if (ast->_data.group_info.flags & RE__AST_GROUP_FLAG_MULTILINE) {
+                    re__debug_sexpr_new_atom(sexpr, flags_node, "m");
+                } else if (ast->_data.group_info.flags & RE__AST_GROUP_FLAG_DOT_NEWLINE) {
+                    re__debug_sexpr_new_atom(sexpr, flags_node, "s");
+                } else if (ast->_data.group_info.flags & RE__AST_GROUP_FLAG_UNGREEDY) {
+                    re__debug_sexpr_new_atom(sexpr, flags_node, "U");
+                } else if (ast->_data.group_info.flags & RE__AST_GROUP_FLAG_NONMATCHING) {
+                    re__debug_sexpr_new_atom(sexpr, flags_node, ":");
+                }
+                break;
+            }
+            case RE__AST_TYPE_ASSERT:
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "assert");
+                break;
+            case RE__AST_TYPE_ANY_CHAR:
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "any-char");
+                break;
+            case RE__AST_TYPE_ANY_BYTE:
+                re__debug_sexpr_new_atom(sexpr, ast_sexpr_ref, "any-byte");
+                break;
+            default:
+                RE__ASSERT_UNREACHED();
+                break;
+        }
+        re__ast_root_debug_dump_sexpr_rec(ast_root, sexpr, ast->first_child_ref, ast_sexpr_ref);
+        ast_root_ref = ast->next_sibling_ref;
+    }
+}
+
+RE_INTERNAL void re__ast_root_debug_dump_sexpr(re__ast_root* ast_root, re__debug_sexpr* sexpr, re_int32 sexpr_root_ref) {
+    re_int32 root_node;
+    root_node = re__debug_sexpr_new_node(sexpr, sexpr_root_ref);
+    re__debug_sexpr_new_atom(sexpr, root_node, "ast");
+    re__ast_root_debug_dump_sexpr_rec(ast_root, sexpr, 0, root_node);
+}
+
 RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_ref, re_int32 lvl) {
     re_int32 i;
     while (root_ref != RE__AST_NONE) {

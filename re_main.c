@@ -4,24 +4,30 @@
 
 int main(void) {
     re reg;
+    re__debug_sexpr sexpr;
     printf("\x1b[3JSTART\n");
+    re__debug_sexpr_init(&sexpr);
     re_init(&reg, "");
     {
         re_error err = RE_ERROR_NONE;
-        const char* regex = "";
-        char text[] = "";
+        const char* regex = "A*";
         if ((err = re__parse_regex(&reg.data->parse, strlen(regex), (const re_char*)regex))) {
             printf("error: %s\n", re_get_error(&reg, RE_NULL));
             goto err;
         }
-        if ((err = re__compile_regex(&reg.data->compile))) {
+        re__ast_root_debug_dump_sexpr(
+            &reg.data->parse.ast_root,
+            &sexpr,
+            RE__DEBUG_SEXPR_NONE
+        );
+        /*if ((err = re__compile_regex(&reg.data->compile))) {
             printf("error: %s\n", re_get_error(&reg, RE_NULL));
             goto err;
         }
         if ((err = re__exec_nfa(&reg.data->exec, (const re_char*)text, sizeof(text) - 1))) {
             printf("error: %s\n", re_get_error(&reg, RE_NULL));
             goto err;
-        }
+        }*/
         /*re_error err = RE_ERROR_NONE;*/
         /*
         re__charclass cls;
@@ -45,6 +51,7 @@ int main(void) {
         re__prog_debug_dump(&prog);
         re__compile_patches_dump(&patches, &prog);*/
     }
+    re__debug_sexpr_dump(&sexpr, 0, 0);
 err:
     re_destroy(&reg);
     return 0;

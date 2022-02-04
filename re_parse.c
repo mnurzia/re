@@ -438,7 +438,7 @@ RE_INTERNAL re_error re__parse_radix_check_hex_short(re__parse* parse) {
     return RE_ERROR_NONE;
 }
 
-#define RE__PARSE_HEX_LONG_NUM_MAX RE_RUNE_MAX
+#define RE__PARSE_HEX_LONG_NUM_MAX RE_RUNE_MAX+1
 #define RE__PARSE_HEX_LONG_DIGITS_MAX 6
 
 /* Parse in a single hex digit in long format (\x{....}) */
@@ -1443,7 +1443,6 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
         }
     }
     RE_ASSERT(re__parse_frame_vec_size(&parse->frames) == 1);
-    re__ast_root_debug_dump(&parse->ast_root, 0, 0);
     return RE_ERROR_NONE;
 error:
     if (err == RE_ERROR_PARSE) {

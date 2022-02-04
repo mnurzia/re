@@ -4,6 +4,34 @@
 #include "re_api.h"
 #include "pack/re_common.h"
 
+#if RE_DEBUG
+
+#define RE__DEBUG_SEXPR_NONE -1
+
+typedef struct re__debug_sexpr_tree {
+    re_int32 first_child_ref;
+    re_int32 next_sibling_ref;
+    re__str atom;
+    int is_atom;
+} re__debug_sexpr_tree;
+
+RE_VEC_DECL(re__debug_sexpr_tree);
+
+typedef struct re__debug_sexpr {
+    re__debug_sexpr_tree_vec tree;
+} re__debug_sexpr;
+
+RE_INTERNAL void re__debug_sexpr_init(re__debug_sexpr* sexpr);
+RE_INTERNAL void re__debug_sexpr_destroy(re__debug_sexpr* sexpr);
+RE_INTERNAL re_error re__debug_sexpr_do_parse(re__debug_sexpr* sexpr, const re__str* in);
+RE_INTERNAL void re__debug_sexpr_dump(re__debug_sexpr* sexpr, re_int32 parent_ref, re_int32 indent);
+RE_INTERNAL int re__debug_sexpr_equals(re__debug_sexpr* sexpr, re__debug_sexpr* other, re_int32 sexpr_ref, re_int32 other_ref);
+RE_INTERNAL re_int32 re__debug_sexpr_new_node(re__debug_sexpr* sexpr, re_int32 parent_ref);
+RE_INTERNAL void re__debug_sexpr_new_atom(re__debug_sexpr* sexpr, re_int32 parent_ref, const char* name);
+RE_INTERNAL void re__debug_sexpr_new_int(re__debug_sexpr* sexpr, re_int32 parent_ref, re_int32 num);
+
+#endif
+
 /* POD type */
 /* Holds a byte range [min, max] */
 typedef struct re__byte_range {
@@ -215,6 +243,7 @@ RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, 
 #if RE_DEBUG
 
 RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_ref, re_int32 lvl);
+RE_INTERNAL void re__ast_root_debug_dump_sexpr(re__ast_root* ast_root, re__debug_sexpr* sexpr, re_int32 sexpr_root_ref);
 
 #endif
 

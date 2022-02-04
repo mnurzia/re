@@ -31,7 +31,8 @@ class Project(pack_v4.Project):
             "re_parse.c",
             "re_prog.c",
             "re_re.c",
-            "re_range.c"
+            "re_range.c",
+            "re_debug.c"
         ]
         self.cstd = "c89"
         self.config = {}

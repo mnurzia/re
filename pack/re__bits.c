@@ -160,6 +160,19 @@ int re__str_init_s(re__str* str, const re_char* s) {
     return err;
 }
 
+int re__str_init_n(re__str* str, re_size n, const re_char* chrs) {
+    int err = 0;
+    re_size i;
+    re__str_init(str);
+    if ((err = re__str_grow(str, n))) {
+        return err;
+    }
+    for (i = 0; i < n; i++) {
+        RE__STR_DATA(str)[i] = chrs[i];
+    }
+    return err;
+}
+
 void re__str_init_const_s(re__str* str, re_size n, const re_char* s) {
     re__str_init(str);
     RE__STR_SET_SHORT(str, 0);

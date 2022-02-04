@@ -99,7 +99,8 @@ _deps
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -274,3 +275,5 @@ cython_debug/
 #.idea/
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,cmake,c,c++,python
+
+.vscode/
