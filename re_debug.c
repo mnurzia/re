@@ -1,5 +1,7 @@
 #include "re_internal.h"
 
+#if 0
+
 RE_INTERNAL re_error re__debug_sexpr_tree_init(re__debug_sexpr_tree* sexpr, const re__str* atom, int is_atom) {
     sexpr->first_child_ref = RE__DEBUG_SEXPR_NONE;
     sexpr->next_sibling_ref = RE__DEBUG_SEXPR_NONE;
@@ -270,7 +272,7 @@ RE_INTERNAL re_int32 re__debug_sexpr_new_tree(re__debug_sexpr* sexpr, re_int32 p
             return new_ref;
         } else {
             re_int32 child_ref = parent->first_child_ref;
-            re__debug_sexpr_tree* child_tree = re__debug_sexpr_get(sexpr, child_ref);
+            re__debug_sexpr_tree* child_tree;
             do {
                 child_tree = re__debug_sexpr_get(sexpr, child_ref);
                 child_ref = child_tree->next_sibling_ref;
@@ -308,3 +310,5 @@ RE_INTERNAL void re__debug_sexpr_new_int(re__debug_sexpr* sexpr, re_int32 parent
     re__str_destroy(&str);
     re__debug_sexpr_new_tree(sexpr, parent_ref, new_tree);
 }
+
+#endif
