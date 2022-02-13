@@ -68,7 +68,7 @@ RE_INTERNAL re_error re__parse_error_invalid_escape(re__parse* parse, re_rune es
     if ((err = re__str_init_s(&err_str, (const re_char*)"invalid escape sequence '\\"))) {
         goto destroy_err_str;
     }
-    if ((err = re__str_cat_n(&err_str, 2, esc_ch))) {
+    if ((err = re__str_cat_n(&err_str, esc_ch, 2))) {
         goto destroy_err_str;
     }
 
@@ -514,7 +514,7 @@ RE_INTERNAL re_error re__parse_disallow_escape_in_charclass(re__parse* parse, re
         if ((err = re__str_init_s(&err_str, (const re_char*)"cannot use escape sequence '\\"))) {
             goto destroy_err_str;
         }
-        if ((err = re__str_cat_n(&err_str, 1, &esc_ch))) {
+        if ((err = re__str_cat_n(&err_str, &esc_ch, 1))) {
             goto destroy_err_str;
         }
         if ((err = re__str_cat_s(&err_str, (const re_char*)"' from within character class (\"[]\")"))) {

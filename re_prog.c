@@ -5,12 +5,12 @@ RE_INTERNAL void re__prog_inst_init(re__prog_inst* inst, re__prog_inst_type inst
     inst->_primary = RE__PROG_LOC_INVALID;
 }
 
-RE_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, re_char chr) {
+RE_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, re_uint8 byte) {
     re__prog_inst_init(inst, RE__PROG_INST_TYPE_BYTE);
-    inst->_inst_data._byte = chr;
+    inst->_inst_data._byte = byte;
 }
 
-RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re_char min, re_char max) {
+RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re_uint8 min, re_uint8 max) {
     re__prog_inst_init(inst, RE__PROG_INST_TYPE_BYTE_RANGE);
     inst->_inst_data._range.min = min;
     inst->_inst_data._range.max = max;
@@ -49,17 +49,17 @@ RE_INTERNAL void re__prog_inst_set_primary(re__prog_inst* inst, re__prog_loc loc
     inst->_primary = loc;
 }
 
-RE_INTERNAL re_char re__prog_inst_get_byte(re__prog_inst* inst) {
+RE_INTERNAL re_uint8 re__prog_inst_get_byte(re__prog_inst* inst) {
     RE_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE);
     return inst->_inst_data._byte;
 }
 
-RE_INTERNAL re_char re__prog_inst_get_byte_min(re__prog_inst* inst) {
+RE_INTERNAL re_uint8 re__prog_inst_get_byte_min(re__prog_inst* inst) {
     RE_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE_RANGE);
     return inst->_inst_data._range.min;
 }
 
-RE_INTERNAL re_char re__prog_inst_get_byte_max(re__prog_inst* inst) {
+RE_INTERNAL re_uint8 re__prog_inst_get_byte_max(re__prog_inst* inst) {
     RE_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE_RANGE);
     return inst->_inst_data._range.max;
 }

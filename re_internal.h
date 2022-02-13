@@ -4,34 +4,6 @@
 #include "re_api.h"
 #include "pack/re_common.h"
 
-#if RE_DEBUG
-
-#define RE__DEBUG_SEXPR_NONE -1
-
-typedef struct re__debug_sexpr_tree {
-    re_int32 first_child_ref;
-    re_int32 next_sibling_ref;
-    re__str atom;
-    int is_atom;
-} re__debug_sexpr_tree;
-
-RE_VEC_DECL(re__debug_sexpr_tree);
-
-typedef struct re__debug_sexpr {
-    re__debug_sexpr_tree_vec tree;
-} re__debug_sexpr;
-
-RE_INTERNAL void re__debug_sexpr_init(re__debug_sexpr* sexpr);
-RE_INTERNAL void re__debug_sexpr_destroy(re__debug_sexpr* sexpr);
-RE_INTERNAL re_error re__debug_sexpr_do_parse(re__debug_sexpr* sexpr, const re__str* in);
-RE_INTERNAL void re__debug_sexpr_dump(re__debug_sexpr* sexpr, re_int32 parent_ref, re_int32 indent);
-RE_INTERNAL int re__debug_sexpr_equals(re__debug_sexpr* sexpr, re__debug_sexpr* other, re_int32 sexpr_ref, re_int32 other_ref);
-RE_INTERNAL re_int32 re__debug_sexpr_new_node(re__debug_sexpr* sexpr, re_int32 parent_ref);
-RE_INTERNAL void re__debug_sexpr_new_atom(re__debug_sexpr* sexpr, re_int32 parent_ref, const char* name);
-RE_INTERNAL void re__debug_sexpr_new_int(re__debug_sexpr* sexpr, re_int32 parent_ref, re_int32 num);
-
-#endif
-
 /* POD type */
 /* Holds a byte range [min, max] */
 typedef struct re__byte_range {
@@ -52,8 +24,9 @@ typedef struct re__rune_range {
 
 RE_VEC_DECL(re__rune_range);
 
-re__rune_range re__rune_range_clamp(re__rune_range range, re__rune_range bounds);
+int re__rune_range_equals(re__rune_range range, re__rune_range other);
 int re__rune_range_intersects(re__rune_range range, re__rune_range clip);
+re__rune_range re__rune_range_clamp(re__rune_range range, re__rune_range bounds);
 
 /* Character class. */
 typedef struct re__charclass {
@@ -77,7 +50,8 @@ typedef enum re__charclass_ascii_type {
     RE__CHARCLASS_ASCII_TYPE_SPACE,
     RE__CHARCLASS_ASCII_TYPE_UPPER,
     RE__CHARCLASS_ASCII_TYPE_WORD,
-    RE__CHARCLASS_ASCII_TYPE_XDIGIT
+    RE__CHARCLASS_ASCII_TYPE_XDIGIT,
+    RE__CHARCLASS_ASCII_TYPE_MAX
 } re__charclass_ascii_type;
 
 RE_INTERNAL void re__charclass_init(re__charclass* charclass);
@@ -85,13 +59,14 @@ RE_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re_
 RE_INTERNAL re_error re__charclass_init_from_string(re__charclass* charclass, re__str* name, int inverted);
 RE_INTERNAL void re__charclass_destroy(re__charclass* charclass);
 RE_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range range);
-RE_INTERNAL const re__rune_range* re__charclass_get_ranges(re__charclass* charclass);
-RE_INTERNAL re_size re__charclass_get_num_ranges(re__charclass* charclass);
-RE_INTERNAL re_uint32 re__charclass_hash(re__charclass* charclass);
+RE_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass);
+RE_INTERNAL re_size re__charclass_get_num_ranges(const re__charclass* charclass);
+RE_INTERNAL int re__charclass_equals(const re__charclass* charclass, const re__charclass* other);
 
 #if RE_DEBUG
 
-void re__charclass_dump(const re__charclass* charclass, re_size lvl);
+RE_INTERNAL void re__charclass_dump(const re__charclass* charclass, re_size lvl);
+RE_INTERNAL int re__charclass_verify(const re__charclass* charclass);
 
 #endif
 
@@ -110,12 +85,19 @@ RE_INTERNAL re_error re__charclass_builder_insert_range(re__charclass_builder* b
 RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* builder, re__charclass* charclass);
 RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass);
 
+#if RE_DEBUG
+
+RE_INTERNAL int re__charclass_builder_verify(const re__charclass_builder* builder);
+
+#endif
+
 typedef struct re__ast re__ast; 
 
 /* Enumeration of AST node types. */
 typedef enum re__ast_type {
+    RE__AST_TYPE_MIN = 0,
     /* No type. Should never occur. */
-    RE__AST_TYPE_NONE,
+    RE__AST_TYPE_NONE = 0,
     /* A single character. */
     RE__AST_TYPE_RUNE,
     /* A character class. */
@@ -133,7 +115,8 @@ typedef enum re__ast_type {
     /* Any character (.) */
     RE__AST_TYPE_ANY_CHAR,
     /* Any byte (\C) */
-    RE__AST_TYPE_ANY_BYTE
+    RE__AST_TYPE_ANY_BYTE,
+    RE__AST_TYPE_MAX
 } re__ast_type;
 
 RE_VEC_DECL(re__ast);
@@ -159,12 +142,14 @@ typedef struct re__ast_quantifier_info {
 
 /* Assert types, as they are represented in the AST. */
 typedef enum re__ast_assert_type {
+    RE__AST_ASSERT_TYPE_MIN = 1,
     RE__AST_ASSERT_TYPE_TEXT_START = 1,
     RE__AST_ASSERT_TYPE_TEXT_END = 2,
     RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE = 4,
     RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE = 8,
     RE__AST_ASSERT_TYPE_WORD = 16,
-    RE__AST_ASSERT_TYPE_WORD_NOT = 32
+    RE__AST_ASSERT_TYPE_WORD_NOT = 32,
+    RE__AST_ASSERT_TYPE_MAX = 64
 } re__ast_assert_type;
 
 /* Group flags */
@@ -173,7 +158,8 @@ typedef enum re__ast_group_flags {
     RE__AST_GROUP_FLAG_MULTILINE = 2,
     RE__AST_GROUP_FLAG_DOT_NEWLINE = 4,
     RE__AST_GROUP_FLAG_UNGREEDY = 8,
-    RE__AST_GROUP_FLAG_NONMATCHING = 16
+    RE__AST_GROUP_FLAG_NONMATCHING = 16,
+    RE__AST_GROUP_FLAG_MAX = 32
 } re__ast_group_flags;
 
 /* Group info */
@@ -221,9 +207,8 @@ RE_INTERNAL void re__ast_set_quantifier_greediness(re__ast* ast, int is_greedy);
 RE_INTERNAL re_int32 re__ast_get_quantifier_min(re__ast* ast);
 RE_INTERNAL re_int32 re__ast_get_quantifier_max(re__ast* ast);
 RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast);
+RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast);
 RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags);
-RE_INTERNAL void re__ast_set_children_count(re__ast* ast, re_size size);
-RE_INTERNAL re_size re__ast_get_children_count(re__ast* ast);
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
 
 typedef struct re__ast_root {
@@ -239,11 +224,12 @@ RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
 RE_INTERNAL void re__ast_root_link_siblings(re__ast_root* ast_root, re_int32 first_sibling_ref, re_int32 next_sibling_ref);
 RE_INTERNAL void re__ast_root_set_child(re__ast_root* ast_root, re_int32 root_ref, re_int32 child_ref);
 RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re_int32 outer_ref);
+RE_INTERNAL re_int32 re__ast_root_size(re__ast_root* ast_root);
 
 #if RE_DEBUG
 
 RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_ref, re_int32 lvl);
-RE_INTERNAL void re__ast_root_debug_dump_sexpr(re__ast_root* ast_root, re__debug_sexpr* sexpr, re_int32 sexpr_root_ref);
+RE_INTERNAL int re__ast_root_verify(re__ast_root* ast_root);
 
 #endif
 
@@ -683,11 +669,12 @@ struct re_data {
     re__prog program;
     re__compile compile;
     re__exec exec;
-    /* Note: in the case of an OOM situation, we may not be able to allocate
-     * memory for the error string. In this case, we set error_string_is_const
-     * to 1 and treat error_string specially. See re__set_error. */
-    int error_string_is_const;
+    /* Note: error_string_view always points to either a static const char* that
+     * is a compiletime constant or a dynamically-allocated const char* inside
+     * of error_string. Either way, in OOM situations, we will not allocate more
+     * memory to store an error string and default to a constant. */  
     re__str error_string;
+    re__str_view error_string_view;
 };
 
 RE_INTERNAL void re__exec_init(re__exec* exec, re* re);

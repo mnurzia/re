@@ -520,9 +520,13 @@ error:
     compile->frames = NULL;
     if (err == RE__ERROR_PROGMAX) {
         re__str err_str;
-        RE__STR_INIT_CONST(&err_str, "compiled program length exceeds maximum of " RE__STRINGIFY(RE__PROG_SIZE_MAX) " instructions");
+        if ((err = re__str_init_s(&err_str, "compiled program length exceeds maximum of " RE__STRINGIFY(RE__PROG_SIZE_MAX) " instructions"))) {
+            re__set_error_generic(compile->re, err);
+            return err;
+        }
         re__set_error_str(compile->re, &err_str);
         err = RE_ERROR_COMPILE;
+        re__str_destroy(&err_str);
     }
     if (err == RE_ERROR_COMPILE) {
         RE_ASSERT(re__str_size(&compile->re->data->error_string));

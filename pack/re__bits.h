@@ -260,6 +260,16 @@
         return &vec->_data[idx]; \
     }
 
+#define RE__VEC_DECL_getcref(T) \
+    const T* RE_VEC_IDENT(T, getcref)(const RE_VEC_TYPE(T)* vec, re_size idx)
+
+#define RE__VEC_IMPL_getcref(T) \
+    const T* RE_VEC_IDENT(T, getcref)(const RE_VEC_TYPE(T)* vec, re_size idx) { \
+        RE_VEC_CHECK(vec); \
+        RE_VEC_CHECK_BOUNDS(vec, idx); \
+        return &vec->_data[idx]; \
+    }
+
 #define RE__VEC_DECL_set(T) \
     void RE_VEC_IDENT(T, set)(RE_VEC_TYPE(T)* vec, re_size idx, T elem)
 
@@ -279,10 +289,10 @@
     }
 
 #define RE__VEC_DECL_get_data(T) \
-    const T* RE_VEC_IDENT(T, get_data)(RE_VEC_TYPE(T)* vec)
+    const T* RE_VEC_IDENT(T, get_data)(const RE_VEC_TYPE(T)* vec)
 
 #define RE__VEC_IMPL_get_data(T) \
-    const T* RE_VEC_IDENT(T, get_data)(RE_VEC_TYPE(T)* vec) { \
+    const T* RE_VEC_IDENT(T, get_data)(const RE_VEC_TYPE(T)* vec) { \
         return vec->_data; \
     }
 
@@ -312,7 +322,7 @@
     RE__VEC_IMPL_ ## func (T)
 
 /* bit: char */
-typedef unsigned char re_char;
+typedef char re_char;
 
 /* bit: ds_string */
 typedef struct re__str {
@@ -323,23 +333,34 @@ typedef struct re__str {
 
 void re__str_init(re__str* str);
 int re__str_init_s(re__str* str, const re_char* s);
-int re__str_init_n(re__str* str, re_size n, const re_char* chrs);
+int re__str_init_n(re__str* str, const re_char* chrs, re_size n);
 int re__str_init_copy(re__str* str, const re__str* in);
 void re__str_init_move(re__str* str, re__str* old);
-void re__str_init_const_s(re__str*, re_size n, const re_char* s);
 void re__str_destroy(re__str* str);
 re_size re__str_size(const re__str* str);
 int re__str_cat(re__str* str, const re__str* other);
 int re__str_cat_s(re__str* str, const re_char* s);
-int re__str_cat_n(re__str* str, re_size n, const re_char* chrs);
+int re__str_cat_n(re__str* str, const re_char* chrs, re_size n);
 int re__str_push(re__str* str, re_char chr);
 int re__str_insert(re__str* str, re_size index, re_char chr);
 const re_char* re__str_get_data(const re__str* str);
 int re__str_cmp(const re__str* str_a, const re__str* str_b);
+re_size re__str_slen(const re_char* chars);
 
-/* Note: trying to change this string will result in an error on debug builds. */
-#define RE__STR_INIT_CONST(str, char_literal) \
-    re__str_init_const_s(str, (sizeof(char_literal) / sizeof(re_char)), (const re_char*)(char_literal))
+
+/* bit: ds_string_view */
+typedef struct re__str_view {
+    const re_char* _data;
+    re_size _size;
+} re__str_view;
+
+void re__str_view_init(re__str_view* view, const re__str* other);
+void re__str_view_init_s(re__str_view* view, const re_char* chars);
+void re__str_view_init_n(re__str_view* view, const re_char* chars, re_size n);
+void re__str_view_init_null(re__str_view* view);
+re_size re__str_view_size(const re__str_view* view);
+const re_char* re__str_view_get_data(const re__str_view* view);
+int re__str_view_cmp(const re__str_view* a, const re__str_view* b);
 
 /* bit: max */
 #define RE__MAX(a, b) (((a) < (b)) ? (b) : (a))

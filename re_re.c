@@ -3,14 +3,12 @@
 #include <string.h>
 
 RE_INTERNAL void re__error_init(re* reg) {
-    reg->data->error_string_is_const = 0;
     re__str_init(&reg->data->error_string);
+    re__str_view_init_null(&reg->data->error_string_view);
 }
 
 RE_INTERNAL void re__error_destroy(re* reg) {
-    if (!reg->data->error_string_is_const) {
-        re__str_destroy(&reg->data->error_string);
-    }
+    re__str_destroy(&reg->data->error_string);
 }
 
 /* Doesn't take ownership of error_str */
@@ -20,18 +18,18 @@ RE_INTERNAL void re__error_destroy(re* reg) {
  * allowing error messages to be saved as just const strings */
 RE_INTERNAL void re__set_error_str(re* reg, const re__str* error_str) {
     re_error err = RE_ERROR_NONE;
+    /* Clear the last error */
     re__error_destroy(reg);
-    reg->data->error_string_is_const = 0;
     if ((err = re__str_init_copy(&reg->data->error_string, error_str))) {
         re__set_error_generic(reg, err);
     }
+    re__str_view_init(&reg->data->error_string_view, &reg->data->error_string);
 }
 
 RE_INTERNAL void re__set_error_generic(re* reg, re_error err) {
     if (err == RE_ERROR_NOMEM) {
         /* No memory: not guaranteed if we can allocate a string. */
-        reg->data->error_string_is_const = 1;
-        RE__STR_INIT_CONST(&reg->data->error_string, "out of memory");
+        re__str_view_init_s(&reg->data->error_string_view, "out of memory");
     } else {
         /* This function is only valid for generic errors */
         RE__ASSERT_UNREACHED();
@@ -69,7 +67,7 @@ re_error re_destroy(re* reg) {
 
 const char* re_get_error(re* reg, re_size* error_len) {
     if (error_len != RE_NULL) {
-        *error_len = re__str_size(&reg->data->error_string);
+        *error_len = re__str_view_size(&reg->data->error_string_view);
     }
-    return (const char*)re__str_get_data(&reg->data->error_string);
+    return (const char*)re__str_view_get_data(&reg->data->error_string_view);
 }

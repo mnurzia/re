@@ -57,13 +57,13 @@ RE_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range
     return re__rune_range_vec_push(&charclass->ranges, range);
 }
 
-RE_INTERNAL const re__rune_range* re__charclass_get_ranges(re__charclass* charclass) {
+RE_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass) {
     const re__rune_range* out = re__rune_range_vec_get_data(&charclass->ranges);
     RE_ASSERT(out != NULL);
     return out;
 }
 
-RE_INTERNAL re_size re__charclass_get_num_ranges(re__charclass* charclass) {
+RE_INTERNAL re_size re__charclass_get_num_ranges(const re__charclass* charclass) {
     return re__rune_range_vec_size(&charclass->ranges);
 }
 
@@ -73,10 +73,10 @@ RE_INTERNAL const re__charclass_ascii* re__charclass_ascii_find(re__str* name) {
     /* Search table for the matching named character class */
     for (i = 0; i < RE__CHARCLASS_ASCII_DEFAULTS_SIZE; i++) {
         const re__charclass_ascii* cur = &re__charclass_ascii_defaults[i];
-        re__str temp;
-        /* const string: no need to free */
-        re__str_init_const_s(&temp, cur->name_size, (re_char*)cur->name);
-        if (re__str_cmp(&temp, name) == 0) {
+        re__str_view temp_view, name_view;
+        re__str_view_init_n(&temp_view, (re_char*)cur->name, (re_size)cur->name_size);
+        re__str_view_init(&name_view, name);
+        if (re__str_view_cmp(&temp_view, &name_view) == 0) {
             found = cur;
             break;
         }
@@ -95,17 +95,17 @@ RE_INTERNAL re_error re__charclass_init_from_ascii(re__charclass* charclass, con
         if (inverted) {
             if (last_max == -1) {
                 temp.min = 0;
-                temp.max = ascii_cc->classes[i*2];
+                temp.max = ascii_cc->classes[i*2] - 1;
             } else {
                 temp.min = last_max;
-                temp.max = ascii_cc->classes[i*2];
+                temp.max = ascii_cc->classes[i*2] - 1;
             }
-            last_max = ascii_cc->classes[i*2 + 1];
+            last_max = ascii_cc->classes[i*2 + 1] + 1;
         } else {
             temp.min = ascii_cc->classes[i*2];
             temp.max = ascii_cc->classes[i*2 + 1];
         }
-        if (temp.min != temp.max) {
+        if (temp.max >= temp.min) {
             if ((err = re__charclass_push(charclass, temp))) {
                 re__charclass_destroy(charclass);
                 return err;
@@ -144,17 +144,10 @@ RE_INTERNAL re_error re__charclass_init_from_string(re__charclass* charclass, re
     return re__charclass_init_from_ascii(charclass, found, inverted);
 }
 
-RE_INTERNAL re_uint32 re__charclass_hash(re__charclass* charclass) {
-    return re__murmurhash3_32(
-        (const re_uint8*)re__rune_range_vec_get_data(&charclass->ranges),
-        sizeof(re__rune_range) * re__rune_range_vec_size(&charclass->ranges)
-    );
-}
-
 RE_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder) {
     re__rune_range_vec_init(&builder->ranges);
     builder->should_invert = 0;
-    builder->highest = 0;
+    builder->highest = -1;
 }
 
 RE_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder) {
@@ -222,6 +215,25 @@ RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* b
     }
     return err;
 }
+
+#if RE_DEBUG
+
+RE_INTERNAL int re__charclass_builder_verify(const re__charclass_builder* builder) {
+    re_size i;
+    re__rune_range last;
+    last.min = -1;
+    last.max = -1;
+    for (i = 0; i < re__rune_range_vec_size(&builder->ranges); i++) {
+        re__rune_range rr = re__rune_range_vec_get_data(&builder->ranges)[i];
+        if (rr.min <= last.min) {
+            return 0;
+        }
+        last = rr;
+    }
+    return 1;
+}
+
+#endif
 
 RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass) {
     re_error err = RE_ERROR_NONE;
@@ -368,6 +380,23 @@ destroy_out:
     return err;
 }
 
+int re__charclass_equals(const re__charclass* charclass, const re__charclass* other) {
+    re_size cs = re__charclass_get_num_ranges(charclass);
+    re_size os = re__charclass_get_num_ranges(other);
+    re_size i;
+    if (cs != os) {
+        return 0;
+    }
+    for (i = 0; i < cs; i++) {
+        re__rune_range cr = re__charclass_get_ranges(charclass)[i];
+        re__rune_range or = re__charclass_get_ranges(charclass)[i];
+        if (!re__rune_range_equals(cr, or)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 #if RE_DEBUG
 
 void re__charclass_dump(const re__charclass* charclass, re_size lvl) {
@@ -381,6 +410,21 @@ void re__charclass_dump(const re__charclass* charclass, re_size lvl) {
         }
         printf("%X - %X\n", (re_rune)cur.min, (re_rune)cur.max);
     }
+}
+
+RE_INTERNAL int re__charclass_verify(const re__charclass* charclass) {
+    re_size i;
+    re__rune_range last;
+    last.min = -1;
+    last.max = -1;
+    for (i = 0; i < re__charclass_get_num_ranges(charclass); i++) {
+        re__rune_range rr = re__charclass_get_ranges(charclass)[i];
+        if (rr.min <= last.max) {
+            return 0;
+        }
+        last = rr;
+    }
+    return 1;
 }
 
 #endif

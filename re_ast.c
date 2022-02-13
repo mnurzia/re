@@ -85,6 +85,11 @@ RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast) {
     return ast->_data.rune;
 }
 
+RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast) {
+    RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
+    return ast->_data.group_info.flags;
+}
+
 RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags) {
     RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
     ast->_data.group_info.flags = flags;
@@ -135,15 +140,25 @@ RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref) {
 }
 
 RE_INTERNAL void re__ast_root_link_siblings(re__ast_root* ast_root, re_int32 first_sibling_ref, re_int32 next_sibling_ref) {
-    re__ast* first_sibling = re__ast_root_get(ast_root, first_sibling_ref);
-    re__ast* next_sibling = re__ast_root_get(ast_root, next_sibling_ref);
-    first_sibling->next_sibling_ref = next_sibling_ref;
-    next_sibling->prev_sibling_ref = first_sibling_ref;
+    if (first_sibling_ref == RE__AST_NONE) {
+        return;
+    }
+    {
+        re__ast* first_sibling = re__ast_root_get(ast_root, first_sibling_ref);
+        re__ast* next_sibling = re__ast_root_get(ast_root, next_sibling_ref);
+        first_sibling->next_sibling_ref = next_sibling_ref;
+        next_sibling->prev_sibling_ref = first_sibling_ref;
+    }
 }
 
 RE_INTERNAL void re__ast_root_set_child(re__ast_root* ast_root, re_int32 root_ref, re_int32 child_ref) {
-    re__ast* root = re__ast_root_get(ast_root, root_ref);
-    root->first_child_ref = child_ref;
+    if (root_ref == RE__AST_NONE) {
+        return;
+    }
+    {
+        re__ast* root = re__ast_root_get(ast_root, root_ref);
+        root->first_child_ref = child_ref;
+    }
 }
 
 RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re_int32 outer_ref) {
@@ -161,7 +176,13 @@ RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, 
     outer->first_child_ref = inner_ref;
 }
 
+RE_INTERNAL re_int32 re__ast_root_size(re__ast_root* ast_root) {
+    return (re_int32)re__ast_vec_size(&ast_root->ast_vec);
+}
+
 #if RE_DEBUG
+
+#if 0
 
 RE_INTERNAL void re__ast_root_debug_dump_sexpr_rec(re__ast_root* ast_root, re__debug_sexpr* sexpr, re_int32 ast_root_ref, re_int32 sexpr_root_ref) {
     while (ast_root_ref != RE__AST_NONE) {
@@ -236,6 +257,8 @@ RE_INTERNAL void re__ast_root_debug_dump_sexpr(re__ast_root* ast_root, re__debug
     re__ast_root_debug_dump_sexpr_rec(ast_root, sexpr, 0, root_node);
 }
 
+#endif
+
 RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_ref, re_int32 lvl) {
     re_int32 i;
     while (root_ref != RE__AST_NONE) {
@@ -309,6 +332,79 @@ RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_r
         re__ast_root_debug_dump(ast_root, ast->first_child_ref, lvl + 1);
         root_ref = ast->next_sibling_ref;
     }
+}
+
+RE_VEC_DECL(re_int32);
+RE_VEC_IMPL_FUNC(re_int32, init)
+RE_VEC_IMPL_FUNC(re_int32, destroy)
+RE_VEC_IMPL_FUNC(re_int32, push)
+RE_VEC_IMPL_FUNC(re_int32, size)
+RE_VEC_IMPL_FUNC(re_int32, get)
+
+RE_INTERNAL int re__ast_root_verify(re__ast_root* ast_root) {
+    re_int32_vec removed_list;
+    re_int32_vec_init(&removed_list);
+    if (ast_root->last_empty_ref != RE__AST_NONE) {
+        re_int32 empty_ref = ast_root->last_empty_ref;
+        while (1) {
+            if (empty_ref == RE__AST_NONE) {
+                break;
+            }
+            if (empty_ref >= re__ast_root_size(ast_root)) {
+                /* empty refs can't exceed size */
+                return 0;
+            }
+            {
+                re_size i;
+                /* no cycles in empty list */
+                for (i = 0; i < re_int32_vec_size(&removed_list); i++) {
+                    if (re_int32_vec_get(&removed_list, i) == empty_ref) {
+                        return 0;
+                    }
+                }
+            }
+            {
+                re__ast* empty = re__ast_root_get(ast_root,empty_ref);
+                re_int32_vec_push(&removed_list, empty_ref);
+                empty_ref = empty->next_sibling_ref;
+            }
+        }
+    }
+    {
+        re_int32 i = 0;
+        for (i = 0; i < re__ast_root_size(ast_root); i++) {
+            re_size j;
+            /* don't loop over empty nodes */
+            for (j = 0; j < re_int32_vec_size(&removed_list); j++) {
+                if (re_int32_vec_get(&removed_list, j) == i) {
+                    goto cont;
+                }
+            }
+            {
+                re__ast* ast = re__ast_root_get(ast_root, i);
+                re_int32 to_check[3];
+                re_int32 k;
+                to_check[0] = ast->prev_sibling_ref;
+                to_check[1] = ast->next_sibling_ref;
+                to_check[2] = ast->first_child_ref;
+                for (k = 0; k < 3; k++) {
+                    re_int32 candidate = to_check[k];
+                    for (j = 0; j < re_int32_vec_size(&removed_list); j++) {
+                        if (re_int32_vec_get(&removed_list, j) == candidate) {
+                            /* node points to a removed node */
+                            return 0;
+                        }
+                    }
+                }
+            }
+            if (0) {
+cont:
+                continue;
+            }
+        }
+    }
+    re_int32_vec_destroy(&removed_list);
+    return 1;
 }
 
 #endif

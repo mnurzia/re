@@ -1,6 +1,8 @@
 #ifndef RE_CONFIG_H
 #define RE_CONFIG_H
 
+#include "../tests/test_config.h"
+
 /* config: STATIC */
 /* Whether or not API definitions should be defined as static linkage (local to
  * the including source file), as opposed to external linkage. */

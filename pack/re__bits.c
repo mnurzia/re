@@ -138,7 +138,7 @@ int re__str_push(re__str* str, re_char chr) {
     return err;
 }
 
-re_size re__str__slen(const re_char* s) {
+re_size re__str_slen(const re_char* s) {
     re_size out = 0;
     while (*(s++)) {
         out++;
@@ -149,7 +149,7 @@ re_size re__str__slen(const re_char* s) {
 int re__str_init_s(re__str* str, const re_char* s) {
     int err = 0;
     re_size i;
-    re_size sz = re__str__slen(s);
+    re_size sz = re__str_slen(s);
     re__str_init(str);
     if ((err = re__str_grow(str, sz))) {
         return err;
@@ -160,7 +160,7 @@ int re__str_init_s(re__str* str, const re_char* s) {
     return err;
 }
 
-int re__str_init_n(re__str* str, re_size n, const re_char* chrs) {
+int re__str_init_n(re__str* str, const re_char* chrs, re_size n) {
     int err = 0;
     re_size i;
     re__str_init(str);
@@ -171,15 +171,6 @@ int re__str_init_n(re__str* str, re_size n, const re_char* chrs) {
         RE__STR_DATA(str)[i] = chrs[i];
     }
     return err;
-}
-
-void re__str_init_const_s(re__str* str, re_size n, const re_char* s) {
-    re__str_init(str);
-    RE__STR_SET_SHORT(str, 0);
-    RE__STR_SET_SIZE(str, n);
-    str->_alloc = 0;
-    /* bad!!!!!! */
-    str->_data = (re_char*)s;
 }
 
 int re__str_cat(re__str* str, const re__str* other) {
@@ -198,7 +189,7 @@ int re__str_cat(re__str* str, const re__str* other) {
     return err;
 }
 
-int re__str_cat_n(re__str* str, re_size n, const re_char* chrs) {
+int re__str_cat_n(re__str* str, const re_char* chrs, re_size n) {
     int err = 0;
     re_size i;
     re_size old_size = RE__STR_GET_SIZE(str);
@@ -214,8 +205,8 @@ int re__str_cat_n(re__str* str, re_size n, const re_char* chrs) {
 }
 
 int re__str_cat_s(re__str* str, const re_char* chrs) {
-    re_size chrs_size = re__str__slen(chrs);
-    return re__str_cat_n(str, chrs_size, chrs);
+    re_size chrs_size = re__str_slen(chrs);
+    return re__str_cat_n(str, chrs, chrs_size);
 }
 
 int re__str_insert(re__str* str, re_size index, re_char chr) {
@@ -284,6 +275,57 @@ int re__str_cmp(const re__str* str_a, const re__str* str_b) {
     return 0;
 }
 
+
+void re__str_view_init(re__str_view* view, const re__str* other) {
+    view->_size = re__str_size(other);
+    view->_data = re__str_get_data(other);
+}
+
+void re__str_view_init_s(re__str_view* view, const re_char* chars) {
+    view->_size = re__str_slen(chars);
+    view->_data = chars;
+}
+
+void re__str_view_init_n(re__str_view* view, const re_char* chars, re_size n) {
+    view->_size = n;
+    view->_data = chars;
+}
+
+void re__str_view_init_null(re__str_view* view) {
+    view->_size = 0;
+    view->_data = RE_NULL;
+}
+
+re_size re__str_view_size(const re__str_view* view) {
+    return view->_size;
+}
+
+const re_char* re__str_view_get_data(const re__str_view* view) {
+    return view->_data;
+}
+
+int re__str_view_cmp(const re__str_view* view_a, const re__str_view* view_b) {
+    re_size a_len = re__str_view_size(view_a);
+    re_size b_len = re__str_view_size(view_b);
+    const re_char* a_data = re__str_view_get_data(view_a);
+    const re_char* b_data = re__str_view_get_data(view_b);
+    re_size i;
+    if (a_len < b_len) {
+        return -1;
+    } else if (a_len > b_len) {
+        return 1;
+    }
+    for (i = 0; i < a_len; i++) {
+        if (a_data[i] != b_data[i]) {
+            if (a_data[i] < b_data[i]) {
+                return -1;
+            } else {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
 
 int re__uint8_check[sizeof(re_uint8)==1];
 int re__int8_check[sizeof(re_int8)==1];
