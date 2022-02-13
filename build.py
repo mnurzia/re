@@ -12,6 +12,7 @@ class Project(pack_v4.Project):
             "hook_malloc", 
             "ds_vector", 
             "ds_string", 
+            "ds_string_view",
             "max",
             "debug",
             "unused",
@@ -27,12 +28,18 @@ class Project(pack_v4.Project):
             "re_compile.c",
             "re_compile_charclass.c",
             "re_exec.c",
-            "re_main.c",
             "re_parse.c",
             "re_prog.c",
             "re_re.c",
             "re_range.c",
             "re_debug.c"
         ]
+        self.tests = [
+            "test_ast.c",
+            "test_charclass.c",
+            "test_main.c",
+            "test_range.c"
+        ]
+        self.test_config = "test_config.h"
         self.cstd = "c89"
         self.config = {}
