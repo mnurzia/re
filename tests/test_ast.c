@@ -120,6 +120,10 @@ int re__ast_assert_type_from_sym(sym_walk* parent, re__ast_assert_type* assert_t
 int re__ast_root_to_sym_r(sym_build* parent, re__ast_root* ast_root, re__ast* ast) {
     sym_build build;
     re__ast_type type = ast->type;
+    if (type == RE__AST_TYPE_CLASS) {
+        SYM_PUT_SUB(parent, re__charclass, ast->_data.charclass);
+        return SYM_OK;
+    }
     SYM_PUT_EXPR(parent, &build);
     SYM_PUT_TYPE(&build, ast_sym_types[type]);
     if (type == RE__AST_TYPE_RUNE) {
@@ -128,8 +132,13 @@ int re__ast_root_to_sym_r(sym_build* parent, re__ast_root* ast_root, re__ast* as
         SYM_PUT_SUB(&build, re__charclass, ast->_data.charclass);
     } else if (type == RE__AST_TYPE_QUANTIFIER) {
         const char* greed = re__ast_get_quantifier_greediness(ast) ? "greedy" : "nongreedy";
+        re_int32 max = re__ast_get_quantifier_max(ast);
         SYM_PUT_NUM(&build, re__ast_get_quantifier_min(ast));
-        SYM_PUT_NUM(&build, re__ast_get_quantifier_max(ast));
+        if (max == RE__AST_QUANTIFIER_INFINITY) {
+            SYM_PUT_STR(&build, "inf");
+        } else {
+            SYM_PUT_NUM(&build, re__ast_get_quantifier_max(ast));
+        }
         SYM_PUT_STR(&build, greed);
     } else if (type == RE__AST_TYPE_GROUP) {
         re__ast_group_flags flags = re__ast_get_group_flags(ast);
@@ -168,8 +177,8 @@ int re__ast_root_to_sym(sym_build* parent, re__ast_root ast_root) {
     int err;
     SYM_PUT_EXPR(parent, &build);
     SYM_PUT_TYPE(&build, "ast");
-    if (re__ast_root_size(&ast_root)) {
-        re__ast* ast = re__ast_root_get(&ast_root, 0);
+    if (ast_root.root_ref != RE__AST_NONE) {
+        re__ast* ast = re__ast_root_get(&ast_root, ast_root.root_ref);
         if ((err = re__ast_root_to_sym_r(&build, &ast_root, ast))) {
             return err;
         }
@@ -219,7 +228,7 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         SYM_GET_NUM(&walk, &min);
         if (SYM_PEEK_NUM(&walk)) {
             SYM_GET_NUM(&walk, &max);
-        } else {
+        } else if (SYM_PEEK_STR(&walk)) {
             const char* quant_str;
             mptest_size quant_str_size;
             SYM_GET_STR(&walk, &quant_str, &quant_str_size);
@@ -230,6 +239,8 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
             } else {
                 return SYM_INVALID;
             }
+        } else {
+            return SYM_INVALID;
         }
         SYM_GET_STR(&walk, &str, &str_size);
         re__str_view_init_n(&view_a, str, str_size);
@@ -257,11 +268,10 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         re__ast_init_assert(&ast, assert_type);
     }
     {
-        re__ast_root_add(ast_root, ast, out_ast_ref);
         if (prev_sibling_ref == RE__AST_NONE) {
-            re__ast_root_set_child(ast_root, parent_ref, *out_ast_ref);
+            re__ast_root_add_child(ast_root, parent_ref, ast, out_ast_ref);
         } else {
-            re__ast_root_link_siblings(ast_root, prev_sibling_ref, *out_ast_ref);
+            re__ast_root_add_sibling(ast_root, prev_sibling_ref, ast, out_ast_ref);
         }
     }
     if (type == RE__AST_TYPE_CONCAT || type == RE__AST_TYPE_ALT) {
@@ -292,7 +302,7 @@ int re__ast_root_from_sym(sym_walk* parent, re__ast_root* ast_root) {
     SYM_GET_EXPR(&walk, &list);
     while (SYM_MORE(&list)) {
         re_int32 dummy_ref;
-        if ((err = re__ast_root_from_sym_r(parent, ast_root, RE__AST_NONE, RE__AST_NONE, &dummy_ref))) {
+        if ((err = re__ast_root_from_sym_r(parent, ast_root, ast_root->root_ref, RE__AST_NONE, &dummy_ref))) {
             return err;
         }
     }
@@ -463,7 +473,7 @@ SUITE(s_ast) {
 TEST(t_ast_root_init) {
     re__ast_root ast_root;
     re__ast_root_init(&ast_root);
-    ASSERT_EQ(re__ast_root_size(&ast_root), 0);
+    ASSERT_EQ(ast_root.root_ref, RE__AST_NONE);
     re__ast_root_destroy(&ast_root);
     PASS();
 }
@@ -473,11 +483,17 @@ TEST(t_ast_root_addget) {
     re_int32 l = RAND_PARAM(600);
     re_int32 i;
     re_int32* refs = RE_MALLOC(sizeof(re_int32) * (re_size)l);
+    re_int32 prev_ref = RE__AST_NONE;
     re__ast_root_init(&ast_root);
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        re__ast_root_add(&ast_root, ast, &refs[i]);
+        if (prev_ref == RE__AST_NONE) {
+            re__ast_root_add_child(&ast_root, prev_ref, ast, &prev_ref);
+        } else {
+            re__ast_root_add_sibling(&ast_root, prev_ref, ast, &prev_ref);
+        }
+        refs[i] = prev_ref;
     }
     for (i = 0; i < l; i++) {
         re_int32 ref = refs[i];
@@ -495,11 +511,17 @@ TEST(t_ast_root_remove) {
     re_int32 l = RAND_PARAM(600);
     re_int32 i;
     re_int32* refs = RE_MALLOC(sizeof(re_int32) * (re_size)l);
+    re_int32 prev_ref = RE__AST_NONE;
     re__ast_root_init(&ast_root);
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        re__ast_root_add(&ast_root, ast, &refs[i]);
+        if (prev_ref == RE__AST_NONE) {
+            re__ast_root_add_child(&ast_root, prev_ref, ast, &prev_ref);
+        } else {
+            re__ast_root_add_sibling(&ast_root, prev_ref, ast, &prev_ref);
+        }
+        refs[i] = prev_ref;
     }
     for (i = 0; i < l; i++) {
         re__ast_root_remove(&ast_root, refs[i]);
@@ -515,11 +537,17 @@ TEST(t_ast_root_thrash) {
     re_int32 l = RAND_PARAM(600);
     re_int32 i;
     re_int32* refs = RE_MALLOC(sizeof(re_int32) * (re_size)l);
+    re_int32 prev_ref = RE__AST_NONE;
     re__ast_root_init(&ast_root);
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        re__ast_root_add(&ast_root, ast, &refs[i]);
+        if (prev_ref == RE__AST_NONE) {
+            re__ast_root_add_child(&ast_root, prev_ref, ast, &prev_ref);
+        } else {
+            re__ast_root_add_sibling(&ast_root, prev_ref, ast, &prev_ref);
+        }
+        refs[i] = prev_ref;
     }
     /* shuffle refs */
     for (i = 0; i < l*3; i++) {

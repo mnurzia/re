@@ -214,17 +214,16 @@ RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
 typedef struct re__ast_root {
     re__ast_vec ast_vec;
     re_int32 last_empty_ref;
+    re_int32 root_ref;
 } re__ast_root;
 
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
 RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root);
 RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref);
-RE_INTERNAL re_error re__ast_root_add(re__ast_root* ast_root, re__ast ast, re_int32* out_ref);
 RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
-RE_INTERNAL void re__ast_root_link_siblings(re__ast_root* ast_root, re_int32 first_sibling_ref, re_int32 next_sibling_ref);
-RE_INTERNAL void re__ast_root_set_child(re__ast_root* ast_root, re_int32 root_ref, re_int32 child_ref);
-RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re_int32 outer_ref);
-RE_INTERNAL re_int32 re__ast_root_size(re__ast_root* ast_root);
+RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref);
+RE_INTERNAL re_error re__ast_root_add_sibling(re__ast_root* ast_root, re_int32 prev_sibling_ref, re__ast ast, re_int32* out_ref);
+RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re__ast ast_outer, re_int32* out_ref);
 
 #if RE_DEBUG
 
