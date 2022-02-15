@@ -91,15 +91,14 @@ RE_INTERNAL re__ast* re__parse_get_frame(re__parse* parse) {
 RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32* new_ast_ref) {
     re_error err = RE_ERROR_NONE;
     int was_empty = re__parse_frame_is_empty(parse);
-    if ((err = re__ast_root_add(&parse->ast_root, ast, new_ast_ref))) {
-        return err;
-    }
     if (was_empty) {
-        if (parse->ast_frame_root_ref != RE__AST_NONE) {
-            re__ast_root_set_child(&parse->ast_root, parse->ast_frame_root_ref, *new_ast_ref);
+        if ((err = re__ast_root_add_child(&parse->ast_root, parse->ast_frame_root_ref, ast, new_ast_ref))) {
+            return err;
         }
     } else {
-        re__ast_root_link_siblings(&parse->ast_root, parse->ast_prev_child_ref, *new_ast_ref);
+        if ((err = re__ast_root_add_sibling(&parse->ast_root, parse->ast_prev_child_ref, ast, new_ast_ref))) {
+            return err;
+        }
     }
     if (!was_empty) {
         /* Empty frame: increment stk_ptr, leaving prev_child_ptr untouched */
@@ -118,15 +117,12 @@ RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32
  * new node's parent. */
 RE_INTERNAL re_error re__parse_link_wrap_node(re__parse* parse, re__ast outer, re_int32* new_outer) {
     re_error err = RE_ERROR_NONE;
-    re_int32 new_ref;
-    if ((err = re__ast_root_add(&parse->ast_root, outer, &new_ref))) {
+    if ((err = re__ast_root_add_wrap(&parse->ast_root, parse->ast_frame_root_ref, parse->ast_prev_child_ref, outer, new_outer))) {
         return err;
     }
-    re__ast_root_wrap(&parse->ast_root, parse->ast_frame_root_ref, parse->ast_prev_child_ref, new_ref);
-    *new_outer = new_ref;
     parse->depth_max_prev += 1;
     parse->depth_max = RE__MAX(parse->depth_max_prev, parse->depth_max);
-    parse->ast_prev_child_ref = new_ref;
+    parse->ast_prev_child_ref = *new_outer;
     return err;
 }
 
@@ -1304,7 +1300,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
             if (RE__IS_LAST()) {
                 RE__TRY(re__parse_error(parse, "expected '^', characters, character classes, or character ranges for character class expression '['"));
             } else if (ch == '[') {
-                /* [[: Literal [ or char class*/
+                /* [[: Literal [ or char class */
                 parse->state = RE__PARSE_STATE_CHARCLASS_AFTER_BRACKET;
             } else if (ch == '\\') {
                 /* [\: Escape */
