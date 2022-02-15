@@ -299,7 +299,7 @@ typedef struct re__parse {
 
 RE_INTERNAL void re__parse_init(re__parse* parse, re* re);
 RE_INTERNAL void re__parse_destroy(re__parse* parse);
-RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const re_char* regex);
+RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex);
 
 typedef re_uint32 re__prog_loc;
 

@@ -38,19 +38,20 @@ RE_INTERNAL void re__set_error_generic(re* reg, re_error err) {
 
 re_error re_init(re* reg, const char* regex) {
     re_error err = RE_ERROR_NONE;
-    RE__UNUSED(regex);
+    re__str_view regex_view;
     reg->data = (re_data*)RE_MALLOC(sizeof(re_data));
     if (!reg->data) {
         return RE_ERROR_NOMEM;
     }
+    re__error_init(reg);
+    re__str_view_init_s(&regex_view, regex);
     re__parse_init(&reg->data->parse, reg);
     re__prog_init(&reg->data->program);
     re__compile_init(&reg->data->compile, reg);
     re__exec_init(&reg->data->exec, reg);
-    re__error_init(reg);
-    /*if ((err = re__parse(re, strlen(regex), (const re_char*)regex))) {
+    if ((err = re__parse_str(&reg->data->parse, &regex_view))) {
         return err;
-    }*/
+    }
     return err;
 }
 

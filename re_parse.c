@@ -95,7 +95,9 @@ RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32
         return err;
     }
     if (was_empty) {
-        re__ast_root_set_child(&parse->ast_root, parse->ast_frame_root_ref, *new_ast_ref);
+        if (parse->ast_frame_root_ref != RE__AST_NONE) {
+            re__ast_root_set_child(&parse->ast_root, parse->ast_frame_root_ref, *new_ast_ref);
+        }
     } else {
         re__ast_root_link_siblings(&parse->ast_root, parse->ast_prev_child_ref, *new_ast_ref);
     }
@@ -165,12 +167,17 @@ RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
  * To maintain these, when we have to add a second child to an alt/group node, 
  * we convert it into a concatenation of the first and second children. */
 RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, re_int32* new_ast_ref) {
-    re__ast* frame = re__parse_get_frame(parse);
-    re__ast_type frame_type = frame->type;
+    re__ast_type frame_type = RE__AST_TYPE_NONE;
     re_error err = RE_ERROR_NONE;
+    if (parse->ast_frame_root_ref != RE__AST_NONE) {
+        re__ast* frame = re__parse_get_frame(parse);
+        frame_type = frame->type;
+    }
     /* Weird control flow -- it's the only way I figured out how to do the
      * assertion below. */
-    if (frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT) {
+    if (frame_type == RE__AST_TYPE_NONE) {
+        /* Nothing in root */
+    } else if (frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT) {
         if (re__parse_frame_is_empty(parse)) {
             /* Push node, fallthrough */
         } else {
@@ -217,9 +224,15 @@ RE_INTERNAL re_error re__parse_finish(re__parse* parse) {
     re_error err = RE_ERROR_NONE;
     /* Pop frames until frame_ptr == 0. */
     while (1) {
-        re__ast* frame = re__parse_get_frame(parse);
-        re__ast_type peek_type = frame->type;
-        if (parse->ast_frame_root_ref == 0) {
+        re__ast* frame;
+        re__ast_type peek_type;
+        if (!re__parse_frame_vec_size(&parse->frames)) {
+            break;
+        } else {
+            frame = re__parse_get_frame(parse);
+            peek_type = frame->type;
+        }
+        if (parse->ast_frame_root_ref == -1) {
             /* We have hit the base frame successfully. */
             /* Since the base frame is a group, if we continue the loop we will
              * run into an error. */
@@ -280,13 +293,14 @@ RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
 /* End a group. Pop operators until we get a group node. */
 RE_INTERNAL re_error re__parse_group_end(re__parse* parse) {
     while (1) {
-        /* Check the type of the current frame */
-        re__ast_type peek_type = re__parse_get_frame(parse)->type;
+        re__ast_type peek_type;
         /* If we are at the absolute bottom of the stack, there was no opening
          * parentheses to begin with. */
-        if (parse->ast_frame_root_ref == 0) {
+        if (!re__parse_frame_vec_size(&parse->frames)) {
             return re__parse_error(parse, "unmatched ')'");
         }
+        /* Check the type of the current frame */
+        peek_type = re__parse_get_frame(parse)->type;
         /* Now pop the current frame */
         re__parse_frame_pop(parse);
         /* If we just popped a group, finish */
@@ -735,7 +749,7 @@ RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
 }
 
 #define RE__IS_LAST() (ch == -1)
-/* This macro is only used within re__parse_regex. */
+/* This macro is only used within re__parse_str. */
 /* Try-except usually encourages forgetting to clean stuff up, but the 
  * constraints on code within this function allow us to always use this macro 
  * safely. */
@@ -745,36 +759,24 @@ RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
         goto error; \
     }
 
-RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const re_char* regex) {
+RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) {
     /*const re_char* start = regex;*/
-    const re_char* end = regex + regex_size;
+    const re_char* current = re__str_view_get_data(regex);
+    const re_char* end = current + re__str_view_size(regex);
     re_error err = RE_ERROR_NONE;
-    re__ast new_group;
-    re_int32 new_group_ref;
-    /* Start by pushing the initial GROUP node. */
-    re__ast_init_group(&new_group);
-    if ((err = re__ast_root_add(&parse->ast_root, new_group, &new_group_ref))) {
-        return err;
-    }
     /* Set stack/previous pointers accordingly. */
     parse->ast_prev_child_ref = RE__AST_NONE;
     /* Set initial depth. */
-    parse->depth = 1; /* 1 because of initial group */
-    parse->depth_max = 1;
-    parse->depth_max_prev = 1; /* same as parse->depth */
-    /* Push the base op (group) */
-    if ((err = re__parse_frame_push(parse))) {
-        return err;
-    }
-    /* Set the frame pointer to the group node. */
-    parse->ast_frame_root_ref = new_group_ref;
-    while (regex <= end) {
+    parse->depth = 0; /* 1 because of initial group */
+    parse->depth_max = 0;
+    parse->depth_max_prev = 0; /* same as parse->depth */
+    while (current <= end) {
         /* ch will only be -1 if the if this is the last character, a.k.a.
          * "epsilon" as all the cool kids call it */
         re_rune ch = -1;
         /* Otherwise ch is the character in question */
-        if (regex < end) {
-            ch = *regex;
+        if (current < end) {
+            ch = *current;
         }
         if (parse->state == RE__PARSE_STATE_GND) {
             /* Within the main body of the state machine, everything is kept 
@@ -986,8 +988,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
         } else if (parse->state == RE__PARSE_STATE_PARENS_INITIAL) {
             /* Start of group: ( */
             if (RE__IS_LAST()) {
-                re__parse_defer(parse);
-                parse->state = RE__PARSE_STATE_GND;
+                RE__TRY(re__parse_error(parse, "unmatched '('"));
             } else if (ch == '?') {
                 /* (?: Start of group flags/name */
                 parse->state = RE__PARSE_STATE_PARENS_FLAG_INITIAL;
@@ -1014,8 +1015,8 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 parse->state = RE__PARSE_STATE_PARENS_AFTER_COLON;
             } else if (ch == 'P') {
                 /* (?P: Start of group name */
-                parse->str_begin = regex;
-                parse->str_end = regex;
+                parse->str_begin = current;
+                parse->str_end = current;
                 parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
             } else if (ch == 'U') {
                 /* (?U: Ungreedy mode: *+? operators have priority swapped */
@@ -1046,8 +1047,8 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 parse->state = RE__PARSE_STATE_PARENS_AFTER_COLON;
             } else if (ch == 'P') {
                 /* (?P: Start of group name */
-                parse->str_begin = regex;
-                parse->str_end = regex;
+                parse->str_begin = current;
+                parse->str_end = current;
                 parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
             } else if (ch == 'U') {
                 /* (?U: Ungreedy mode: *+? operators have priority swapped */
@@ -1085,7 +1086,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_error(parse, "expected '<' to begin group name"));
             } else if (ch == '<') {
                 /* (?P<: Begin group name */
-                parse->str_begin = regex+1;
+                parse->str_begin = current+1;
                 parse->str_end = parse->str_begin;
                 parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
             } else {
@@ -1439,10 +1440,13 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
         if (parse->defer) {
             parse->defer -= 1;
         } else {
-            regex++;
+            current++;
         }
     }
-    RE_ASSERT(re__parse_frame_vec_size(&parse->frames) == 1);
+    /* Parse state must equal ground when done. Other states must either defer
+     * to ground or create errors. */
+    RE_ASSERT(parse->state == RE__PARSE_STATE_GND);
+    RE_ASSERT(re__parse_frame_vec_size(&parse->frames) == 0);
     return RE_ERROR_NONE;
 error:
     if (err == RE_ERROR_PARSE) {
