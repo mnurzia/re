@@ -164,14 +164,13 @@ int re__ast_root_to_sym_r(sym_build* parent, re__ast_root* ast_root, re__ast* as
 }
 
 int re__ast_root_to_sym(sym_build* parent, re__ast_root ast_root) {
-    sym_build build, list;
+    sym_build build;
     int err;
     SYM_PUT_EXPR(parent, &build);
     SYM_PUT_TYPE(&build, "ast");
-    SYM_PUT_EXPR(&build, &list);
     if (re__ast_root_size(&ast_root)) {
         re__ast* ast = re__ast_root_get(&ast_root, 0);
-        if ((err = re__ast_root_to_sym_r(parent, &ast_root, ast))) {
+        if ((err = re__ast_root_to_sym_r(&build, &ast_root, ast))) {
             return err;
         }
     }
@@ -218,7 +217,20 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         int greedy = 0;
         re__str_view view_a, view_b;
         SYM_GET_NUM(&walk, &min);
-        SYM_GET_NUM(&walk, &max);
+        if (SYM_PEEK_NUM(&walk)) {
+            SYM_GET_NUM(&walk, &max);
+        } else {
+            const char* quant_str;
+            mptest_size quant_str_size;
+            SYM_GET_STR(&walk, &quant_str, &quant_str_size);
+            re__str_view_init_n(&view_a, quant_str, quant_str_size);
+            re__str_view_init_s(&view_b, "inf");
+            if (re__str_view_cmp(&view_a, &view_b) == 0) {
+                max = RE__AST_QUANTIFIER_INFINITY;
+            } else {
+                return SYM_INVALID;
+            }
+        }
         SYM_GET_STR(&walk, &str, &str_size);
         re__str_view_init_n(&view_a, str, str_size);
         re__str_view_init_s(&view_b, "greedy");
@@ -510,7 +522,7 @@ TEST(t_ast_root_thrash) {
         re__ast_root_add(&ast_root, ast, &refs[i]);
     }
     /* shuffle refs */
-    for (i = 0; i < l*10; i++) {
+    for (i = 0; i < l*3; i++) {
         re_int32 from = (re_int32)RAND_PARAM((mptest_rand)l);
         re_int32 to = (re_int32)RAND_PARAM((mptest_rand)l);
         re_int32 temp = refs[from];
@@ -525,6 +537,8 @@ TEST(t_ast_root_thrash) {
     RE_FREE(refs);
     PASS();
 }
+
+/* TODO: test root_link_siblings, root_set_child, root_wrap, root_size */
 
 SUITE(s_ast_root) {
     RUN_TEST(t_ast_root_init);
