@@ -479,8 +479,10 @@ struct mptest__state {
 #if MPTEST_USE_FUZZ
     /* State of the random number generator */
     mptest_rand rand_state;
-    /* Whether or not the current test was run in fuzz mode */
+    /* Whether or not the current test should be fuzzed */
     int fuzz_active;
+    /* Whether or not the current test failed on a fuzz */
+    int fuzz_failed;
     /* Number of iterations to run the next test for */
     int fuzz_iterations;
     /* Fuzz failure context */
@@ -677,7 +679,7 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
                     mptest__state_g.fail_data.string_data = #expr;            \
                     mptest__longjmp_exec(&mptest__state_g,                    \
                         MPTEST__LONGJMP_REASON_ASSERT_FAIL, __FILE__,         \
-                        __LINE__, #expr, msg);                                \
+                        __LINE__, msg);                                \
                 }                                                             \
             } while (0)
 
@@ -691,7 +693,7 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
                         mptest__state_g.fail_data.string_data = #expr;        \
                         mptest__longjmp_exec(&mptest__state_g,                \
                             MPTEST__LONGJMP_REASON_ASSERT_FAIL, __FILE__,     \
-                            __LINE__, #expr, msg);                            \
+                            __LINE__, msg);                            \
                     }                                                         \
                 } else {                                                      \
                     MPTEST_ASSERT(expr);                              \
@@ -793,6 +795,9 @@ MPTEST_API int mptest_sym_walk_getstr(mptest_sym_walk* walk, const char** str, m
 MPTEST_API int mptest_sym_walk_getnum(mptest_sym_walk* walk, mptest_int32* num);
 MPTEST_API int mptest_sym_walk_checktype(mptest_sym_walk* walk, const char* expected_type);
 MPTEST_API int mptest_sym_walk_hasmore(mptest_sym_walk* walk);
+MPTEST_API int mptest_sym_walk_peekstr(mptest_sym_walk* walk);
+MPTEST_API int mptest_sym_walk_peeknum(mptest_sym_walk* walk);
+MPTEST_API int mptest_sym_walk_peekexpr(mptest_sym_walk* walk);
 
 MPTEST_API int mptest__sym_check_init(mptest_sym_build* build_out, const char* str, const char* file, int line, const char* msg);
 MPTEST_API int mptest__sym_check(const char* file, int line, const char* msg);
@@ -914,6 +919,10 @@ MPTEST_API void mptest__sym_make_destroy(mptest_sym_build* build_out);
     } while (0)
 
 #define SYM_MORE(walk) (mptest_sym_walk_hasmore((walk)))
+
+#define SYM_PEEK_STR(walk) (mptest_sym_walk_peekstr((walk)))
+#define SYM_PEEK_NUM(walk) (mptest_sym_walk_peeknum((walk)))
+#define SYM_PEEK_EXPR(walk) (mptest_sym_walk_peekexpr((walk)))
 
 #define SYM_OK 0
 #define SYM_EMPTY 5
@@ -1477,11 +1486,15 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state) {
 
 MPTEST_INTERNAL enum mptest__result mptest__fuzz_run_test(struct mptest__state* state, mptest__test_func test_func) {
     int i = 0;
+    int iters = 1;
     enum mptest__result res;
     /* Reset fail variables */
     state->fuzz_fail_iteration = 0;
     state->fuzz_fail_seed = 0;
-    for (i = 0; i < state->fuzz_iterations; i++) {
+    if (state->fuzz_active) {
+        iters = state->fuzz_iterations;
+    }
+    for (i = 0; i < iters; i++) {
         /* Save the start state */
         mptest_rand start_state = state->rand_state;
         int should_finish = 0;
@@ -1500,19 +1513,21 @@ MPTEST_INTERNAL enum mptest__result mptest__fuzz_run_test(struct mptest__state* 
             /* Save fail context */
             state->fuzz_fail_iteration = i;
             state->fuzz_fail_seed = start_state;
+            state->fuzz_failed = 1;
             break;
         }
     }
+    state->fuzz_active = 0;
     return res;
 }
 
 MPTEST_INTERNAL void mptest__fuzz_print(struct mptest__state* state) {
-    if (state->fuzz_active) {
+    if (state->fuzz_failed) {
         printf("\n");
         mptest__state_print_indent(state);
         printf("    ...on iteration %i with seed %lX", state->fuzz_fail_iteration, state->fuzz_fail_seed);
     }
-    state->fuzz_active = 0;
+    state->fuzz_failed = 0;
     /* Reset fuzz iterations, needs to be done after every fuzzed test */
     state->fuzz_iterations = 1;
 }
@@ -2856,7 +2871,7 @@ MPTEST_API void mptest_sym_walk_init(mptest_sym_walk* walk, const mptest_sym* sy
     walk->prev_child_ref = prev_child_ref;
 }
 
-MPTEST_API int mptest__sym_walk_getnext(mptest_sym_walk* walk, mptest_int32* out_child_ref) {
+MPTEST_API int mptest__sym_walk_peeknext(mptest_sym_walk* walk, mptest_int32* out_child_ref) {
     const mptest__sym_tree* prev;
     mptest_int32 child_ref;
     if (walk->parent_ref == MPTEST__SYM_NONE) {
@@ -2875,8 +2890,16 @@ MPTEST_API int mptest__sym_walk_getnext(mptest_sym_walk* walk, mptest_int32* out
         return SYM_NO_MORE;
     }
     *out_child_ref = child_ref;
-    walk->prev_child_ref = child_ref;
     return 0;
+}
+
+MPTEST_API int mptest__sym_walk_getnext(mptest_sym_walk* walk, mptest_int32* out_child_ref) {
+    int err = 0;
+    if ((err = mptest__sym_walk_peeknext(walk, out_child_ref))) {
+        return err;
+    }
+    walk->prev_child_ref = *out_child_ref;
+    return err;
 }
 
 MPTEST_API int mptest_sym_walk_getexpr(mptest_sym_walk* walk, mptest_sym_walk* sub) {
@@ -2968,6 +2991,39 @@ MPTEST_API int mptest_sym_walk_hasmore(mptest_sym_walk* walk) {
             return 1;
         }
     }
+}
+
+MPTEST_API int mptest__sym_walk_peekstr(mptest_sym_walk* walk) {
+    int err = 0;
+    const mptest__sym_tree* child;
+    mptest_int32 child_ref;
+    if ((err = mptest__sym_walk_peeknext(walk, &child_ref))) {
+        return err;
+    }
+    child = mptest__sym_getcref(walk->sym, child_ref);
+    return child->type == MPTEST__SYM_TYPE_ATOM_STRING;
+}
+
+MPTEST_API int mptest__sym_walk_peekexpr(mptest_sym_walk* walk) {
+    int err = 0;
+    const mptest__sym_tree* child;
+    mptest_int32 child_ref;
+    if ((err = mptest__sym_walk_peeknext(walk, &child_ref))) {
+        return err;
+    }
+    child = mptest__sym_getcref(walk->sym, child_ref);
+    return child->type == MPTEST__SYM_TYPE_EXPR;
+}
+
+MPTEST_API int mptest__sym_walk_peeknum(mptest_sym_walk* walk) {
+    int err = 0;
+    const mptest__sym_tree* child;
+    mptest_int32 child_ref;
+    if ((err = mptest__sym_walk_peeknext(walk, &child_ref))) {
+        return err;
+    }
+    child = mptest__sym_getcref(walk->sym, child_ref);
+    return child->type == MPTEST__SYM_TYPE_ATOM_NUMBER;
 }
 
 MPTEST_API int mptest__sym_check_init(mptest_sym_build* build_out, const char* str, const char* file, int line, const char* msg) {
