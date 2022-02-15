@@ -169,8 +169,10 @@ RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, 
         inner_prev_sibling->next_sibling_ref = outer_ref;
         outer->prev_sibling_ref = inner->prev_sibling_ref;
     } else {
-        re__ast* parent = re__ast_root_get(ast_root, parent_ref);
-        parent->first_child_ref = outer_ref;
+        if (parent_ref != RE__AST_NONE) {
+            re__ast* parent = re__ast_root_get(ast_root, parent_ref);
+            parent->first_child_ref = outer_ref;
+        }
     }
     inner->prev_sibling_ref = RE__AST_NONE;
     outer->first_child_ref = inner_ref;
