@@ -12,7 +12,11 @@ RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune) {
     ast->_data.rune = rune;
 }
 
-/* Transfers ownership of charclass to the AST node. */
+RE_INTERNAL void re__ast_init_string(re__ast* ast, re_int32 string_ref) {
+    re__ast_init(ast, RE__AST_TYPE_STRING);
+    ast->_data.string_ref = string_ref;
+}
+
 RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref) {
     re__ast_init(ast, RE__AST_TYPE_CHARCLASS);
     ast->_data.charclass_ref = charclass_ref;
@@ -106,11 +110,20 @@ RE_REFS_IMPL_FUNC(re__charclass, begin)
 RE_REFS_IMPL_FUNC(re__charclass, next)
 RE_REFS_IMPL_FUNC(re__charclass, add)
 
+RE_REFS_IMPL_FUNC(re__str, init)
+RE_REFS_IMPL_FUNC(re__str, destroy)
+RE_REFS_IMPL_FUNC(re__str, getref)
+RE_REFS_IMPL_FUNC(re__str, getcref)
+RE_REFS_IMPL_FUNC(re__str, begin)
+RE_REFS_IMPL_FUNC(re__str, next)
+RE_REFS_IMPL_FUNC(re__str, add)
+
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root) {
     re__ast_vec_init(&ast_root->ast_vec);
     ast_root->last_empty_ref = RE__AST_NONE;
     ast_root->root_ref = RE__AST_NONE;
     re__charclass_refs_init(&ast_root->charclasses);
+    re__str_refs_init(&ast_root->strings);
 }
 
 RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root) {
@@ -123,6 +136,13 @@ RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root) {
         cur_ref = re__charclass_refs_next(&ast_root->charclasses, cur_ref);
     }
     re__charclass_refs_destroy(&ast_root->charclasses);
+    cur_ref = re__str_refs_begin(&ast_root->strings);
+    while (cur_ref != RE_REF_NONE) {
+        re__str* cur = re__str_refs_getref(&ast_root->strings, cur_ref);
+        re__str_destroy(cur);
+        cur_ref = re__str_refs_next(&ast_root->strings, cur_ref);
+    }
+    re__str_refs_destroy(&ast_root->strings);
     for (i = 0; i < re__ast_vec_size(&ast_root->ast_vec); i++) {
         re__ast_destroy(re__ast_vec_getref(&ast_root->ast_vec, i));
     }
@@ -234,6 +254,17 @@ RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__char
 
 RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, re_int32 charclass_ref) {
     return re__charclass_refs_getcref(&ast_root->charclasses, charclass_ref);
+}
+
+RE_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, re__str str, re_int32* out_ref) {
+    return re__str_refs_add(&ast_root->strings, str, out_ref);
+}
+
+RE_INTERNAL re__str_view re__ast_root_get_str(const re__ast_root* ast_root, re_int32 str_ref) {
+    re__str_view out;
+    const re__str* src = re__str_refs_getcref(&ast_root->strings, str_ref);
+    re__str_view_init(&out, src);
+    return out;
 }
 
 #if RE_DEBUG

@@ -94,6 +94,8 @@ typedef enum re__ast_type {
     RE__AST_TYPE_NONE = 0,
     /* A single character. */
     RE__AST_TYPE_RUNE,
+    /* A string of characters. */
+    RE__AST_TYPE_STRING,
     /* A character class. */
     RE__AST_TYPE_CHARCLASS,
     /* A concatenation of multiple nodes. */
@@ -166,6 +168,8 @@ typedef struct re__ast_group_info {
 typedef union re__ast_data {
     /* RE__AST_TYPE_RUNE: holds a single character */
     re_rune rune;
+    /* RE__AST_TYPE_STRING: holds a reference to a string. */
+    re_int32 string_ref;
     /* RE__AST_TYPE_CLASS: holds a reference to a character class. */
     re_int32 charclass_ref;
     /* RE__AST_TYPE_GROUP: holds the group's index and flags */
@@ -187,6 +191,7 @@ struct re__ast {
 };
 
 RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
+RE_INTERNAL void re__ast_init_string(re__ast* ast, re_int32 string_ref);
 RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref);
 RE_INTERNAL void re__ast_init_concat(re__ast* ast);
 RE_INTERNAL void re__ast_init_alt(re__ast* ast);
@@ -206,12 +211,14 @@ RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
 
 RE_REFS_DECL(re__charclass);
+RE_REFS_DECL(re__str);
 
 typedef struct re__ast_root {
     re__ast_vec ast_vec;
     re_int32 last_empty_ref;
     re_int32 root_ref;
     re__charclass_refs charclasses;
+    re__str_refs strings;
 } re__ast_root;
 
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
@@ -224,6 +231,9 @@ RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 pare
 
 RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, re_int32* out_charclass_ref);
 RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, re_int32 charclass_ref); 
+
+RE_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, re__str str, re_int32* out_ref);
+RE_INTERNAL re__str_view re__ast_root_get_str(const re__ast_root* ast_root, re_int32 str_ref);
 
 #if RE_DEBUG
 

@@ -6,6 +6,7 @@
 const char* ast_sym_types[RE__AST_TYPE_MAX] = {
     "none",
     "rune",
+    "string",
     "charclass",
     "concat",
     "alt",
@@ -321,6 +322,16 @@ TEST(t_ast_init_rune) {
     PASS();
 }
 
+TEST(t_ast_init_string) {
+    re_int32 ref_n = RAND_PARAM(600);
+    re__ast ast;
+    re__ast_init_string(&ast, ref_n);
+    ASSERT_EQ(ast.type, RE__AST_TYPE_STRING);
+    ASSERT_EQ(ast._data.string_ref, ref_n);
+    re__ast_destroy(&ast);
+    PASS();
+}
+
 TEST(t_ast_init_class) {
     re_int32 ref_n = RAND_PARAM(600);
     re__ast ast;
@@ -393,6 +404,7 @@ TEST(t_ast_init_any_byte) {
 
 SUITE(s_ast_init) {
     FUZZ_TEST(t_ast_init_rune);
+    FUZZ_TEST(t_ast_init_string);
     FUZZ_TEST(t_ast_init_class);
     RUN_TEST(t_ast_init_concat);
     RUN_TEST(t_ast_init_alt);
