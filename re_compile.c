@@ -228,12 +228,14 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
                 }
             }
             next_child = 1;
-        } else if (top_node_type == RE__AST_TYPE_CLASS) {
+        } else if (top_node_type == RE__AST_TYPE_CHARCLASS) {
             /* Generates a character class, which is a complex series of Byte
              * and Split instructions. */
+            const re__charclass* charclass = re__ast_root_get_charclass(ast_root,
+                top_node->_data.charclass_ref);
             if ((err = re__compile_charclass_gen(
                 &compile->char_comp, 
-                &top_node->_data.charclass, 
+                charclass,
                 prog, &top_frame.patches))) {
                 goto error;
             }
