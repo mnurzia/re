@@ -512,6 +512,8 @@ MPTEST_API void mptest__state_after_suite(struct mptest__state* state);
 
 MPTEST_API void mptest__assert_do_failure(const char* msg, const char* assert_expr, const char* file, int line);
 
+MPTEST_API void mptest_assert_fail(void);
+
 #if MPTEST_USE_LONGJMP
 MPTEST_API void mptest__longjmp_exec(struct mptest__state* state,
     enum mptest__longjmp_reason reason, const char* file, int line, const char* msg);
@@ -676,6 +678,7 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
         #define MPTEST_INJECT_ASSERTm(expr, msg)                               \
             do {                                                              \
                 if (!(expr)) {                                                \
+                    mptest_assert_fail(); \
                     mptest__state_g.fail_data.string_data = #expr;            \
                     mptest__longjmp_exec(&mptest__state_g,                    \
                         MPTEST__LONGJMP_REASON_ASSERT_FAIL, __FILE__,         \
@@ -690,6 +693,7 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
                 if (mptest__state_g.longjmp_checking                          \
                     & MPTEST__LONGJMP_REASON_ASSERT_FAIL) {                   \
                     if (!(expr)) {                                            \
+                        mptest_assert_fail(); \
                         mptest__state_g.fail_data.string_data = #expr;        \
                         mptest__longjmp_exec(&mptest__state_g,                \
                             MPTEST__LONGJMP_REASON_ASSERT_FAIL, __FILE__,     \
@@ -995,16 +999,26 @@ int mptest__str_view_cmp(const mptest__str_view* a, const mptest__str_view* b);
 #endif /* #if MPTEST_USE_DYN_ALLOC */
 #endif /* #if MPTEST_USE_SYM */
 
+#define MPTEST__P2(a, b) a ## b
+#define MPTEST__P3(a, b, c) a ## b ## c
+#define MPTEST__P4(a, b, c, d) a ## b ## c ## d
+
 #if MPTEST_USE_SYM
 #if MPTEST_USE_DYN_ALLOC
 #define MPTEST_VEC_TYPE(T) \
-    T ## _vec
+    MPTEST__P2(T, _vec)
 
 #define MPTEST_VEC_IDENT(T, name) \
-    T ## _vec_ ## name
+    MPTEST__P3(T, _vec_, name)
 
 #define MPTEST_VEC_IDENT_INTERNAL(T, name) \
-    T ## _vec__ ## name
+    MPTEST__P3(T, _vec__, name)
+
+#define MPTEST_VEC_DECL_FUNC(T, func) \
+    MPTEST__P2(MPTEST__VEC_DECL_, func)(T)
+
+#define MPTEST_VEC_IMPL_FUNC(T, func) \
+    MPTEST__P2(MPTEST__VEC_IMPL_, func)(T)
 
 #if MPTEST_DEBUG
 
@@ -1292,11 +1306,6 @@ int mptest__str_view_cmp(const mptest__str_view* a, const mptest__str_view* b);
         MPTEST__VEC_SETSIZE(T, vec, cap); \
     }
 
-#define MPTEST_VEC_DECL_FUNC(T, func) \
-    MPTEST__VEC_DECL_ ## func (T)
-
-#define MPTEST_VEC_IMPL_FUNC(T, func) \
-    MPTEST__VEC_IMPL_ ## func (T)
 #endif /* #if MPTEST_USE_DYN_ALLOC */
 #endif /* #if MPTEST_USE_SYM */
 
@@ -2322,6 +2331,11 @@ MPTEST_API void mptest__assert_do_failure(const char* msg, const char* assert_ex
     mptest__state_g.fail_data.string_data = assert_expr;
     mptest__state_g.fail_file   = file;
     mptest__state_g.fail_line   = line;
+}
+
+/* Dummy function to break on for assert failures */
+MPTEST_API void mptest_assert_fail() {
+    return;
 }
 
 
