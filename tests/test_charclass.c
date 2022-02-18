@@ -1,7 +1,7 @@
 #include "test_charclass.h"
 #include "test_range.h"
 
-int re__charclass_to_sym(sym_build* parent, re__charclass charclass) {
+int re__charclass_to_sym(sym_build* parent, const re__charclass charclass) {
     sym_build build;
     SYM_PUT_EXPR(parent, &build);
     SYM_PUT_TYPE(&build, "charclass");
@@ -812,7 +812,6 @@ TEST(t_charclass_builder_insert_range) {
         rr.min = RAND_PARAM(0x10FFFF);
         rr.max = ((re_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
         re__charclass_builder_insert_range(&builder, rr);
-        ASSERT(re__charclass_builder_verify(&builder));
     }
     re__charclass_builder_destroy(&builder);
     PASS();
