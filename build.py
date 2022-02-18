@@ -13,6 +13,7 @@ class Project(pack_v4.Project):
             "ds_vector", 
             "ds_string", 
             "ds_string_view",
+            "ds_refs",
             "max",
             "debug",
             "unused",

@@ -19,15 +19,26 @@
 #define RE__ASSERT_UNREACHED() (void)(0)
 #endif
 
+/* bit: tpaste */
+#define RE__P2(a, b) a ## b
+#define RE__P3(a, b, c) a ## b ## c
+#define RE__P4(a, b, c, d) a ## b ## c ## d
+
 /* bit: ds_vector */
 #define RE_VEC_TYPE(T) \
-    T ## _vec
+    RE__P2(T, _vec)
 
 #define RE_VEC_IDENT(T, name) \
-    T ## _vec_ ## name
+    RE__P3(T, _vec_, name)
 
 #define RE_VEC_IDENT_INTERNAL(T, name) \
-    T ## _vec__ ## name
+    RE__P3(T, _vec__, name)
+
+#define RE_VEC_DECL_FUNC(T, func) \
+    RE__P2(RE__VEC_DECL_, func)(T)
+
+#define RE_VEC_IMPL_FUNC(T, func) \
+    RE__P2(RE__VEC_IMPL_, func)(T)
 
 #if RE_DEBUG
 
@@ -315,11 +326,6 @@
         RE__VEC_SETSIZE(T, vec, cap); \
     }
 
-#define RE_VEC_DECL_FUNC(T, func) \
-    RE__VEC_DECL_ ## func (T)
-
-#define RE_VEC_IMPL_FUNC(T, func) \
-    RE__VEC_IMPL_ ## func (T)
 
 /* bit: char */
 typedef char re_char;
@@ -361,6 +367,148 @@ void re__str_view_init_null(re__str_view* view);
 re_size re__str_view_size(const re__str_view* view);
 const re_char* re__str_view_get_data(const re__str_view* view);
 int re__str_view_cmp(const re__str_view* a, const re__str_view* b);
+
+/* bit: ds_refs */
+#define RE_REF_NONE -1
+
+#define RE_REFS_TYPE(T) \
+    RE__P2(T, _refs)
+
+#define RE__REFS_STORAGE_TYPE(T) \
+    RE__P2(T, __refs_storage)
+
+#define RE_REFS_IDENT(T, name) \
+    RE__P3(T, _refs_, name)
+
+#define RE_REFS_IDENT_INTERNAL(T, name) \
+    RE__P3(T, _refs__, name)
+
+#define RE_REFS_DECL_FUNC(T, func) \
+    RE__P2(RE__REFS_DECL_, func)(T)
+
+#define RE_REFS_IMPL_FUNC(T, func) \
+    RE__P2(RE__REFS_IMPL_, func)(T)
+
+#define RE_REFS_DECL(T) \
+    typedef struct RE__REFS_STORAGE_TYPE(T) { \
+        T _elem; \
+        re_int32 _next_ref; \
+        re_int32 _prev_ref; \
+    } RE__REFS_STORAGE_TYPE(T); \
+    RE_VEC_DECL(RE__REFS_STORAGE_TYPE(T)); \
+    typedef struct RE_REFS_TYPE(T) { \
+        RE_VEC_TYPE(RE__REFS_STORAGE_TYPE(T)) _vec; \
+        re_int32 _last_empty_ref; \
+        re_int32 _first_ref; \
+        re_int32 _last_ref; \
+    } RE_REFS_TYPE(T)
+
+#define RE__REFS_DECL_init(T) \
+    void RE_REFS_IDENT(T, init)(RE_REFS_TYPE(T)* refs);
+
+#define RE__REFS_IMPL_init(T) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), init) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), destroy) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), getref) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), getcref) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), push) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), size) \
+    void RE_REFS_IDENT(T, init)(RE_REFS_TYPE(T)* refs) { \
+        RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), init)(&refs->_vec); \
+        refs->_last_empty_ref = RE_REF_NONE; \
+        refs->_first_ref = RE_REF_NONE; \
+        refs->_last_ref = RE_REF_NONE; \
+    }
+
+#define RE__REFS_DECL_destroy(T) \
+    void RE_REFS_IDENT(T, destroy)(RE_REFS_TYPE(T)* refs);
+
+#define RE__REFS_IMPL_destroy(T) \
+    void RE_REFS_IDENT(T, destroy)(RE_REFS_TYPE(T)* refs) { \
+        RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), destroy)(&refs->_vec); \
+    }
+
+#define RE__REFS_DECL_getref(T) \
+    T* RE_REFS_IDENT(T, getref)(RE_REFS_TYPE(T)* refs, re_int32 elem_ref);
+
+#define RE__REFS_IMPL_getref(T) \
+    T* RE_REFS_IDENT(T, getref)(RE_REFS_TYPE(T)* refs, re_int32 elem_ref) {\
+        RE_ASSERT(elem_ref != RE_REF_NONE); \
+        return &RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), getref)(&refs->_vec, (re_size)elem_ref)->_elem; \
+    }
+
+#define RE__REFS_DECL_getcref(T) \
+    const T* RE_REFS_IDENT(T, getcref)(const RE_REFS_TYPE(T)* refs, re_int32 elem_ref);
+
+#define RE__REFS_IMPL_getcref(T) \
+    const T* RE_REFS_IDENT(T, getcref)(const RE_REFS_TYPE(T)* refs, re_int32 elem_ref) {\
+        RE_ASSERT(elem_ref != RE_REF_NONE); \
+        return &RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), getcref)(&refs->_vec, (re_size)elem_ref)->_elem; \
+    }
+
+#define RE__REFS_DECL_add(T) \
+    int RE_REFS_IDENT(T, add)(RE_REFS_TYPE(T)* refs, T elem, re_int32* out_ref)
+
+#define RE__REFS_IMPL_add(T) \
+    int RE_REFS_IDENT(T, add)(RE_REFS_TYPE(T)* refs, T elem, re_int32* out_ref) { \
+        int err = 0; \
+        re_int32 empty_ref = refs->_last_empty_ref; \
+        RE__REFS_STORAGE_TYPE(T)* empty; \
+        RE__REFS_STORAGE_TYPE(T)* prev_elem_ptr; \
+        if (empty_ref != RE_REF_NONE) { \
+            empty = RE_VEC_IDENT( \
+                RE__REFS_STORAGE_TYPE(T), getref)( \
+                    &refs->_vec, (re_size)empty_ref); \
+            refs->_last_empty_ref = empty->_next_ref; \
+            *out_ref = empty_ref; \
+            empty->_elem = elem; \
+        } else { \
+            RE__REFS_STORAGE_TYPE(T) new_elem; \
+            *out_ref = (re_int32)RE_VEC_IDENT( \
+                RE__REFS_STORAGE_TYPE(T), size)(&refs->_vec); \
+            new_elem._elem = elem; \
+            if ((err = RE_VEC_IDENT( \
+                RE__REFS_STORAGE_TYPE(T), push)(&refs->_vec, new_elem))) { \
+                return err; \
+            } \
+            empty = RE_VEC_IDENT( \
+                RE__REFS_STORAGE_TYPE(T), getref)( \
+                    &refs->_vec, (re_size)(*out_ref)); \
+        } \
+        empty->_next_ref = RE_REF_NONE; \
+        empty->_prev_ref = refs->_last_ref; \
+        if (refs->_last_ref != RE_REF_NONE) { \
+            prev_elem_ptr =  \
+                RE_VEC_IDENT( \
+                    RE__REFS_STORAGE_TYPE(T), getref)( \
+                        &refs->_vec, (re_size)refs->_last_ref); \
+            prev_elem_ptr->_next_ref = *out_ref; \
+        } \
+        if (refs->_first_ref == RE_REF_NONE) { \
+            refs->_first_ref = *out_ref; \
+        } \
+        refs->_last_ref = *out_ref; \
+        return err; \
+    }
+
+#define RE__REFS_DECL_begin(T) \
+    re_int32 RE_REFS_IDENT(T, begin)(RE_REFS_TYPE(T)* refs);
+
+#define RE__REFS_IMPL_begin(T) \
+    re_int32 RE_REFS_IDENT(T, begin)(RE_REFS_TYPE(T)* refs) { \
+        return refs->_first_ref; \
+    }
+
+#define RE__REFS_DECL_next(T) \
+    re_int32 RE_REFS_IDENT(T, next)(RE_REFS_TYPE(T)* refs);
+
+#define RE__REFS_IMPL_next(T) \
+    re_int32 RE_REFS_IDENT(T, next)(RE_REFS_TYPE(T)* refs, re_int32 prev_ref) { \
+        const RE__REFS_STORAGE_TYPE(T)* elem_storage; \
+        RE_ASSERT(prev_ref != RE_REF_NONE); \
+        elem_storage = RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), getcref)(&refs->_vec, (re_size)prev_ref); \
+        return elem_storage->_next_ref; \
+    }
 
 /* bit: max */
 #define RE__MAX(a, b) (((a) < (b)) ? (b) : (a))
