@@ -216,25 +216,6 @@ RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* b
     return err;
 }
 
-#if RE_DEBUG
-
-RE_INTERNAL int re__charclass_builder_verify(const re__charclass_builder* builder) {
-    re_size i;
-    re__rune_range last;
-    last.min = -1;
-    last.max = -1;
-    for (i = 0; i < re__rune_range_vec_size(&builder->ranges); i++) {
-        re__rune_range rr = re__rune_range_vec_get_data(&builder->ranges)[i];
-        if (rr.min <= last.min) {
-            return 0;
-        }
-        last = rr;
-    }
-    return 1;
-}
-
-#endif
-
 RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass) {
     re_error err = RE_ERROR_NONE;
     /* Temporary range */
