@@ -600,10 +600,15 @@ RE_INTERNAL re_error re__parse_charclass_finish(re__parse* parse) {
     re__ast new_node;
     re__charclass new_charclass;
     re_error err = RE_ERROR_NONE;
+    re_int32 new_charclass_ref;
     if ((err = re__charclass_builder_finish(&parse->charclass_builder, &new_charclass))) {
         return err;
     }
-    re__ast_init_class(&new_node, new_charclass);
+    if ((err = re__ast_root_add_charclass(&parse->ast_root, new_charclass, &new_charclass_ref))) {
+        re__charclass_destroy(&new_charclass);
+        return err;
+    }
+    re__ast_init_charclass(&new_node, new_charclass_ref);
     if ((err = re__parse_add_new_node(parse, new_node))) {
         return err;
     }
@@ -655,7 +660,12 @@ RE_INTERNAL re_error re__parse_finish_escape_class(re__parse* parse, re__charcla
     if (top_state == RE__PARSE_STATE_GND) {
         /* Wrap it in an AST node */
         re__ast new_node;
-        re__ast_init_class(&new_node, new_class);
+        re_int32 new_class_ref;
+        if ((err = re__ast_root_add_charclass(&parse->ast_root, new_class, &new_class_ref))) {
+            re__charclass_destroy(&new_class);
+            return err;
+        }
+        re__ast_init_charclass(&new_node, new_class_ref);
         /* new_node now owns new_class */
         if ((err = re__parse_add_new_node(parse, new_node))) {
             re__charclass_destroy(&new_class);

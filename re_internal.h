@@ -85,12 +85,6 @@ RE_INTERNAL re_error re__charclass_builder_insert_range(re__charclass_builder* b
 RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* builder, re__charclass* charclass);
 RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass);
 
-#if RE_DEBUG
-
-RE_INTERNAL int re__charclass_builder_verify(const re__charclass_builder* builder);
-
-#endif
-
 typedef struct re__ast re__ast; 
 
 /* Enumeration of AST node types. */
@@ -101,7 +95,7 @@ typedef enum re__ast_type {
     /* A single character. */
     RE__AST_TYPE_RUNE,
     /* A character class. */
-    RE__AST_TYPE_CLASS,
+    RE__AST_TYPE_CHARCLASS,
     /* A concatenation of multiple nodes. */
     RE__AST_TYPE_CONCAT,
     /* An alteration of multiple nodes. */
@@ -172,8 +166,8 @@ typedef struct re__ast_group_info {
 typedef union re__ast_data {
     /* RE__AST_TYPE_RUNE: holds a single character */
     re_rune rune;
-    /* RE__AST_TYPE_CLASS: holds a character class. */
-    re__charclass charclass;
+    /* RE__AST_TYPE_CLASS: holds a reference to a character class. */
+    re_int32 charclass_ref;
     /* RE__AST_TYPE_GROUP: holds the group's index and flags */
     re__ast_group_info group_info;
     /* RE__AST_TYPE_QUANTIFIER: minimum/maximum/greediness */
@@ -193,7 +187,7 @@ struct re__ast {
 };
 
 RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
-RE_INTERNAL void re__ast_init_class(re__ast* ast, re__charclass charclass);
+RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref);
 RE_INTERNAL void re__ast_init_concat(re__ast* ast);
 RE_INTERNAL void re__ast_init_alt(re__ast* ast);
 RE_INTERNAL void re__ast_init_quantifier(re__ast* ast, re_int32 min, re_int32 max);
@@ -211,10 +205,13 @@ RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast);
 RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags);
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
 
+RE_REFS_DECL(re__charclass);
+
 typedef struct re__ast_root {
     re__ast_vec ast_vec;
     re_int32 last_empty_ref;
     re_int32 root_ref;
+    re__charclass_refs charclasses;
 } re__ast_root;
 
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
@@ -224,6 +221,9 @@ RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
 RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref);
 RE_INTERNAL re_error re__ast_root_add_sibling(re__ast_root* ast_root, re_int32 prev_sibling_ref, re__ast ast, re_int32* out_ref);
 RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re__ast ast_outer, re_int32* out_ref);
+
+RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, re_int32* out_charclass_ref);
+RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, re_int32 charclass_ref); 
 
 #if RE_DEBUG
 
@@ -614,7 +614,7 @@ typedef struct re__compile_charclass {
 
 void re__compile_charclass_init(re__compile_charclass* char_comp);
 void re__compile_charclass_destroy(re__compile_charclass* char_comp);
-re_error re__compile_charclass_gen(re__compile_charclass* char_comp, re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out);
+re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out);
 
 #if RE_DEBUG
 void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_idx, re_int32 indent);

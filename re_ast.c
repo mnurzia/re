@@ -13,9 +13,9 @@ RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune) {
 }
 
 /* Transfers ownership of charclass to the AST node. */
-RE_INTERNAL void re__ast_init_class(re__ast* ast, re__charclass charclass) {
-    re__ast_init(ast, RE__AST_TYPE_CLASS);
-    ast->_data.charclass = charclass;
+RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref) {
+    re__ast_init(ast, RE__AST_TYPE_CHARCLASS);
+    ast->_data.charclass_ref = charclass_ref;
 }
 
 RE_INTERNAL void re__ast_init_concat(re__ast* ast) {
@@ -55,9 +55,7 @@ RE_INTERNAL void re__ast_init_any_byte(re__ast* ast) {
 }
 
 RE_INTERNAL void re__ast_destroy(re__ast* ast) {
-    if (ast->type == RE__AST_TYPE_CLASS) {
-        re__charclass_destroy(&ast->_data.charclass);
-    }
+    RE__UNUSED(ast);
 }
 
 RE_INTERNAL void re__ast_set_quantifier_greediness(re__ast* ast, int is_greedy) {
@@ -100,14 +98,31 @@ RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast) {
     return ast->_data.assert_type;
 }
 
+RE_REFS_IMPL_FUNC(re__charclass, init)
+RE_REFS_IMPL_FUNC(re__charclass, destroy)
+RE_REFS_IMPL_FUNC(re__charclass, getref)
+RE_REFS_IMPL_FUNC(re__charclass, getcref)
+RE_REFS_IMPL_FUNC(re__charclass, begin)
+RE_REFS_IMPL_FUNC(re__charclass, next)
+RE_REFS_IMPL_FUNC(re__charclass, add)
+
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root) {
     re__ast_vec_init(&ast_root->ast_vec);
     ast_root->last_empty_ref = RE__AST_NONE;
     ast_root->root_ref = RE__AST_NONE;
+    re__charclass_refs_init(&ast_root->charclasses);
 }
 
 RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root) {
     re_size i;
+    re_int32 cur_ref;
+    cur_ref = re__charclass_refs_begin(&ast_root->charclasses);
+    while (cur_ref != RE_REF_NONE) {
+        re__charclass* cur = re__charclass_refs_getref(&ast_root->charclasses, cur_ref);
+        re__charclass_destroy(cur);
+        cur_ref = re__charclass_refs_next(&ast_root->charclasses, cur_ref);
+    }
+    re__charclass_refs_destroy(&ast_root->charclasses);
     for (i = 0; i < re__ast_vec_size(&ast_root->ast_vec); i++) {
         re__ast_destroy(re__ast_vec_getref(&ast_root->ast_vec, i));
     }
@@ -211,6 +226,14 @@ RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 pare
     inner->prev_sibling_ref = RE__AST_NONE;
     outer->first_child_ref = inner_ref;
     return err;
+}
+
+RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, re_int32* out_ref) {
+    return re__charclass_refs_add(&ast_root->charclasses, charclass, out_ref);
+}
+
+RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, re_int32 charclass_ref) {
+    return re__charclass_refs_getcref(&ast_root->charclasses, charclass_ref);
 }
 
 #if RE_DEBUG
@@ -322,10 +345,13 @@ RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_r
             case RE__AST_TYPE_RUNE:
                 printf("CHAR: ord=%X ('%c')", ast->_data.rune, ast->_data.rune);
                 break;
-            case RE__AST_TYPE_CLASS:
+            case RE__AST_TYPE_CHARCLASS: {
+                const re__charclass* charclass;
                 printf("CLASS:\n");
-                re__charclass_dump(&ast->_data.charclass, (re_size)(lvl+1));
+                re__charclass_refs_getcref(&ast_root->charclasses, ast->_data.charclass_ref);
+                re__charclass_dump(charclass, (re_size)(lvl+1));
                 break;
+            }
             case RE__AST_TYPE_CONCAT:
                 printf("CONCAT");
                 break;

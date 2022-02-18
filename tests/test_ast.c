@@ -120,16 +120,16 @@ int re__ast_assert_type_from_sym(sym_walk* parent, re__ast_assert_type* assert_t
 int re__ast_root_to_sym_r(sym_build* parent, re__ast_root* ast_root, re__ast* ast) {
     sym_build build;
     re__ast_type type = ast->type;
-    if (type == RE__AST_TYPE_CLASS) {
-        SYM_PUT_SUB(parent, re__charclass, ast->_data.charclass);
+    if (type == RE__AST_TYPE_CHARCLASS) {
+        const re__charclass* charclass;
+        charclass = re__ast_root_get_charclass(ast_root, ast->_data.charclass_ref);
+        SYM_PUT_SUB(parent, re__charclass, *charclass);
         return SYM_OK;
     }
     SYM_PUT_EXPR(parent, &build);
     SYM_PUT_TYPE(&build, ast_sym_types[type]);
     if (type == RE__AST_TYPE_RUNE) {
         SYM_PUT_NUM(&build, re__ast_get_rune(ast));
-    } else if (type == RE__AST_TYPE_CLASS) {
-        SYM_PUT_SUB(&build, re__charclass, ast->_data.charclass);
     } else if (type == RE__AST_TYPE_QUANTIFIER) {
         const char* greed = re__ast_get_quantifier_greediness(ast) ? "greedy" : "nongreedy";
         re_int32 max = re__ast_get_quantifier_max(ast);
@@ -210,10 +210,12 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         re_int32 rune;
         SYM_GET_NUM(&walk, &rune);
         re__ast_init_rune(&ast, rune);
-    } else if (type == RE__AST_TYPE_CLASS) {
+    } else if (type == RE__AST_TYPE_CHARCLASS) {
         re__charclass cc;
+        re_int32 new_cc_ref;
         SYM_GET_SUB(&walk, re__charclass, &cc);
-        re__ast_init_class(&ast, cc);
+        re__ast_root_add_charclass(ast_root, cc, &new_cc_ref);
+        re__ast_init_charclass(&ast, new_cc_ref);
     } else if (type == RE__AST_TYPE_CONCAT) {
         re__ast_init_concat(&ast);
     } else if (type == RE__AST_TYPE_ALT) {
@@ -320,20 +322,12 @@ TEST(t_ast_init_rune) {
 }
 
 TEST(t_ast_init_class) {
-    re_size i, l = RAND_PARAM(600);
-    re__charclass cc, ot;
+    re_int32 ref_n = RAND_PARAM(600);
     re__ast ast;
-    re__charclass_init(&cc);
-    re__charclass_init(&ot);
-    for (i = 0; i < l; i++) {
-        re__charclass_push(&cc, re__rune_range_random());
-        re__charclass_push(&ot, re__rune_range_random());
-    }
-    re__ast_init_class(&ast, cc);
-    ASSERT_EQ(ast.type, RE__AST_TYPE_CLASS);
-    ASSERT(re__charclass_equals(&ast._data.charclass, &ot));
+    re__ast_init_charclass(&ast, ref_n);
+    ASSERT_EQ(ast.type, RE__AST_TYPE_CHARCLASS);
+    ASSERT_EQ(ast._data.charclass_ref, ref_n);
     re__ast_destroy(&ast);
-    re__charclass_destroy(&ot);
     PASS();
 }
 

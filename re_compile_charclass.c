@@ -764,7 +764,7 @@ re_error re__compile_charclass_generate_prog(re__compile_charclass* char_comp, r
 }
 
 /* Compile a single character class. */
-re_error re__compile_charclass_gen(re__compile_charclass* char_comp, re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out) {
+re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out) {
     re_error err = RE_ERROR_NONE;
     re_size i;
     const re__rune_range* ranges = re__charclass_get_ranges(charclass);
