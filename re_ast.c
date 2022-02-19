@@ -12,9 +12,9 @@ RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune) {
     ast->_data.rune = rune;
 }
 
-RE_INTERNAL void re__ast_init_string(re__ast* ast, re_int32 string_ref) {
-    re__ast_init(ast, RE__AST_TYPE_STRING);
-    ast->_data.string_ref = string_ref;
+RE_INTERNAL void re__ast_init_str(re__ast* ast, re_int32 str_ref) {
+    re__ast_init(ast, RE__AST_TYPE_STR);
+    ast->_data.str_ref = str_ref;
 }
 
 RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref) {
@@ -102,6 +102,11 @@ RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast) {
     return ast->_data.assert_type;
 }
 
+RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast) {
+    RE_ASSERT(ast->type == RE__AST_TYPE_STR);
+    return ast->_data.str_ref;
+}
+
 RE_REFS_IMPL_FUNC(re__charclass, init)
 RE_REFS_IMPL_FUNC(re__charclass, destroy)
 RE_REFS_IMPL_FUNC(re__charclass, getref)
@@ -160,6 +165,13 @@ RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref) {
     empty->type = RE__AST_TYPE_NONE;
     empty->next_sibling_ref = ast_root->last_empty_ref;
     ast_root->last_empty_ref = ast_ref;
+}
+
+RE_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, re_int32 ast_ref, re__ast replacement) {
+    re__ast* loc = re__ast_root_get(ast_root, ast_ref);
+    RE_ASSERT(loc->next_sibling_ref == RE__AST_NONE);
+    RE_ASSERT(loc->first_child_ref == RE__AST_NONE);
+    *loc = replacement;
 }
 
 RE_INTERNAL re_int32 re__ast_root_size(re__ast_root* ast_root) {
@@ -260,7 +272,11 @@ RE_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, re__str str, r
     return re__str_refs_add(&ast_root->strings, str, out_ref);
 }
 
-RE_INTERNAL re__str_view re__ast_root_get_str(const re__ast_root* ast_root, re_int32 str_ref) {
+RE_INTERNAL re__str* re__ast_root_get_str(re__ast_root* ast_root, re_int32 str_ref) {
+    return re__str_refs_getref(&ast_root->strings, str_ref);
+}
+
+RE_INTERNAL re__str_view re__ast_root_get_str_view(const re__ast_root* ast_root, re_int32 str_ref) {
     re__str_view out;
     const re__str* src = re__str_refs_getcref(&ast_root->strings, str_ref);
     re__str_view_init(&out, src);
@@ -376,6 +392,11 @@ RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_r
             case RE__AST_TYPE_RUNE:
                 printf("CHAR: ord=%X ('%c')", ast->_data.rune, ast->_data.rune);
                 break;
+            case RE__AST_TYPE_STR: {
+                re__str_view str_view = re__ast_root_get_str_view(ast_root, ast->_data.str_ref);
+                printf("STR: \"%s\"", re__str_view_get_data(&str_view));
+                break;
+            }
             case RE__AST_TYPE_CHARCLASS: {
                 const re__charclass* charclass;
                 printf("CLASS:\n");

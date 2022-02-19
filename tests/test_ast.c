@@ -6,7 +6,7 @@
 const char* ast_sym_types[RE__AST_TYPE_MAX] = {
     "none",
     "rune",
-    "string",
+    "str",
     "charclass",
     "concat",
     "alt",
@@ -131,6 +131,9 @@ int re__ast_root_to_sym_r(sym_build* parent, re__ast_root* ast_root, re__ast* as
     SYM_PUT_TYPE(&build, ast_sym_types[type]);
     if (type == RE__AST_TYPE_RUNE) {
         SYM_PUT_NUM(&build, re__ast_get_rune(ast));
+    } else if (type == RE__AST_TYPE_STR) {
+        re__str_view view = re__ast_root_get_str_view(ast_root, ast->_data.str_ref);
+        SYM_PUT_STRN(&build, re__str_view_get_data(&view), re__str_view_size(&view));
     } else if (type == RE__AST_TYPE_QUANTIFIER) {
         const char* greed = re__ast_get_quantifier_greediness(ast) ? "greedy" : "nongreedy";
         re_int32 max = re__ast_get_quantifier_max(ast);
@@ -211,6 +214,15 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         re_int32 rune;
         SYM_GET_NUM(&walk, &rune);
         re__ast_init_rune(&ast, rune);
+    } else if (type == RE__AST_TYPE_STR) {
+        re__str new_str;
+        const char* new_str_data;
+        mptest_size new_str_size;
+        re_int32 new_str_ref;
+        SYM_GET_STR(&walk, &new_str_data, &new_str_size);
+        re__str_init_n(&new_str, new_str_data, new_str_size);
+        re__ast_root_add_str(ast_root, new_str, &new_str_ref);
+        re__ast_init_str(&ast, new_str_ref);
     } else if (type == RE__AST_TYPE_CHARCLASS) {
         re__charclass cc;
         re_int32 new_cc_ref;
@@ -322,12 +334,12 @@ TEST(t_ast_init_rune) {
     PASS();
 }
 
-TEST(t_ast_init_string) {
+TEST(t_ast_init_str) {
     re_int32 ref_n = RAND_PARAM(600);
     re__ast ast;
-    re__ast_init_string(&ast, ref_n);
-    ASSERT_EQ(ast.type, RE__AST_TYPE_STRING);
-    ASSERT_EQ(ast._data.string_ref, ref_n);
+    re__ast_init_str(&ast, ref_n);
+    ASSERT_EQ(ast.type, RE__AST_TYPE_STR);
+    ASSERT_EQ(ast._data.str_ref, ref_n);
     re__ast_destroy(&ast);
     PASS();
 }
@@ -404,7 +416,7 @@ TEST(t_ast_init_any_byte) {
 
 SUITE(s_ast_init) {
     FUZZ_TEST(t_ast_init_rune);
-    FUZZ_TEST(t_ast_init_string);
+    FUZZ_TEST(t_ast_init_str);
     FUZZ_TEST(t_ast_init_class);
     RUN_TEST(t_ast_init_concat);
     RUN_TEST(t_ast_init_alt);
@@ -529,8 +541,8 @@ TEST(t_ast_root_remove) {
         }
         refs[i] = prev_ref;
     }
-    for (i = 0; i < l; i++) {
-        re__ast_root_remove(&ast_root, refs[i]);
+    for (i = l; i > 0; i--) {
+        re__ast_root_remove(&ast_root, refs[i-1]);
     }
     ASSERT(re__ast_root_verify(&ast_root));
     re__ast_root_destroy(&ast_root);
