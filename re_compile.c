@@ -160,8 +160,7 @@ RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf) {
         return 4;
 	} else {
         RE__ASSERT_UNREACHED();
-        /* fall back to white square */
-		return re__compile_gen_utf8(0x25A1, out_buf);
+        return 0;
 	}
 }
 
