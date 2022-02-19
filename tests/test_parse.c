@@ -1,6 +1,7 @@
 #include "test_parse.h"
 
 #include "test_ast.h"
+#include "test_helpers.h"
 
 TEST(t_parse_empty) {
     re re;
@@ -251,21 +252,44 @@ TEST(t_parse_charclass_rbracket) {
 TEST(t_parse_charclass_hyphen) {
     re re;
     ASSERT(!re_init(&re, "[-]"));
-    ASSERT_SYMEQ(
+    ASSERT_SYMEQm(
         re__ast_root,
         re.data->parse.ast_root,
         "(ast"
-        "   (charclass ((rune_range '-' '-'))))"
+        "   (charclass ((rune_range '-' '-'))))",
+        "charclass with only hyphen should just include a hyphen rune"
     );
     re_destroy(&re);
     ASSERT(!re_init(&re, "[a-]"));
-    ASSERT_SYMEQ(
+    ASSERT_SYMEQm(
         re__ast_root,
         re.data->parse.ast_root,
         "(ast"
         "   (charclass ("
         "       (rune_range '-' '-')"
-        "       (rune_range 'a' 'a'))))"
+        "       (rune_range 'a' 'a'))))",
+        "charclass ending with hyphen should include a hyphen rune"
+    );
+    re_destroy(&re);
+    ASSERT(!re_init(&re, "[a-z-]"));
+    ASSERT_SYMEQm(
+        re__ast_root,
+        re.data->parse.ast_root,
+        "(ast"
+        "   (charclass ("
+        "       (rune_range '-' '-')"
+        "       (rune_range 'a' 'z'))))",
+        "charclass ending with hyphen should include a hyphen rune"
+    );
+    re_destroy(&re);
+    ASSERT(!re_init(&re, "[a-z]"));
+    ASSERT_SYMEQm(
+        re__ast_root,
+        re.data->parse.ast_root,
+        "(ast"
+        "   (charclass ("
+        "       (rune_range 'a' 'z')))",
+        "charclass with middle hyphen should include a rune range"
     );
     re_destroy(&re);
     PASS();
@@ -285,6 +309,64 @@ TEST(t_parse_charclass_unfinished) {
     PASS();
 }
 
+TEST(t_parse_opt_fuse_rune_rune) {
+    re re;
+    re_rune first = re_rune_rand();
+    re_rune second = re_rune_rand();
+    re__str in_str;
+    re_uint8 utf8_bytes[32];
+    int utf8_bytes_ptr = 0;
+    utf8_bytes_ptr += re__compile_gen_utf8(first, utf8_bytes + utf8_bytes_ptr);
+    utf8_bytes_ptr += re__compile_gen_utf8(second, utf8_bytes + utf8_bytes_ptr);
+    utf8_bytes[utf8_bytes_ptr] = '\0';
+    re__str_init_n(&in_str, (re_char*)utf8_bytes, (re_size)utf8_bytes_ptr);
+    ASSERT(!re_init(&re, re__str_get_data(&in_str)));
+    {
+        re__ast* ast = re__ast_root_get(
+            &re.data->parse.ast_root,
+            re.data->parse.ast_root.root_ref
+        );
+        re__str_view a, b;
+        ASSERT(ast->type == RE__AST_TYPE_STR);
+        a = re__ast_root_get_str_view(&re.data->parse.ast_root, ast->_data.str_ref);
+        re__str_view_init(&b, &in_str);
+        ASSERT(re__str_view_cmp(&a, &b) == 0);
+    }
+    re_destroy(&re);
+    re__str_destroy(&in_str);
+    PASS();
+}
+
+TEST(t_parse_opt_fuse_str_rune) {
+    re re;
+    int n = RAND_PARAM(25) + 2;
+    int i;
+    re__str in_str;
+    re__str_init(&in_str);
+    for (i = 0; i < n; i++) {
+        re_uint8 utf8_bytes[32];
+        int utf8_bytes_ptr = 0;
+        re_rune r = re_rune_rand();
+        utf8_bytes_ptr += re__compile_gen_utf8(r, utf8_bytes + utf8_bytes_ptr);
+        re__str_cat_n(&in_str, (re_char*)utf8_bytes, (re_size)utf8_bytes_ptr);
+    }
+    ASSERT(!re_init(&re, re__str_get_data(&in_str)));
+    {
+        re__ast* ast = re__ast_root_get(
+            &re.data->parse.ast_root,
+            re.data->parse.ast_root.root_ref
+        );
+        re__str_view a, b;
+        ASSERT(ast->type == RE__AST_TYPE_STR);
+        a = re__ast_root_get_str_view(&re.data->parse.ast_root, ast->_data.str_ref);
+        re__str_view_init(&b, &in_str);
+        ASSERT(re__str_view_cmp(&a, &b) == 0);
+    }
+    re_destroy(&re);
+    re__str_destroy(&in_str);
+    PASS();
+}
+
 SUITE(s_parse) {
     RUN_TEST(t_parse_empty);
     RUN_TEST(t_parse_text_end);
@@ -300,4 +382,6 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_charclass_rbracket);
     RUN_TEST(t_parse_charclass_hyphen);
     RUN_TEST(t_parse_charclass_unfinished);
+    FUZZ_TEST(t_parse_opt_fuse_rune_rune);
+    FUZZ_TEST(t_parse_opt_fuse_str_rune);
 }

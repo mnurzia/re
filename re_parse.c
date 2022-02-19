@@ -78,7 +78,66 @@ destroy_err_str:
     return RE_ERROR_PARSE;
 }
 
-#include "re_internal.h"
+#define RE__PARSE_UTF8_ACCEPT 0
+#define RE__PARSE_UTF8_REJECT 12
+
+static const re_uint8 re__parse_utf8_tt[] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,  9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,
+   7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,  7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+   8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,  2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+  10,3,3,3,3,3,3,3,3,3,3,3,3,4,3,3, 11,6,6,6,5,8,8,8,8,8,8,8,8,8,8,8,
+
+   0,12,24,36,60,96,84,12,12,12,48,72, 12,12,12,12,12,12,12,12,12,12,12,12,
+  12, 0,12,12,12,12,12, 0,12, 0,12,12, 12,24,12,12,12,12,12,24,12,24,12,12,
+  12,12,12,12,12,12,12,24,12,12,12,12, 12,24,12,12,12,12,12,12,12,24,12,12,
+  12,12,12,12,12,12,12,36,12,36,12,12, 12,36,12,12,12,12,12,36,12,36,12,12,
+  12,36,12,12,12,12,12,12,12,12,12,12, 
+};
+
+RE_INTERNAL re_uint32 re__parse_utf8_decode(re_uint32* state, re_uint32* codep, re_uint32 byte) {
+  re_uint32 type = re__parse_utf8_tt[byte];
+
+  *codep = (*state != 0) ?
+    (byte & 0x3fu) | (*codep << 6) :
+    (0xff >> type) & (byte);
+
+  *state = re__parse_utf8_tt[256 + *state + type];
+  return *state;
+}
+
+RE_INTERNAL re_error re__parse_next_char(re__parse* parse, const re_char** current_loc, const re_char* end_loc, re_rune* ch) {
+    re_uint32 codep = 0;
+    re_uint32 state = 0;
+    while (1) {
+        if (*current_loc == end_loc) {
+            if (state == RE__PARSE_UTF8_REJECT) {
+                (*current_loc)++;
+                return re__parse_error(parse, "invalid UTF-8 byte");
+            } else {
+                (*current_loc)++;
+                *ch = -1;
+                return RE_ERROR_NONE;
+            }
+        } else {
+            re_uint8 in_byte = (re_uint8)**current_loc;
+            if (!re__parse_utf8_decode(&state, &codep, in_byte)) {
+                (*current_loc)++;
+                *ch = (re_rune)codep;
+                return RE_ERROR_NONE;
+            } else if (state == RE__PARSE_UTF8_REJECT) {
+                (*current_loc)++;
+                return re__parse_error(parse, "invalid UTF-8 byte");
+            } else {
+                (*current_loc)++;
+            }
+        }
+    }
+    return RE_ERROR_NONE;
+}
 
 RE_INTERNAL int re__parse_frame_is_empty(re__parse* parse) {
     return parse->ast_prev_child_ref == RE__AST_NONE;
@@ -155,6 +214,57 @@ RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
     parse->depth_max = RE__MAX(op.depth_max, parse->depth_max);
 }
 
+RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, int* did_fuse) {
+    re__ast* prev;
+    re__ast_type t_prev, t_next;
+    re_error err = RE_ERROR_NONE;
+    RE_ASSERT(parse->ast_prev_child_ref != RE__AST_NONE);
+    prev = re__ast_root_get(&parse->ast_root, parse->ast_prev_child_ref);
+    t_prev = prev->type;
+    t_next = next->type;
+    *did_fuse = 0;
+    if (t_prev == RE__AST_TYPE_RUNE) {
+        if (t_next == RE__AST_TYPE_RUNE) {
+            /* Opportunity to fuse two runes into a string */
+            re__str new_str;
+            re__ast new_ast;
+            re_char rune_bytes[16]; /* 16 oughta be good */
+            re_int32 new_str_ref;
+            int rune_bytes_ptr = 0;
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(prev), (re_uint8*)rune_bytes + rune_bytes_ptr);
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (re_uint8*)rune_bytes + rune_bytes_ptr);
+            if ((err = re__str_init_n(&new_str, rune_bytes, (re_size)rune_bytes_ptr))) {
+                return err;
+            }
+            if ((err = re__ast_root_add_str(&parse->ast_root, new_str, &new_str_ref))) {
+                re__str_destroy(&new_str);
+                return err;
+            }
+            re__ast_init_str(&new_ast, new_str_ref);
+            re__ast_root_replace(&parse->ast_root, parse->ast_prev_child_ref, new_ast);
+            re__ast_destroy(next);
+            *did_fuse = 1;
+        }
+    } else if (t_prev == RE__AST_TYPE_STR) {
+        if (t_next == RE__AST_TYPE_RUNE) {
+            /* Opportunity to add a rune to a string */
+            re__str* old_str;
+            re_char rune_bytes[16];
+            re_int32 old_str_ref;
+            int rune_bytes_ptr = 0;
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (re_uint8*)rune_bytes + rune_bytes_ptr);
+            old_str_ref = re__ast_get_str_ref(prev);
+            old_str = re__ast_root_get_str(&parse->ast_root, old_str_ref);
+            if ((err = re__str_cat_n(old_str, rune_bytes, (re_size)rune_bytes_ptr))) {
+                return err;
+            }
+            re__ast_destroy(next);
+            *did_fuse = 1;
+        }
+    }
+    return err;
+}
+
 /* Add a new node to the end of the stack, while maintaining these invariants:
  * - Group nodes can only hold one immediate node.
  * - Alt nodes can only hold one immediate node per branch.
@@ -165,6 +275,20 @@ RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
 RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, re_int32* new_ast_ref) {
     re__ast_type frame_type = RE__AST_TYPE_NONE;
     re_error err = RE_ERROR_NONE;
+    /* Firstly, attempt an optimization by fusing the nodes, if possible. */
+    if (!re__parse_frame_is_empty(parse)) {
+        int did_fuse;
+        if ((err = re__parse_opt_fuse_concat(parse, &new_ast, &did_fuse))) {
+            return err;
+        }
+        if (did_fuse) {
+            /* We successfully fused the node, so there is no need to create
+            * a new concatenation. */
+            return err;
+        }
+    }
+    /* If we are here, then the node couldn't be optimized away and we have to
+     * push it. */
     if (parse->ast_frame_root_ref != RE__AST_NONE) {
         re__ast* frame = re__parse_get_frame(parse);
         frame_type = frame->type;
@@ -357,11 +481,11 @@ RE_INTERNAL re_error re__parse_alt(re__parse* parse) {
     }
 }
 
-/* Ingest a single character literal. */
-RE_INTERNAL re_error re__parse_char(re__parse* parse, re_char ch) {
-    re__ast new_char;
-    re__ast_init_rune(&new_char, ch);
-    return re__parse_add_new_node(parse, new_char);
+/* Ingest a single rune. */
+RE_INTERNAL re_error re__parse_rune(re__parse* parse, re_rune ch) {
+    re__ast new_rune;
+    re__ast_init_rune(&new_rune, ch);
+    return re__parse_add_new_node(parse, new_rune);
 }
 
 /* Clear number parsing state. */
@@ -770,6 +894,9 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
     const re_char* current = re__str_view_get_data(regex);
     const re_char* end = current + re__str_view_size(regex);
     re_error err = RE_ERROR_NONE;
+    /* ch will only be -1 if the if this is the last character, a.k.a.
+     * "epsilon" as all the cool kids call it */
+    re_rune ch;
     /* Set stack/previous pointers accordingly. */
     parse->ast_prev_child_ref = RE__AST_NONE;
     /* Set initial depth. */
@@ -777,12 +904,12 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
     parse->depth_max = 0;
     parse->depth_max_prev = 0; /* same as parse->depth */
     while (current <= end) {
-        /* ch will only be -1 if the if this is the last character, a.k.a.
-         * "epsilon" as all the cool kids call it */
-        re_rune ch = -1;
-        /* Otherwise ch is the character in question */
-        if (current < end) {
-            ch = *current;
+        if (parse->defer) {
+            parse->defer -= 1;
+        } else {
+            if ((err = re__parse_next_char(parse, &current, end, &ch))) {
+                goto error;
+            }
         }
         if (parse->state == RE__PARSE_STATE_GND) {
             /* Within the main body of the state machine, everything is kept 
@@ -848,7 +975,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 RE__TRY(re__parse_alt(parse));
             } else {
                 /* Push a character. */
-                RE__TRY(re__parse_char(parse, (re_char)ch));
+                RE__TRY(re__parse_rune(parse, ch));
             }
         } else if (parse->state == RE__PARSE_STATE_MAYBE_QUESTION) {
             if (RE__IS_LAST()) {
@@ -1218,7 +1345,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 parse->state = RE__PARSE_STATE_QUOTE_ESCAPE;
             } else {
                 /* Otherwise, add char */
-                re__parse_char(parse, (re_char)ch);
+                RE__TRY(re__parse_rune(parse, ch));
             }
         } else if (parse->state == RE__PARSE_STATE_QUOTE_ESCAPE) {
             /* Quote escape: \Q...\ */
@@ -1230,7 +1357,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 parse->state = RE__PARSE_STATE_GND;
             } else {
                 /* Otherwise, add escaped char */
-                re__parse_char(parse, (re_char)ch);
+                RE__TRY(re__parse_rune(parse, ch));
             }
         } else if (parse->state == RE__PARSE_STATE_COUNTING_FIRST_NUM_INITIAL) {
             /* First number in a counting expression */
@@ -1442,11 +1569,6 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
             }
         } else {
             RE__ASSERT_UNREACHED();
-        }
-        if (parse->defer) {
-            parse->defer -= 1;
-        } else {
-            current++;
         }
     }
     /* Parse state must equal ground when done. Other states must either defer
