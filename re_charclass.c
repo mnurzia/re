@@ -67,15 +67,14 @@ RE_INTERNAL re_size re__charclass_get_num_ranges(const re__charclass* charclass)
     return re__rune_range_vec_size(&charclass->ranges);
 }
 
-RE_INTERNAL const re__charclass_ascii* re__charclass_ascii_find(re__str* name) {
+RE_INTERNAL const re__charclass_ascii* re__charclass_ascii_find(re__str_view name_view) {
     re_size i;
     const re__charclass_ascii* found = RE_NULL;
     /* Search table for the matching named character class */
     for (i = 0; i < RE__CHARCLASS_ASCII_DEFAULTS_SIZE; i++) {
         const re__charclass_ascii* cur = &re__charclass_ascii_defaults[i];
-        re__str_view temp_view, name_view;
+        re__str_view temp_view;
         re__str_view_init_n(&temp_view, (re_char*)cur->name, (re_size)cur->name_size);
-        re__str_view_init(&name_view, name);
         if (re__str_view_cmp(&temp_view, &name_view) == 0) {
             found = cur;
             break;
@@ -135,7 +134,7 @@ RE_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re_
 }
 
 /* Returns RE_ERROR_INVALID if not found */
-RE_INTERNAL re_error re__charclass_init_from_string(re__charclass* charclass, re__str* name, int inverted) {
+RE_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, re__str_view name, int inverted) {
     const re__charclass_ascii* found = re__charclass_ascii_find(name);
     /* Found is NULL if we didn't find anything during the loop */
     if (found == RE_NULL) {

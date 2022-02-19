@@ -329,367 +329,353 @@ SUITE(s_charclass_init_from_class) {
     RUN_TEST(t_charclass_init_from_class_xdigit);
 }
 
-TEST(t_charclass_init_from_string_alnum) {
+TEST(t_charclass_init_from_str_alnum) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"alnum");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"alnum");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALNUM, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALNUM, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
+
     PASS();
 }
 
-TEST(t_charclass_init_from_string_alpha) {
+TEST(t_charclass_init_from_str_alpha) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"alpha");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"alpha");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALPHA, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALPHA, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_ascii) {
+TEST(t_charclass_init_from_str_ascii) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"ascii");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"ascii");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ASCII, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ASCII, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_blank) {
+TEST(t_charclass_init_from_str_blank) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"blank");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"blank");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_BLANK, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_BLANK, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_cntrl) {
+TEST(t_charclass_init_from_str_cntrl) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"cntrl");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"cntrl");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_CNTRL, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_CNTRL, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_digit) {
+TEST(t_charclass_init_from_str_digit) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"digit");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"digit");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_DIGIT, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_DIGIT, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_graph) {
+TEST(t_charclass_init_from_str_graph) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"graph");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"graph");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_GRAPH, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_GRAPH, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_lower) {
+TEST(t_charclass_init_from_str_lower) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"lower");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"lower");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_LOWER, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_LOWER, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_perl_space) {
+TEST(t_charclass_init_from_str_perl_space) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"perl_space");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"perl_space");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_print) {
+TEST(t_charclass_init_from_str_print) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"print");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"print");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PRINT, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PRINT, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_punct) {
+TEST(t_charclass_init_from_str_punct) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"punct");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"punct");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PUNCT, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PUNCT, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_space) {
+TEST(t_charclass_init_from_str_space) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"space");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"space");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_SPACE, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_SPACE, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_upper) {
+TEST(t_charclass_init_from_str_upper) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"upper");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"upper");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_UPPER, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_UPPER, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_word) {
+TEST(t_charclass_init_from_str_word) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"word");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"word");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_WORD, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_WORD, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-TEST(t_charclass_init_from_string_xdigit) {
+TEST(t_charclass_init_from_str_xdigit) {
     re__charclass out, test;
-    re__str name;
+    re__str_view name;
     re_error err = RE_ERROR_NONE;
-    re__str_init_s(&name, (const re_char*)"xdigit");
-    err = re__charclass_init_from_string(&out, &name, 0);
+    re__str_view_init_s(&name, (const re_char*)"xdigit");
+    err = re__charclass_init_from_str(&out, name, 0);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 0);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    err = re__charclass_init_from_string(&out, &name, 1);
+    err = re__charclass_init_from_str(&out, name, 1);
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 1);
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
-    re__str_destroy(&name);
     PASS();
 }
 
-SUITE(s_charclass_init_from_string) {
-    RUN_TEST(t_charclass_init_from_string_alnum);
-    RUN_TEST(t_charclass_init_from_string_alpha);
-    RUN_TEST(t_charclass_init_from_string_ascii);
-    RUN_TEST(t_charclass_init_from_string_blank);
-    RUN_TEST(t_charclass_init_from_string_cntrl);
-    RUN_TEST(t_charclass_init_from_string_digit);
-    RUN_TEST(t_charclass_init_from_string_graph);
-    RUN_TEST(t_charclass_init_from_string_lower);
-    RUN_TEST(t_charclass_init_from_string_perl_space);
-    RUN_TEST(t_charclass_init_from_string_print);
-    RUN_TEST(t_charclass_init_from_string_punct);
-    RUN_TEST(t_charclass_init_from_string_space);
-    RUN_TEST(t_charclass_init_from_string_upper);
-    RUN_TEST(t_charclass_init_from_string_word);
-    RUN_TEST(t_charclass_init_from_string_xdigit);
+SUITE(s_charclass_init_from_str) {
+    RUN_TEST(t_charclass_init_from_str_alnum);
+    RUN_TEST(t_charclass_init_from_str_alpha);
+    RUN_TEST(t_charclass_init_from_str_ascii);
+    RUN_TEST(t_charclass_init_from_str_blank);
+    RUN_TEST(t_charclass_init_from_str_cntrl);
+    RUN_TEST(t_charclass_init_from_str_digit);
+    RUN_TEST(t_charclass_init_from_str_graph);
+    RUN_TEST(t_charclass_init_from_str_lower);
+    RUN_TEST(t_charclass_init_from_str_perl_space);
+    RUN_TEST(t_charclass_init_from_str_print);
+    RUN_TEST(t_charclass_init_from_str_punct);
+    RUN_TEST(t_charclass_init_from_str_space);
+    RUN_TEST(t_charclass_init_from_str_upper);
+    RUN_TEST(t_charclass_init_from_str_word);
+    RUN_TEST(t_charclass_init_from_str_xdigit);
 }
 
 TEST(t_charclass_destroy) {
@@ -827,7 +813,7 @@ SUITE(s_charclass_builder) {
 SUITE(s_charclass) {
     RUN_TEST(t_charclass_init);
     RUN_SUITE(s_charclass_init_from_class);
-    RUN_SUITE(s_charclass_init_from_string);
+    RUN_SUITE(s_charclass_init_from_str);
     FUZZ_TEST(t_charclass_destroy);
     FUZZ_TEST(t_charclass_push);
     FUZZ_TEST(t_charclass_get_num_ranges);

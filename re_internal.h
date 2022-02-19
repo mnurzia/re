@@ -56,7 +56,7 @@ typedef enum re__charclass_ascii_type {
 
 RE_INTERNAL void re__charclass_init(re__charclass* charclass);
 RE_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re__charclass_ascii_type type, int inverted);
-RE_INTERNAL re_error re__charclass_init_from_string(re__charclass* charclass, re__str* name, int inverted);
+RE_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, re__str_view name, int inverted);
 RE_INTERNAL void re__charclass_destroy(re__charclass* charclass);
 RE_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range range);
 RE_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass);
@@ -273,7 +273,10 @@ typedef enum re__parse_state {
     RE__PARSE_STATE_CHARCLASS_LO,
     RE__PARSE_STATE_CHARCLASS_AFTER_LO,
     RE__PARSE_STATE_CHARCLASS_HI,
-    RE__PARSE_STATE_CHARCLASS_NAMED
+    RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL,
+    RE__PARSE_STATE_CHARCLASS_NAMED,
+    RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED,
+    RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON
 } re__parse_state;
 
 typedef struct re__parse_frame {

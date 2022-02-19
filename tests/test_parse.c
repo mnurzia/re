@@ -297,14 +297,167 @@ TEST(t_parse_charclass_hyphen) {
 
 TEST(t_parse_charclass_unfinished) {
     re re;
+    /* RE__PARSE_STATE_CHARCLASS_INITIAL */
     ASSERT_EQm(re_init(&re, "["), RE_ERROR_PARSE,
         "error if charclass is missing ]");
     re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_BRACKET */
     ASSERT_EQm(re_init(&re, "[["), RE_ERROR_PARSE,
         "error if charclass with open bracket is missing ]");
     re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
     ASSERT_EQm(re_init(&re, "[]"), RE_ERROR_PARSE,
         "error if charclass with close bracket is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_CARET */
+    ASSERT_EQm(re_init(&re, "[^"), RE_ERROR_PARSE,
+        "error if charclass with caret is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_ESCAPE */
+    ASSERT_EQm(re_init(&re, "[\\"), RE_ERROR_PARSE,
+        "error if charclass with escape is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_ESCAPE */
+    ASSERT_EQm(re_init(&re, "[^\\"), RE_ERROR_PARSE,
+        "error if charclass with caret and escape is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
+    ASSERT_EQm(re_init(&re, "[\\a"), RE_ERROR_PARSE,
+        "error if charclass with escape char is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
+    ASSERT_EQm(re_init(&re, "[^\\a"), RE_ERROR_PARSE,
+        "error if charclass with caret and escape is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
+    ASSERT_EQm(re_init(&re, "[a"), RE_ERROR_PARSE,
+        "error if charclass with letter is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_HI */
+    ASSERT_EQm(re_init(&re, "[a-"), RE_ERROR_PARSE,
+        "error if charclass with unfinished range is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_LO */
+    ASSERT_EQm(re_init(&re, "[a-z"), RE_ERROR_PARSE,
+        "error if charclass with range is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_LO */
+    ASSERT_EQm(re_init(&re, "[ab-z"), RE_ERROR_PARSE,
+        "error if charclass with letter and range is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
+    ASSERT_EQm(re_init(&re, "[a-yz"), RE_ERROR_PARSE,
+        "error if charclass with range and letter is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_LO */
+    ASSERT_EQm(re_init(&re, "[^ab-z"), RE_ERROR_PARSE,
+        "error if negated charclass with letter and range is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_LO */
+    ASSERT_EQm(re_init(&re, "[^a-yz"), RE_ERROR_PARSE,
+        "error if negated charclass with range and letter is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_LO */
+    ASSERT_EQm(re_init(&re, "[[:alnum:]"), RE_ERROR_PARSE,
+        "error if charclass with named charclass is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL */
+    ASSERT_EQm(re_init(&re, "[[:"), RE_ERROR_PARSE,
+        "error if empty named charclass is missing :]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED */
+    ASSERT_EQm(re_init(&re, "[[:^"), RE_ERROR_PARSE,
+        "error if named inverted charclass is missing :]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_NAMED */
+    ASSERT_EQm(re_init(&re, "[[:aa"), RE_ERROR_PARSE,
+        "error if named charclass is missing :]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_NAMED */
+    ASSERT_EQm(re_init(&re, "[[:aa:"), RE_ERROR_PARSE,
+        "error if named charclass is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_NAMED */
+    ASSERT_EQm(re_init(&re, "[[::"), RE_ERROR_PARSE,
+        "error if named charclass is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_NAMED */
+    ASSERT_EQm(re_init(&re, "[[::]"), RE_ERROR_PARSE,
+        "error if named charclass is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED */
+    ASSERT_EQm(re_init(&re, "[[:^aa:"), RE_ERROR_PARSE,
+        "error if named charclass is missing ]");
+    re_destroy(&re);
+    /* RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED */
+    ASSERT_EQm(re_init(&re, "[[:^aa"), RE_ERROR_PARSE,
+        "error if named inverted charclass is missing ]");
+    re_destroy(&re);
+    PASS();
+}
+
+TEST(t_parse_charclass_inverted) {
+    re re;
+    ASSERT(!re_init(&re, "[^a]"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        re.data->parse.ast_root,
+        "(ast "
+        "    (charclass ((rune_range 0 96) (rune_range 98 0x10FFFF))))"
+    );
+    re_destroy(&re);
+    ASSERT(!re_init(&re, "[^a-z]"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        re.data->parse.ast_root,
+        "(ast "
+        "    (charclass ((rune_range 0 96) (rune_range 123 0x10FFFF))))"
+    );
+    re_destroy(&re);
+    ASSERT(!re_init(&re, "[^a-zA-Z]"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        re.data->parse.ast_root,
+        "(ast "
+        "    (charclass ((rune_range 0 64)"
+        "                (rune_range 91 96)"
+        "                (rune_range 123 0x10FFFF))))"
+    );
+    re_destroy(&re);
+    PASS();
+}
+
+TEST(t_parse_charclass_named) {
+    re re;
+    ASSERT(!re_init(&re, "[[:alnum:]]"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        re.data->parse.ast_root,
+        "(ast "
+        "  (charclass "
+        "    ("
+        "      (rune_range 48 57)"
+        "      (rune_range 65 90)"
+        "      (rune_range 97 122)))"
+    );
+    re_destroy(&re);
+    PASS();
+}
+
+TEST(t_parse_charclass_named_inverted) {
+    re re;
+    ASSERT(!re_init(&re, "[[:^alnum:]]"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        re.data->parse.ast_root,
+        "(ast "
+        "  (charclass "
+        "    ("
+        "      (rune_range 0 47)"
+        "      (rune_range 58 64)"
+        "      (rune_range 91 96)"
+        "      (rune_range 123 0x10FFFF))"
+    );
     re_destroy(&re);
     PASS();
 }
@@ -382,6 +535,9 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_charclass_rbracket);
     RUN_TEST(t_parse_charclass_hyphen);
     RUN_TEST(t_parse_charclass_unfinished);
+    RUN_TEST(t_parse_charclass_inverted);
+    RUN_TEST(t_parse_charclass_named);
+    RUN_TEST(t_parse_charclass_named_inverted);
     FUZZ_TEST(t_parse_opt_fuse_rune_rune);
     FUZZ_TEST(t_parse_opt_fuse_str_rune);
 }

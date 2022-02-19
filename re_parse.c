@@ -878,6 +878,35 @@ RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
     re__ast_set_quantifier_greediness(quant, !re__ast_get_quantifier_greediness(quant));
 }
 
+RE_INTERNAL re_error re__parse_finish_named_class(re__parse* parse, int should_invert) {
+    re__charclass new_class;
+    re_error err = RE_ERROR_NONE;
+    re__str_view name_view;
+    re__str_view_init_n(&name_view, parse->str_begin, (re_size)(parse->str_end - parse->str_begin));
+    if ((err = re__charclass_init_from_str(&new_class, name_view, should_invert))) {
+        if (err == RE_ERROR_INVALID) {
+            return re__parse_error(parse, "invalid charclass name");
+        }
+        return err;
+    }
+    if ((err = re__charclass_builder_insert_class(&parse->charclass_builder, &new_class))) {
+        /* destroy charclass */
+        re__charclass_destroy(&new_class);
+        return err;
+    }
+    re__charclass_destroy(&new_class);
+    return err;
+}
+
+RE_INTERNAL void re__parse_str_clear(re__parse* parse, const re_char* begin) {
+    parse->str_begin = begin;
+    parse->str_end = begin;
+}
+
+RE_INTERNAL void re__parse_str_setend(re__parse* parse, const re_char* end) {
+    parse->str_end = end;
+}
+
 #define RE__IS_LAST() (ch == -1)
 /* This macro is only used within re__parse_str. */
 /* Try-except usually encourages forgetting to clean stuff up, but the 
@@ -1134,7 +1163,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
         } else if (parse->state == RE__PARSE_STATE_PARENS_FLAG_INITIAL) {
             /* Start of group flags: (? */
             if (RE__IS_LAST()) {
-                RE__TRY(re__parse_error(parse, "expected one of '-', ':', 'P', 'U', 'i', 'm', 's' for group flags or name"));
+                RE__TRY(re__parse_error(parse, "expected one of '-', ':', '<', 'P', 'U', 'i', 'm', 's' for group flags or name"));
             } else if (ch == ')') {
                 /* (?): Go back to GND without creating a group, retain flags */
                 parse->group_flags = parse->group_flags_new;
@@ -1146,11 +1175,13 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 /* (?:: Non-matching group, also signals end of flags */
                 parse->group_flags_new |= RE__AST_GROUP_FLAG_NONMATCHING;
                 parse->state = RE__PARSE_STATE_PARENS_AFTER_COLON;
-            } else if (ch == 'P') {
-                /* (?P: Start of group name */
-                parse->str_begin = current;
-                parse->str_end = current;
+            } else if (ch == '<') {
+                /* (?<: start of group name */
+                re__parse_str_clear(parse, current);
                 parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
+            } else if (ch == 'P') {
+                /* (?P: Start of group name (after <) */
+                parse->state = RE__PARSE_STATE_PARENS_AFTER_P;
             } else if (ch == 'U') {
                 /* (?U: Ungreedy mode: *+? operators have priority swapped */
                 parse->group_flags_new |= RE__AST_GROUP_FLAG_UNGREEDY;
@@ -1169,7 +1200,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
         } else if (parse->state == RE__PARSE_STATE_PARENS_FLAG_NEGATE) {
             /* Start of negated group flags: (?:..- */
             if (RE__IS_LAST()) {
-                RE__TRY(re__parse_error(parse, "expected one of ':', 'P', 'U', 'i', 'm', 's' for negated group flags or name"));
+                RE__TRY(re__parse_error(parse, "expected one of ':', '<', 'P', 'U', 'i', 'm', 's' for negated group flags or name"));
             } else if (ch == ')') {
                 /* (?): Go back to GND without creating a group, retain flags */
                 parse->group_flags = parse->group_flags_new;
@@ -1178,11 +1209,13 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 /* (?:: Non-matching group, also signals end of flags */
                 parse->group_flags_new &= ~((unsigned int)RE__AST_GROUP_FLAG_NONMATCHING);
                 parse->state = RE__PARSE_STATE_PARENS_AFTER_COLON;
+            } else if (ch == '<') {
+                /* (?<: Start of group name */
+                re__parse_str_clear(parse, current);
+                parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
             } else if (ch == 'P') {
                 /* (?P: Start of group name */
-                parse->str_begin = current;
-                parse->str_end = current;
-                parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
+                parse->state = RE__PARSE_STATE_PARENS_AFTER_P;
             } else if (ch == 'U') {
                 /* (?U: Ungreedy mode: *+? operators have priority swapped */
                 parse->group_flags_new &= ~((unsigned int)RE__AST_GROUP_FLAG_UNGREEDY);
@@ -1219,8 +1252,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 RE__TRY(re__parse_error(parse, "expected '<' to begin group name"));
             } else if (ch == '<') {
                 /* (?P<: Begin group name */
-                parse->str_begin = current+1;
-                parse->str_end = parse->str_begin;
+                re__parse_str_clear(parse, current);
                 parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
             } else {
                 RE__TRY(re__parse_error(parse, "expected '<' to begin group name"));
@@ -1234,7 +1266,6 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 RE__TRY(re__parse_error(parse, "cannot create empty group name"));
             } else {
                 /* Otherwise, add characters to the group name */
-                parse->str_end++;
                 parse->state = RE__PARSE_STATE_PARENS_NAME;
             }
         } else if (parse->state == RE__PARSE_STATE_PARENS_NAME) {
@@ -1248,7 +1279,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 RE__TRY(re__parse_group_begin(parse));
             } else {
                 /* (?P<...: Name character, append to name */
-                parse->str_end++;
+                re__parse_str_setend(parse, current);
             }
         } else if (parse->state == RE__PARSE_STATE_OCTAL_SECOND_DIGIT) {
             /* Second digit in an octal literal: \0 */
@@ -1490,7 +1521,8 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 RE__TRY(re__parse_charclass_finish(parse));
             } else if (ch == ':') {
                 /* [:: Start of ASCII charclass */
-                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED;
+                re__parse_str_clear(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL;
             } else {
                 /* Otherwise, add the bracket and the character */
                 re__parse_charclass_setlo(parse, '[');
@@ -1566,6 +1598,51 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 /* Otherwise, add a char and go to range start. */
                 RE__TRY(re__parse_charclass_addhi(parse, ch));
                 parse->state = RE__PARSE_STATE_CHARCLASS_LO;
+            }
+        } else if (parse->state == RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL) {
+            /* After colon starting named char class: [: */
+            if (RE__IS_LAST() || ch == ':' || ch == ']') {
+                RE__TRY(re__parse_error(parse, "expected a valid character class name or '^' for named character class expression '[:'"));
+            } else if (ch == '^') {
+                re__parse_str_clear(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED;
+            } else {
+                re__parse_str_setend(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED;
+            }
+        } else if (parse->state == RE__PARSE_STATE_CHARCLASS_NAMED) {
+            /* After first character in named char class name: [:. */
+            if (RE__IS_LAST()) {
+                RE__TRY(re__parse_error(parse, "expected a valid character class name for named character class expression '[:'"));
+            } else if (ch == ':') {
+                /* [:..:: Finish and move to AFTER_COLON */
+                RE__TRY(re__parse_finish_named_class(parse, 0));
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON;
+            } else {
+                re__parse_str_setend(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED;
+            }
+        } else if (parse->state == RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED) {
+            /* After first character in named inverted char class name: [:^. */
+            if (RE__IS_LAST()) {
+                RE__TRY(re__parse_error(parse, "expected a valid character class name for named character class expression '[:'"));
+            } else if (ch == ':') {
+                /* [:..:: Finish and move to AFTER_COLON */
+                RE__TRY(re__parse_finish_named_class(parse, 1));
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON;
+            } else {
+                re__parse_str_setend(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED;
+            }
+        } else if (parse->state == RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON) {
+            /* After final colon in named char class name: [:...: */
+            if (RE__IS_LAST()) {
+                RE__TRY(re__parse_error(parse, "expected a ']' to end named character class expression"));
+            } else if (ch == ']') {
+                /* [:...:]: Finish char class */
+                parse->state = RE__PARSE_STATE_CHARCLASS_LO;
+            } else {
+                RE__TRY(re__parse_error(parse, "expected a ']' to end named character class expression"));
             }
         } else {
             RE__ASSERT_UNREACHED();
