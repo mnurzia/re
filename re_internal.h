@@ -95,7 +95,7 @@ typedef enum re__ast_type {
     /* A single character. */
     RE__AST_TYPE_RUNE,
     /* A string of characters. */
-    RE__AST_TYPE_STRING,
+    RE__AST_TYPE_STR,
     /* A character class. */
     RE__AST_TYPE_CHARCLASS,
     /* A concatenation of multiple nodes. */
@@ -169,7 +169,7 @@ typedef union re__ast_data {
     /* RE__AST_TYPE_RUNE: holds a single character */
     re_rune rune;
     /* RE__AST_TYPE_STRING: holds a reference to a string. */
-    re_int32 string_ref;
+    re_int32 str_ref;
     /* RE__AST_TYPE_CLASS: holds a reference to a character class. */
     re_int32 charclass_ref;
     /* RE__AST_TYPE_GROUP: holds the group's index and flags */
@@ -191,7 +191,7 @@ struct re__ast {
 };
 
 RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
-RE_INTERNAL void re__ast_init_string(re__ast* ast, re_int32 string_ref);
+RE_INTERNAL void re__ast_init_str(re__ast* ast, re_int32 str_ref);
 RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref);
 RE_INTERNAL void re__ast_init_concat(re__ast* ast);
 RE_INTERNAL void re__ast_init_alt(re__ast* ast);
@@ -209,6 +209,7 @@ RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast);
 RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast);
 RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags);
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
+RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast);
 
 RE_REFS_DECL(re__charclass);
 RE_REFS_DECL(re__str);
@@ -225,6 +226,7 @@ RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
 RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root);
 RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref);
 RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
+RE_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, re_int32 ast_ref, re__ast replacement);
 RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref);
 RE_INTERNAL re_error re__ast_root_add_sibling(re__ast_root* ast_root, re_int32 prev_sibling_ref, re__ast ast, re_int32* out_ref);
 RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re__ast ast_outer, re_int32* out_ref);
@@ -233,7 +235,8 @@ RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__char
 RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, re_int32 charclass_ref); 
 
 RE_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, re__str str, re_int32* out_ref);
-RE_INTERNAL re__str_view re__ast_root_get_str(const re__ast_root* ast_root, re_int32 str_ref);
+RE_INTERNAL re__str* re__ast_root_get_str(re__ast_root* ast_root, re_int32 str_ref);
+RE_INTERNAL re__str_view re__ast_root_get_str_view(const re__ast_root* ast_root, re_int32 str_ref);
 
 #if RE_DEBUG
 
@@ -651,6 +654,7 @@ typedef struct re__compile {
 RE_INTERNAL void re__compile_init(re__compile* compile, re* re);
 RE_INTERNAL void re__compile_destroy(re__compile* compile);
 RE_INTERNAL re_error re__compile_regex(re__compile* compile);
+RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf);
 
 typedef re__prog_loc re__exec_thrdmin;
 
