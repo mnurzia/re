@@ -853,6 +853,14 @@ MPTEST_API void mptest__sym_make_destroy(mptest_sym_build* build_out);
         } \
     } while (0)
 
+#define SYM_PUT_STRN(build, str, str_size) \
+    do { \
+        int _sym_err; \
+        if ((_sym_err = mptest_sym_build_str(build, (str), (str_size)))) { \
+            return _sym_err; \
+        } \
+    } while (0)
+
 #define SYM_PUT_EXPR(build, new_build) \
     do { \
         int _sym_err; \
@@ -2801,7 +2809,7 @@ MPTEST_INTERNAL int mptest__sym_equals(mptest_sym* sym, mptest_sym* other, mptes
                     return 0;
                 }
                 parent_child = mptest__sym_get(sym,parent_child_ref);
-                other_child = mptest__sym_get(sym, other_child_ref);
+                other_child = mptest__sym_get(other, other_child_ref);
                 parent_child_ref = parent_child->next_sibling_ref;
                 other_child_ref = other_child->next_sibling_ref;
             }
