@@ -714,4 +714,10 @@ RE_INTERNAL void re__set_error_generic(re* re, re_error err);
 /*RE_INTERNAL re_error re__compile(re* re);*/
 RE_INTERNAL void re__prog_debug_dump(re__prog* prog);
 
+RE_VEC_DECL(re_match_span);
+
+struct re_match_data {
+    re_match_span_vec submatches;
+};
+
 #endif
