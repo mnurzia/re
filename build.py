@@ -41,6 +41,7 @@ class Project(pack_v4.Project):
             "test_helpers.c",
             "test_main.c",
             "test_parse.c",
+            "test_prog.c",
             "test_range.c"
         ]
         self.test_config = "test_config.h"

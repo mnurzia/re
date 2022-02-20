@@ -4,6 +4,7 @@
 #include "test_ast.h"
 #include "test_charclass.h"
 #include "test_parse.h"
+#include "test_prog.h"
 #include "test_range.h"
 
 int main() {
@@ -16,5 +17,6 @@ int main() {
     RUN_SUITE(s_charclass_builder);
     RUN_SUITE(s_range);
     RUN_SUITE(s_parse);
+    RUN_SUITE(s_prog_inst);
     MPTEST_MAIN_END();
 }
