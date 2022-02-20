@@ -38,7 +38,7 @@ TEST(t_parse_group) {
         re__ast_root,
         re.data->parse.ast_root,
         "(ast"
-        "   (group () (rune 'a')))",
+        "   (group \"\" () (rune 'a')))",
         "group should create a group"
     );
     re_destroy(&re);
@@ -123,6 +123,20 @@ TEST(t_parse_group_balance) {
         re_destroy(&re);
     }
     re__str_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_group_named) {
+    re re;
+    ASSERT(!re_init(&re, "(?<name>a)"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        re.data->parse.ast_root,
+        "(ast"
+        "  (group name ()"
+        "    (rune 'a')))"
+    );
+    re_destroy(&re);
     PASS();
 }
 
@@ -527,6 +541,7 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_group_unfinished);
     RUN_TEST(t_parse_group_unmatched);
     FUZZ_TEST(t_parse_group_balance);
+    RUN_TEST(t_parse_group_named);
     RUN_TEST(t_parse_star);
     RUN_TEST(t_parse_question);
     RUN_TEST(t_parse_plus);

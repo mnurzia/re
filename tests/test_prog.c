@@ -66,7 +66,6 @@ TEST(t_prog_inst_init_save) {
     PASS();
 }
 
-
 SUITE(s_prog_inst_init) {
     FUZZ_TEST(t_prog_inst_init_byte);
     FUZZ_TEST(t_prog_inst_init_byte_range);

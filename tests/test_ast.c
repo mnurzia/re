@@ -146,6 +146,8 @@ int re__ast_root_to_sym_r(sym_build* parent, re__ast_root* ast_root, re__ast* as
         SYM_PUT_STR(&build, greed);
     } else if (type == RE__AST_TYPE_GROUP) {
         re__ast_group_flags flags = re__ast_get_group_flags(ast);
+        re__str_view group_name = re__ast_root_get_group(ast_root, re__ast_get_group_idx(ast));
+        SYM_PUT_STRN(&build, re__str_view_get_data(&group_name), re__str_view_size(&group_name));
         SYM_PUT_SUB(&build, re__ast_group_flags, flags);
     } else if (type == RE__AST_TYPE_ASSERT) {
         re__ast_assert_type atype = re__ast_get_assert_type(ast);
@@ -274,7 +276,7 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         re__ast_set_quantifier_greediness(&ast, greedy);
     } else if (type == RE__AST_TYPE_GROUP) {
         re__ast_group_flags group_flags;
-        re__ast_init_group(&ast);
+        re__ast_init_group(&ast, re__ast_root_get_num_groups(ast_root) + 1);
         SYM_GET_SUB(&walk, re__ast_group_flags, &group_flags);
         re__ast_set_group_flags(&ast, group_flags);
     } else if (type == RE__AST_TYPE_ASSERT) {
@@ -383,7 +385,7 @@ TEST(t_ast_init_quantifier) {
 
 TEST(t_ast_init_group) {
     re__ast ast;
-    re__ast_init_group(&ast);
+    re__ast_init_group(&ast, 0);
     ASSERT_EQ(ast.type, RE__AST_TYPE_GROUP);
     re__ast_destroy(&ast);
     PASS();
@@ -463,7 +465,7 @@ TEST(t_ast_get_rune) {
 TEST(t_ast_group_flags) {
     re__ast ast;
     re__ast_group_flags flags = RAND_PARAM(RE__AST_GROUP_FLAG_MAX >> 1);
-    re__ast_init_group(&ast);
+    re__ast_init_group(&ast, 0);
     re__ast_set_group_flags(&ast, flags);
     ASSERT_EQ(re__ast_get_group_flags(&ast), flags);
     re__ast_destroy(&ast);

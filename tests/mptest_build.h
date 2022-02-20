@@ -2547,6 +2547,8 @@ MPTEST_INTERNAL int mptest__sym_do_parse(mptest_sym_build* build_in, const mptes
                 parse.num = ch - '0';
                 state = MPTEST__SYM_PARSE_STATE_NUM;
             } else if (ch == '"') {
+                mptest__str_destroy(&parse.atom_str);
+                mptest__str_init(&parse.atom_str);
                 state = MPTEST__SYM_PARSE_STATE_STRING;
             } else if (ch == '\'') {
                 state = MPTEST__SYM_PARSE_STATE_CHAR;
