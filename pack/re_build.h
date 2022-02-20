@@ -207,14 +207,24 @@ const char* re_get_error(re* reg, re_size* error_len);
 #define RE__ASSERT_UNREACHED() (void)(0)
 #endif
 
+#define RE__P2(a, b) a ## b
+#define RE__P3(a, b, c) a ## b ## c
+#define RE__P4(a, b, c, d) a ## b ## c ## d
+
 #define RE_VEC_TYPE(T) \
-    T ## _vec
+    RE__P2(T, _vec)
 
 #define RE_VEC_IDENT(T, name) \
-    T ## _vec_ ## name
+    RE__P3(T, _vec_, name)
 
 #define RE_VEC_IDENT_INTERNAL(T, name) \
-    T ## _vec__ ## name
+    RE__P3(T, _vec__, name)
+
+#define RE_VEC_DECL_FUNC(T, func) \
+    RE__P2(RE__VEC_DECL_, func)(T)
+
+#define RE_VEC_IMPL_FUNC(T, func) \
+    RE__P2(RE__VEC_IMPL_, func)(T)
 
 #if RE_DEBUG
 
@@ -502,13 +512,8 @@ const char* re_get_error(re* reg, re_size* error_len);
         RE__VEC_SETSIZE(T, vec, cap); \
     }
 
-#define RE_VEC_DECL_FUNC(T, func) \
-    RE__VEC_DECL_ ## func (T)
 
-#define RE_VEC_IMPL_FUNC(T, func) \
-    RE__VEC_IMPL_ ## func (T)
-
-typedef unsigned char re_char;
+typedef char re_char;
 
 typedef struct re__str {
     re_size _size_short; /* does not include \0 */
@@ -518,14 +523,14 @@ typedef struct re__str {
 
 void re__str_init(re__str* str);
 int re__str_init_s(re__str* str, const re_char* s);
-int re__str_init_n(re__str* str, re_size n, const re_char* chrs);
+int re__str_init_n(re__str* str, const re_char* chrs, re_size n);
 int re__str_init_copy(re__str* str, const re__str* in);
 void re__str_init_move(re__str* str, re__str* old);
 void re__str_destroy(re__str* str);
 re_size re__str_size(const re__str* str);
 int re__str_cat(re__str* str, const re__str* other);
 int re__str_cat_s(re__str* str, const re_char* s);
-int re__str_cat_n(re__str* str, re_size n, const re_char* chrs);
+int re__str_cat_n(re__str* str, const re_char* chrs, re_size n);
 int re__str_push(re__str* str, re_char chr);
 int re__str_insert(re__str* str, re_size index, re_char chr);
 const re_char* re__str_get_data(const re__str* str);
@@ -545,6 +550,147 @@ void re__str_view_init_null(re__str_view* view);
 re_size re__str_view_size(const re__str_view* view);
 const re_char* re__str_view_get_data(const re__str_view* view);
 int re__str_view_cmp(const re__str_view* a, const re__str_view* b);
+
+#define RE_REF_NONE -1
+
+#define RE_REFS_TYPE(T) \
+    RE__P2(T, _refs)
+
+#define RE__REFS_STORAGE_TYPE(T) \
+    RE__P2(T, __refs_storage)
+
+#define RE_REFS_IDENT(T, name) \
+    RE__P3(T, _refs_, name)
+
+#define RE_REFS_IDENT_INTERNAL(T, name) \
+    RE__P3(T, _refs__, name)
+
+#define RE_REFS_DECL_FUNC(T, func) \
+    RE__P2(RE__REFS_DECL_, func)(T)
+
+#define RE_REFS_IMPL_FUNC(T, func) \
+    RE__P2(RE__REFS_IMPL_, func)(T)
+
+#define RE_REFS_DECL(T) \
+    typedef struct RE__REFS_STORAGE_TYPE(T) { \
+        T _elem; \
+        re_int32 _next_ref; \
+        re_int32 _prev_ref; \
+    } RE__REFS_STORAGE_TYPE(T); \
+    RE_VEC_DECL(RE__REFS_STORAGE_TYPE(T)); \
+    typedef struct RE_REFS_TYPE(T) { \
+        RE_VEC_TYPE(RE__REFS_STORAGE_TYPE(T)) _vec; \
+        re_int32 _last_empty_ref; \
+        re_int32 _first_ref; \
+        re_int32 _last_ref; \
+    } RE_REFS_TYPE(T)
+
+#define RE__REFS_DECL_init(T) \
+    void RE_REFS_IDENT(T, init)(RE_REFS_TYPE(T)* refs);
+
+#define RE__REFS_IMPL_init(T) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), init) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), destroy) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), getref) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), getcref) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), push) \
+    RE_VEC_IMPL_FUNC(RE__REFS_STORAGE_TYPE(T), size) \
+    void RE_REFS_IDENT(T, init)(RE_REFS_TYPE(T)* refs) { \
+        RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), init)(&refs->_vec); \
+        refs->_last_empty_ref = RE_REF_NONE; \
+        refs->_first_ref = RE_REF_NONE; \
+        refs->_last_ref = RE_REF_NONE; \
+    }
+
+#define RE__REFS_DECL_destroy(T) \
+    void RE_REFS_IDENT(T, destroy)(RE_REFS_TYPE(T)* refs);
+
+#define RE__REFS_IMPL_destroy(T) \
+    void RE_REFS_IDENT(T, destroy)(RE_REFS_TYPE(T)* refs) { \
+        RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), destroy)(&refs->_vec); \
+    }
+
+#define RE__REFS_DECL_getref(T) \
+    T* RE_REFS_IDENT(T, getref)(RE_REFS_TYPE(T)* refs, re_int32 elem_ref);
+
+#define RE__REFS_IMPL_getref(T) \
+    T* RE_REFS_IDENT(T, getref)(RE_REFS_TYPE(T)* refs, re_int32 elem_ref) {\
+        RE_ASSERT(elem_ref != RE_REF_NONE); \
+        return &RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), getref)(&refs->_vec, (re_size)elem_ref)->_elem; \
+    }
+
+#define RE__REFS_DECL_getcref(T) \
+    const T* RE_REFS_IDENT(T, getcref)(const RE_REFS_TYPE(T)* refs, re_int32 elem_ref);
+
+#define RE__REFS_IMPL_getcref(T) \
+    const T* RE_REFS_IDENT(T, getcref)(const RE_REFS_TYPE(T)* refs, re_int32 elem_ref) {\
+        RE_ASSERT(elem_ref != RE_REF_NONE); \
+        return &RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), getcref)(&refs->_vec, (re_size)elem_ref)->_elem; \
+    }
+
+#define RE__REFS_DECL_add(T) \
+    int RE_REFS_IDENT(T, add)(RE_REFS_TYPE(T)* refs, T elem, re_int32* out_ref)
+
+#define RE__REFS_IMPL_add(T) \
+    int RE_REFS_IDENT(T, add)(RE_REFS_TYPE(T)* refs, T elem, re_int32* out_ref) { \
+        int err = 0; \
+        re_int32 empty_ref = refs->_last_empty_ref; \
+        RE__REFS_STORAGE_TYPE(T)* empty; \
+        RE__REFS_STORAGE_TYPE(T)* prev_elem_ptr; \
+        if (empty_ref != RE_REF_NONE) { \
+            empty = RE_VEC_IDENT( \
+                RE__REFS_STORAGE_TYPE(T), getref)( \
+                    &refs->_vec, (re_size)empty_ref); \
+            refs->_last_empty_ref = empty->_next_ref; \
+            *out_ref = empty_ref; \
+            empty->_elem = elem; \
+        } else { \
+            RE__REFS_STORAGE_TYPE(T) new_elem; \
+            *out_ref = (re_int32)RE_VEC_IDENT( \
+                RE__REFS_STORAGE_TYPE(T), size)(&refs->_vec); \
+            new_elem._elem = elem; \
+            if ((err = RE_VEC_IDENT( \
+                RE__REFS_STORAGE_TYPE(T), push)(&refs->_vec, new_elem))) { \
+                return err; \
+            } \
+            empty = RE_VEC_IDENT( \
+                RE__REFS_STORAGE_TYPE(T), getref)( \
+                    &refs->_vec, (re_size)(*out_ref)); \
+        } \
+        empty->_next_ref = RE_REF_NONE; \
+        empty->_prev_ref = refs->_last_ref; \
+        if (refs->_last_ref != RE_REF_NONE) { \
+            prev_elem_ptr =  \
+                RE_VEC_IDENT( \
+                    RE__REFS_STORAGE_TYPE(T), getref)( \
+                        &refs->_vec, (re_size)refs->_last_ref); \
+            prev_elem_ptr->_next_ref = *out_ref; \
+        } \
+        if (refs->_first_ref == RE_REF_NONE) { \
+            refs->_first_ref = *out_ref; \
+        } \
+        refs->_last_ref = *out_ref; \
+        return err; \
+    }
+
+#define RE__REFS_DECL_begin(T) \
+    re_int32 RE_REFS_IDENT(T, begin)(RE_REFS_TYPE(T)* refs);
+
+#define RE__REFS_IMPL_begin(T) \
+    re_int32 RE_REFS_IDENT(T, begin)(RE_REFS_TYPE(T)* refs) { \
+        return refs->_first_ref; \
+    }
+
+#define RE__REFS_DECL_next(T) \
+    re_int32 RE_REFS_IDENT(T, next)(RE_REFS_TYPE(T)* refs);
+
+#define RE__REFS_IMPL_next(T) \
+    re_int32 RE_REFS_IDENT(T, next)(RE_REFS_TYPE(T)* refs, re_int32 prev_ref) { \
+        const RE__REFS_STORAGE_TYPE(T)* elem_storage; \
+        RE_ASSERT(prev_ref != RE_REF_NONE); \
+        elem_storage = RE_VEC_IDENT(RE__REFS_STORAGE_TYPE(T), getcref)(&refs->_vec, (re_size)prev_ref); \
+        return elem_storage->_next_ref; \
+    }
 
 #define RE__MAX(a, b) (((a) < (b)) ? (b) : (a))
 
@@ -608,7 +754,7 @@ typedef enum re__charclass_ascii_type {
 
 RE_INTERNAL void re__charclass_init(re__charclass* charclass);
 RE_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re__charclass_ascii_type type, int inverted);
-RE_INTERNAL re_error re__charclass_init_from_string(re__charclass* charclass, re__str* name, int inverted);
+RE_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, re__str_view name, int inverted);
 RE_INTERNAL void re__charclass_destroy(re__charclass* charclass);
 RE_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range range);
 RE_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass);
@@ -637,22 +783,19 @@ RE_INTERNAL re_error re__charclass_builder_insert_range(re__charclass_builder* b
 RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* builder, re__charclass* charclass);
 RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass);
 
-#if RE_DEBUG
-
-RE_INTERNAL int re__charclass_builder_verify(const re__charclass_builder* builder);
-
-#endif
-
 typedef struct re__ast re__ast; 
 
 /* Enumeration of AST node types. */
 typedef enum re__ast_type {
+    RE__AST_TYPE_MIN = 0,
     /* No type. Should never occur. */
-    RE__AST_TYPE_NONE,
+    RE__AST_TYPE_NONE = 0,
     /* A single character. */
     RE__AST_TYPE_RUNE,
+    /* A string of characters. */
+    RE__AST_TYPE_STR,
     /* A character class. */
-    RE__AST_TYPE_CLASS,
+    RE__AST_TYPE_CHARCLASS,
     /* A concatenation of multiple nodes. */
     RE__AST_TYPE_CONCAT,
     /* An alteration of multiple nodes. */
@@ -693,12 +836,14 @@ typedef struct re__ast_quantifier_info {
 
 /* Assert types, as they are represented in the AST. */
 typedef enum re__ast_assert_type {
+    RE__AST_ASSERT_TYPE_MIN = 1,
     RE__AST_ASSERT_TYPE_TEXT_START = 1,
     RE__AST_ASSERT_TYPE_TEXT_END = 2,
     RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE = 4,
     RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE = 8,
     RE__AST_ASSERT_TYPE_WORD = 16,
-    RE__AST_ASSERT_TYPE_WORD_NOT = 32
+    RE__AST_ASSERT_TYPE_WORD_NOT = 32,
+    RE__AST_ASSERT_TYPE_MAX = 64
 } re__ast_assert_type;
 
 /* Group flags */
@@ -707,7 +852,8 @@ typedef enum re__ast_group_flags {
     RE__AST_GROUP_FLAG_MULTILINE = 2,
     RE__AST_GROUP_FLAG_DOT_NEWLINE = 4,
     RE__AST_GROUP_FLAG_UNGREEDY = 8,
-    RE__AST_GROUP_FLAG_NONMATCHING = 16
+    RE__AST_GROUP_FLAG_NONMATCHING = 16,
+    RE__AST_GROUP_FLAG_MAX = 32
 } re__ast_group_flags;
 
 /* Group info */
@@ -720,8 +866,10 @@ typedef struct re__ast_group_info {
 typedef union re__ast_data {
     /* RE__AST_TYPE_RUNE: holds a single character */
     re_rune rune;
-    /* RE__AST_TYPE_CLASS: holds a character class. */
-    re__charclass charclass;
+    /* RE__AST_TYPE_STRING: holds a reference to a string. */
+    re_int32 str_ref;
+    /* RE__AST_TYPE_CLASS: holds a reference to a character class. */
+    re_int32 charclass_ref;
     /* RE__AST_TYPE_GROUP: holds the group's index and flags */
     re__ast_group_info group_info;
     /* RE__AST_TYPE_QUANTIFIER: minimum/maximum/greediness */
@@ -741,7 +889,8 @@ struct re__ast {
 };
 
 RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
-RE_INTERNAL void re__ast_init_class(re__ast* ast, re__charclass charclass);
+RE_INTERNAL void re__ast_init_str(re__ast* ast, re_int32 str_ref);
+RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref);
 RE_INTERNAL void re__ast_init_concat(re__ast* ast);
 RE_INTERNAL void re__ast_init_alt(re__ast* ast);
 RE_INTERNAL void re__ast_init_quantifier(re__ast* ast, re_int32 min, re_int32 max);
@@ -758,25 +907,39 @@ RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast);
 RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast);
 RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags);
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
+RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast);
+
+RE_REFS_DECL(re__charclass);
+RE_REFS_DECL(re__str);
 
 typedef struct re__ast_root {
     re__ast_vec ast_vec;
     re_int32 last_empty_ref;
+    re_int32 root_ref;
+    re__charclass_refs charclasses;
+    re__str_refs strings;
 } re__ast_root;
 
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
 RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root);
 RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref);
-RE_INTERNAL re_error re__ast_root_add(re__ast_root* ast_root, re__ast ast, re_int32* out_ref);
 RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
-RE_INTERNAL void re__ast_root_link_siblings(re__ast_root* ast_root, re_int32 first_sibling_ref, re_int32 next_sibling_ref);
-RE_INTERNAL void re__ast_root_set_child(re__ast_root* ast_root, re_int32 root_ref, re_int32 child_ref);
-RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re_int32 outer_ref);
-RE_INTERNAL re_int32 re__ast_root_size(re__ast_root* ast_root);
+RE_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, re_int32 ast_ref, re__ast replacement);
+RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref);
+RE_INTERNAL re_error re__ast_root_add_sibling(re__ast_root* ast_root, re_int32 prev_sibling_ref, re__ast ast, re_int32* out_ref);
+RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re__ast ast_outer, re_int32* out_ref);
+
+RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, re_int32* out_charclass_ref);
+RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, re_int32 charclass_ref); 
+
+RE_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, re__str str, re_int32* out_ref);
+RE_INTERNAL re__str* re__ast_root_get_str(re__ast_root* ast_root, re_int32 str_ref);
+RE_INTERNAL re__str_view re__ast_root_get_str_view(const re__ast_root* ast_root, re_int32 str_ref);
 
 #if RE_DEBUG
 
 RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_ref, re_int32 lvl);
+RE_INTERNAL int re__ast_root_verify(re__ast_root* ast_root);
 
 #endif
 
@@ -808,7 +971,10 @@ typedef enum re__parse_state {
     RE__PARSE_STATE_CHARCLASS_LO,
     RE__PARSE_STATE_CHARCLASS_AFTER_LO,
     RE__PARSE_STATE_CHARCLASS_HI,
-    RE__PARSE_STATE_CHARCLASS_NAMED
+    RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL,
+    RE__PARSE_STATE_CHARCLASS_NAMED,
+    RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED,
+    RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON
 } re__parse_state;
 
 typedef struct re__parse_frame {
@@ -846,7 +1012,7 @@ typedef struct re__parse {
 
 RE_INTERNAL void re__parse_init(re__parse* parse, re* re);
 RE_INTERNAL void re__parse_destroy(re__parse* parse);
-RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const re_char* regex);
+RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex);
 
 typedef re_uint32 re__prog_loc;
 
@@ -1162,7 +1328,7 @@ typedef struct re__compile_charclass {
 
 void re__compile_charclass_init(re__compile_charclass* char_comp);
 void re__compile_charclass_destroy(re__compile_charclass* char_comp);
-re_error re__compile_charclass_gen(re__compile_charclass* char_comp, re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out);
+re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out);
 
 #if RE_DEBUG
 void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_idx, re_int32 indent);
@@ -1189,6 +1355,7 @@ typedef struct re__compile {
 RE_INTERNAL void re__compile_init(re__compile* compile, re* re);
 RE_INTERNAL void re__compile_destroy(re__compile* compile);
 RE_INTERNAL re_error re__compile_regex(re__compile* compile);
+RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf);
 
 typedef re__prog_loc re__exec_thrdmin;
 
@@ -1216,11 +1383,12 @@ struct re_data {
     re__prog program;
     re__compile compile;
     re__exec exec;
-    /* Note: in the case of an OOM situation, we may not be able to allocate
-     * memory for the error string. In this case, we set error_string_is_const
-     * to 1 and treat error_string specially. See re__set_error. */
-    int error_string_is_const;
+    /* Note: error_string_view always points to either a static const char* that
+     * is a compiletime constant or a dynamically-allocated const char* inside
+     * of error_string. Either way, in OOM situations, we will not allocate more
+     * memory to store an error string and default to a constant. */  
     re__str error_string;
+    re__str_view error_string_view;
 };
 
 RE_INTERNAL void re__exec_init(re__exec* exec, re* re);
@@ -1249,10 +1417,14 @@ RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune) {
     ast->_data.rune = rune;
 }
 
-/* Transfers ownership of charclass to the AST node. */
-RE_INTERNAL void re__ast_init_class(re__ast* ast, re__charclass charclass) {
-    re__ast_init(ast, RE__AST_TYPE_CLASS);
-    ast->_data.charclass = charclass;
+RE_INTERNAL void re__ast_init_str(re__ast* ast, re_int32 str_ref) {
+    re__ast_init(ast, RE__AST_TYPE_STR);
+    ast->_data.str_ref = str_ref;
+}
+
+RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref) {
+    re__ast_init(ast, RE__AST_TYPE_CHARCLASS);
+    ast->_data.charclass_ref = charclass_ref;
 }
 
 RE_INTERNAL void re__ast_init_concat(re__ast* ast) {
@@ -1292,9 +1464,7 @@ RE_INTERNAL void re__ast_init_any_byte(re__ast* ast) {
 }
 
 RE_INTERNAL void re__ast_destroy(re__ast* ast) {
-    if (ast->type == RE__AST_TYPE_CLASS) {
-        re__charclass_destroy(&ast->_data.charclass);
-    }
+    RE__UNUSED(ast);
 }
 
 RE_INTERNAL void re__ast_set_quantifier_greediness(re__ast* ast, int is_greedy) {
@@ -1322,6 +1492,11 @@ RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast) {
     return ast->_data.rune;
 }
 
+RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast) {
+    RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
+    return ast->_data.group_info.flags;
+}
+
 RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags) {
     RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
     ast->_data.group_info.flags = flags;
@@ -1332,12 +1507,55 @@ RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast) {
     return ast->_data.assert_type;
 }
 
+RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast) {
+    RE_ASSERT(ast->type == RE__AST_TYPE_STR);
+    return ast->_data.str_ref;
+}
+
+RE_REFS_IMPL_FUNC(re__charclass, init)
+RE_REFS_IMPL_FUNC(re__charclass, destroy)
+RE_REFS_IMPL_FUNC(re__charclass, getref)
+RE_REFS_IMPL_FUNC(re__charclass, getcref)
+RE_REFS_IMPL_FUNC(re__charclass, begin)
+RE_REFS_IMPL_FUNC(re__charclass, next)
+RE_REFS_IMPL_FUNC(re__charclass, add)
+
+RE_REFS_IMPL_FUNC(re__str, init)
+RE_REFS_IMPL_FUNC(re__str, destroy)
+RE_REFS_IMPL_FUNC(re__str, getref)
+RE_REFS_IMPL_FUNC(re__str, getcref)
+RE_REFS_IMPL_FUNC(re__str, begin)
+RE_REFS_IMPL_FUNC(re__str, next)
+RE_REFS_IMPL_FUNC(re__str, add)
+
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root) {
     re__ast_vec_init(&ast_root->ast_vec);
     ast_root->last_empty_ref = RE__AST_NONE;
+    ast_root->root_ref = RE__AST_NONE;
+    re__charclass_refs_init(&ast_root->charclasses);
+    re__str_refs_init(&ast_root->strings);
 }
 
 RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root) {
+    re_size i;
+    re_int32 cur_ref;
+    cur_ref = re__charclass_refs_begin(&ast_root->charclasses);
+    while (cur_ref != RE_REF_NONE) {
+        re__charclass* cur = re__charclass_refs_getref(&ast_root->charclasses, cur_ref);
+        re__charclass_destroy(cur);
+        cur_ref = re__charclass_refs_next(&ast_root->charclasses, cur_ref);
+    }
+    re__charclass_refs_destroy(&ast_root->charclasses);
+    cur_ref = re__str_refs_begin(&ast_root->strings);
+    while (cur_ref != RE_REF_NONE) {
+        re__str* cur = re__str_refs_getref(&ast_root->strings, cur_ref);
+        re__str_destroy(cur);
+        cur_ref = re__str_refs_next(&ast_root->strings, cur_ref);
+    }
+    re__str_refs_destroy(&ast_root->strings);
+    for (i = 0; i < re__ast_vec_size(&ast_root->ast_vec); i++) {
+        re__ast_destroy(re__ast_vec_getref(&ast_root->ast_vec, i));
+    }
     re__ast_vec_destroy(&ast_root->ast_vec);
 }
 
@@ -1347,7 +1565,25 @@ RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref) 
     return re__ast_vec_getref(&ast_root->ast_vec, (re_size)ast_ref);
 }
 
-RE_INTERNAL re_error re__ast_root_add(re__ast_root* ast_root, re__ast ast, re_int32* out_ref) {
+RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref) {
+    re__ast* empty = re__ast_root_get(ast_root, ast_ref);
+    empty->type = RE__AST_TYPE_NONE;
+    empty->next_sibling_ref = ast_root->last_empty_ref;
+    ast_root->last_empty_ref = ast_ref;
+}
+
+RE_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, re_int32 ast_ref, re__ast replacement) {
+    re__ast* loc = re__ast_root_get(ast_root, ast_ref);
+    RE_ASSERT(loc->next_sibling_ref == RE__AST_NONE);
+    RE_ASSERT(loc->first_child_ref == RE__AST_NONE);
+    *loc = replacement;
+}
+
+RE_INTERNAL re_int32 re__ast_root_size(re__ast_root* ast_root) {
+    return (re_int32)re__ast_vec_size(&ast_root->ast_vec);
+}
+
+RE_INTERNAL re_error re__ast_root_new(re__ast_root* ast_root, re__ast ast, re_int32* out_ref) {
     re_error err = RE_ERROR_NONE;
     re_int32 empty_ref = ast_root->last_empty_ref;
     if (empty_ref != RE__AST_NONE) {
@@ -1365,41 +1601,91 @@ RE_INTERNAL re_error re__ast_root_add(re__ast_root* ast_root, re__ast ast, re_in
     return err;
 }
 
-RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref) {
-    re__ast* empty = re__ast_root_get(ast_root, ast_ref);
-    empty->next_sibling_ref = ast_root->last_empty_ref;
-    ast_root->last_empty_ref = ast_ref;
-}
-
-RE_INTERNAL void re__ast_root_link_siblings(re__ast_root* ast_root, re_int32 first_sibling_ref, re_int32 next_sibling_ref) {
-    re__ast* first_sibling = re__ast_root_get(ast_root, first_sibling_ref);
-    re__ast* next_sibling = re__ast_root_get(ast_root, next_sibling_ref);
-    first_sibling->next_sibling_ref = next_sibling_ref;
-    next_sibling->prev_sibling_ref = first_sibling_ref;
-}
-
-RE_INTERNAL void re__ast_root_set_child(re__ast_root* ast_root, re_int32 root_ref, re_int32 child_ref) {
-    re__ast* root = re__ast_root_get(ast_root, root_ref);
-    root->first_child_ref = child_ref;
-}
-
-RE_INTERNAL void re__ast_root_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re_int32 outer_ref) {
-    re__ast* inner = re__ast_root_get(ast_root, inner_ref);
-    re__ast* outer = re__ast_root_get(ast_root, outer_ref);
-    if (inner->prev_sibling_ref != RE__AST_NONE) {
-        re__ast* inner_prev_sibling = re__ast_root_get(ast_root, inner->prev_sibling_ref);
-        inner_prev_sibling->next_sibling_ref = outer_ref;
-        outer->prev_sibling_ref = inner->prev_sibling_ref;
+RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref) {
+    re_error err = RE_ERROR_NONE;
+    if ((err = re__ast_root_new(ast_root, ast, out_ref))) {
+        return err;
+    }
+    if (parent_ref == RE__AST_NONE) {
+        /* We can only add one child to the root. */
+        RE_ASSERT(ast_root->root_ref == RE__AST_NONE);
+        /* If this is the first child, set root to it. */
+        ast_root->root_ref = *out_ref;
     } else {
         re__ast* parent = re__ast_root_get(ast_root, parent_ref);
-        parent->first_child_ref = outer_ref;
+        parent->first_child_ref = *out_ref;
+    }
+    return err;
+}
+
+RE_INTERNAL re_error re__ast_root_add_sibling(re__ast_root* ast_root, re_int32 prev_sibling_ref, re__ast ast, re_int32* out_ref) {
+    re_error err = RE_ERROR_NONE;
+    if ((err = re__ast_root_new(ast_root, ast, out_ref))) {
+        return err;
+    }
+    RE_ASSERT(prev_sibling_ref != RE__AST_NONE);
+    {
+        re__ast* prev = re__ast_root_get(ast_root, prev_sibling_ref);
+        re__ast* out = re__ast_root_get(ast_root, *out_ref);
+        prev->next_sibling_ref = *out_ref;
+        out->prev_sibling_ref = prev_sibling_ref;
+    }
+    return err;
+}
+
+RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re__ast ast_outer, re_int32* out_ref){
+    re_error err = RE_ERROR_NONE;
+    re__ast *inner;
+    re__ast *outer;
+    if ((err = re__ast_root_new(ast_root, ast_outer, out_ref))) {
+        return err;
+    }
+    /* If parent is root, then we *must* be wrapping root. */
+    if (parent_ref == RE__AST_NONE) {
+        RE_ASSERT(inner_ref == ast_root->root_ref);
+        ast_root->root_ref = *out_ref;
+    }
+    inner = re__ast_root_get(ast_root, inner_ref);
+    outer = re__ast_root_get(ast_root, *out_ref);
+    if (inner->prev_sibling_ref != RE__AST_NONE) {
+        re__ast* inner_prev_sibling = re__ast_root_get(ast_root, inner->prev_sibling_ref);
+        inner_prev_sibling->next_sibling_ref = *out_ref;
+        outer->prev_sibling_ref = inner->prev_sibling_ref;
+    } else {
+        if (parent_ref != RE__AST_NONE) {
+            re__ast* parent = re__ast_root_get(ast_root, parent_ref);
+            if (parent->first_child_ref == inner_ref) {
+                /* Parent used to point to inner as child */
+                parent->first_child_ref = *out_ref;
+            }
+        }
     }
     inner->prev_sibling_ref = RE__AST_NONE;
     outer->first_child_ref = inner_ref;
+    return err;
 }
 
-RE_INTERNAL re_int32 re__ast_root_size(re__ast_root* ast_root) {
-    return (re_int32)re__ast_vec_size(&ast_root->ast_vec);
+RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, re_int32* out_ref) {
+    return re__charclass_refs_add(&ast_root->charclasses, charclass, out_ref);
+}
+
+RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, re_int32 charclass_ref) {
+    return re__charclass_refs_getcref(&ast_root->charclasses, charclass_ref);
+}
+
+RE_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, re__str str, re_int32* out_ref) {
+    return re__str_refs_add(&ast_root->strings, str, out_ref);
+}
+
+RE_INTERNAL re__str* re__ast_root_get_str(re__ast_root* ast_root, re_int32 str_ref) {
+    return re__str_refs_getref(&ast_root->strings, str_ref);
+}
+
+RE_INTERNAL re__str_view re__ast_root_get_str_view(const re__ast_root* ast_root, re_int32 str_ref) {
+    re__str_view out;
+    const re__str* src = re__str_refs_getcref(&ast_root->strings, str_ref);
+    re__str_view_init(&out, src);
+    return out;
 }
 
 #if RE_DEBUG
@@ -1511,10 +1797,18 @@ RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_r
             case RE__AST_TYPE_RUNE:
                 printf("CHAR: ord=%X ('%c')", ast->_data.rune, ast->_data.rune);
                 break;
-            case RE__AST_TYPE_CLASS:
-                printf("CLASS:\n");
-                re__charclass_dump(&ast->_data.charclass, (re_size)(lvl+1));
+            case RE__AST_TYPE_STR: {
+                re__str_view str_view = re__ast_root_get_str_view(ast_root, ast->_data.str_ref);
+                printf("STR: \"%s\"", re__str_view_get_data(&str_view));
                 break;
+            }
+            case RE__AST_TYPE_CHARCLASS: {
+                const re__charclass* charclass;
+                printf("CLASS:\n");
+                re__charclass_refs_getcref(&ast_root->charclasses, ast->_data.charclass_ref);
+                re__charclass_dump(charclass, (re_size)(lvl+1));
+                break;
+            }
             case RE__AST_TYPE_CONCAT:
                 printf("CONCAT");
                 break;
@@ -1554,6 +1848,79 @@ RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_r
         re__ast_root_debug_dump(ast_root, ast->first_child_ref, lvl + 1);
         root_ref = ast->next_sibling_ref;
     }
+}
+
+RE_VEC_DECL(re_int32);
+RE_VEC_IMPL_FUNC(re_int32, init)
+RE_VEC_IMPL_FUNC(re_int32, destroy)
+RE_VEC_IMPL_FUNC(re_int32, push)
+RE_VEC_IMPL_FUNC(re_int32, size)
+RE_VEC_IMPL_FUNC(re_int32, get)
+
+RE_INTERNAL int re__ast_root_verify(re__ast_root* ast_root) {
+    re_int32_vec removed_list;
+    re_int32_vec_init(&removed_list);
+    if (ast_root->last_empty_ref != RE__AST_NONE) {
+        re_int32 empty_ref = ast_root->last_empty_ref;
+        while (1) {
+            if (empty_ref == RE__AST_NONE) {
+                break;
+            }
+            if (empty_ref >= re__ast_root_size(ast_root)) {
+                /* empty refs can't exceed size */
+                return 0;
+            }
+            {
+                re_size i;
+                /* no cycles in empty list */
+                for (i = 0; i < re_int32_vec_size(&removed_list); i++) {
+                    if (re_int32_vec_get(&removed_list, i) == empty_ref) {
+                        return 0;
+                    }
+                }
+            }
+            {
+                re__ast* empty = re__ast_root_get(ast_root,empty_ref);
+                re_int32_vec_push(&removed_list, empty_ref);
+                empty_ref = empty->next_sibling_ref;
+            }
+        }
+    }
+    {
+        re_int32 i = 0;
+        for (i = 0; i < re__ast_root_size(ast_root); i++) {
+            re_size j;
+            /* don't loop over empty nodes */
+            for (j = 0; j < re_int32_vec_size(&removed_list); j++) {
+                if (re_int32_vec_get(&removed_list, j) == i) {
+                    goto cont;
+                }
+            }
+            {
+                re__ast* ast = re__ast_root_get(ast_root, i);
+                re_int32 to_check[3];
+                re_int32 k;
+                to_check[0] = ast->prev_sibling_ref;
+                to_check[1] = ast->next_sibling_ref;
+                to_check[2] = ast->first_child_ref;
+                for (k = 0; k < 3; k++) {
+                    re_int32 candidate = to_check[k];
+                    for (j = 0; j < re_int32_vec_size(&removed_list); j++) {
+                        if (re_int32_vec_get(&removed_list, j) == candidate) {
+                            /* node points to a removed node */
+                            return 0;
+                        }
+                    }
+                }
+            }
+            if (0) {
+cont:
+                continue;
+            }
+        }
+    }
+    re_int32_vec_destroy(&removed_list);
+    return 1;
 }
 
 #endif /* #if RE_DEBUG */
@@ -1626,16 +1993,15 @@ RE_INTERNAL re_size re__charclass_get_num_ranges(const re__charclass* charclass)
     return re__rune_range_vec_size(&charclass->ranges);
 }
 
-RE_INTERNAL const re__charclass_ascii* re__charclass_ascii_find(re__str* name) {
+RE_INTERNAL const re__charclass_ascii* re__charclass_ascii_find(re__str_view name_view) {
     re_size i;
     const re__charclass_ascii* found = RE_NULL;
     /* Search table for the matching named character class */
     for (i = 0; i < RE__CHARCLASS_ASCII_DEFAULTS_SIZE; i++) {
         const re__charclass_ascii* cur = &re__charclass_ascii_defaults[i];
-        re__str temp;
-        /* const string: no need to free */
-        re__str_init_const_s(&temp, cur->name_size, (re_char*)cur->name);
-        if (re__str_cmp(&temp, name) == 0) {
+        re__str_view temp_view;
+        re__str_view_init_n(&temp_view, (re_char*)cur->name, (re_size)cur->name_size);
+        if (re__str_view_cmp(&temp_view, &name_view) == 0) {
             found = cur;
             break;
         }
@@ -1694,7 +2060,7 @@ RE_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re_
 }
 
 /* Returns RE_ERROR_INVALID if not found */
-RE_INTERNAL re_error re__charclass_init_from_string(re__charclass* charclass, re__str* name, int inverted) {
+RE_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, re__str_view name, int inverted) {
     const re__charclass_ascii* found = re__charclass_ascii_find(name);
     /* Found is NULL if we didn't find anything during the loop */
     if (found == RE_NULL) {
@@ -1774,25 +2140,6 @@ RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* b
     }
     return err;
 }
-
-#if RE_DEBUG
-
-RE_INTERNAL int re__charclass_builder_verify(const re__charclass_builder* builder) {
-    re_size i;
-    re__rune_range last;
-    last.min = -1;
-    last.max = -1;
-    for (i = 0; i < re__rune_range_vec_size(&builder->ranges); i++) {
-        re__rune_range rr = re__rune_range_vec_get_data(&builder->ranges)[i];
-        if (rr.min <= last.min) {
-            return 0;
-        }
-        last = rr;
-    }
-    return 1;
-}
-
-#endif /* #if RE_DEBUG */
 
 RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass) {
     re_error err = RE_ERROR_NONE;
@@ -2149,8 +2496,7 @@ RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf) {
         return 4;
 	} else {
         RE__ASSERT_UNREACHED();
-        /* fall back to white square */
-		return re__compile_gen_utf8(0x25A1, out_buf);
+        return 0;
 	}
 }
 
@@ -2217,12 +2563,14 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
                 }
             }
             next_child = 1;
-        } else if (top_node_type == RE__AST_TYPE_CLASS) {
+        } else if (top_node_type == RE__AST_TYPE_CHARCLASS) {
             /* Generates a character class, which is a complex series of Byte
              * and Split instructions. */
+            const re__charclass* charclass = re__ast_root_get_charclass(ast_root,
+                top_node->_data.charclass_ref);
             if ((err = re__compile_charclass_gen(
                 &compile->char_comp, 
-                &top_node->_data.charclass, 
+                charclass,
                 prog, &top_frame.patches))) {
                 goto error;
             }
@@ -2509,9 +2857,13 @@ error:
     compile->frames = NULL;
     if (err == RE__ERROR_PROGMAX) {
         re__str err_str;
-        RE__STR_INIT_CONST(&err_str, "compiled program length exceeds maximum of " RE__STRINGIFY(RE__PROG_SIZE_MAX) " instructions");
+        if ((err = re__str_init_s(&err_str, "compiled program length exceeds maximum of " RE__STRINGIFY(RE__PROG_SIZE_MAX) " instructions"))) {
+            re__set_error_generic(compile->re, err);
+            return err;
+        }
         re__set_error_str(compile->re, &err_str);
         err = RE_ERROR_COMPILE;
+        re__str_destroy(&err_str);
     }
     if (err == RE_ERROR_COMPILE) {
         RE_ASSERT(re__str_size(&compile->re->data->error_string));
@@ -3303,7 +3655,7 @@ re_error re__compile_charclass_generate_prog(re__compile_charclass* char_comp, r
 }
 
 /* Compile a single character class. */
-re_error re__compile_charclass_gen(re__compile_charclass* char_comp, re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out) {
+re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out) {
     re_error err = RE_ERROR_NONE;
     re_size i;
     const re__rune_range* ranges = re__charclass_get_ranges(charclass);
@@ -3687,7 +4039,7 @@ RE_INTERNAL re_error re__parse_error_invalid_escape(re__parse* parse, re_rune es
     if ((err = re__str_init_s(&err_str, (const re_char*)"invalid escape sequence '\\"))) {
         goto destroy_err_str;
     }
-    if ((err = re__str_cat_n(&err_str, 2, esc_ch))) {
+    if ((err = re__str_cat_n(&err_str, esc_ch, 2))) {
         goto destroy_err_str;
     }
 
@@ -3697,6 +4049,66 @@ destroy_err_str:
     return RE_ERROR_PARSE;
 }
 
+#define RE__PARSE_UTF8_ACCEPT 0
+#define RE__PARSE_UTF8_REJECT 12
+
+static const re_uint8 re__parse_utf8_tt[] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,  9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,
+   7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,  7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+   8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,  2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+  10,3,3,3,3,3,3,3,3,3,3,3,3,4,3,3, 11,6,6,6,5,8,8,8,8,8,8,8,8,8,8,8,
+
+   0,12,24,36,60,96,84,12,12,12,48,72, 12,12,12,12,12,12,12,12,12,12,12,12,
+  12, 0,12,12,12,12,12, 0,12, 0,12,12, 12,24,12,12,12,12,12,24,12,24,12,12,
+  12,12,12,12,12,12,12,24,12,12,12,12, 12,24,12,12,12,12,12,12,12,24,12,12,
+  12,12,12,12,12,12,12,36,12,36,12,12, 12,36,12,12,12,12,12,36,12,36,12,12,
+  12,36,12,12,12,12,12,12,12,12,12,12, 
+};
+
+RE_INTERNAL re_uint32 re__parse_utf8_decode(re_uint32* state, re_uint32* codep, re_uint32 byte) {
+  re_uint32 type = re__parse_utf8_tt[byte];
+
+  *codep = (*state != 0) ?
+    (byte & 0x3fu) | (*codep << 6) :
+    (0xff >> type) & (byte);
+
+  *state = re__parse_utf8_tt[256 + *state + type];
+  return *state;
+}
+
+RE_INTERNAL re_error re__parse_next_char(re__parse* parse, const re_char** current_loc, const re_char* end_loc, re_rune* ch) {
+    re_uint32 codep = 0;
+    re_uint32 state = 0;
+    while (1) {
+        if (*current_loc == end_loc) {
+            if (state == RE__PARSE_UTF8_REJECT) {
+                (*current_loc)++;
+                return re__parse_error(parse, "invalid UTF-8 byte");
+            } else {
+                (*current_loc)++;
+                *ch = -1;
+                return RE_ERROR_NONE;
+            }
+        } else {
+            re_uint8 in_byte = (re_uint8)**current_loc;
+            if (!re__parse_utf8_decode(&state, &codep, in_byte)) {
+                (*current_loc)++;
+                *ch = (re_rune)codep;
+                return RE_ERROR_NONE;
+            } else if (state == RE__PARSE_UTF8_REJECT) {
+                (*current_loc)++;
+                return re__parse_error(parse, "invalid UTF-8 byte");
+            } else {
+                (*current_loc)++;
+            }
+        }
+    }
+    return RE_ERROR_NONE;
+}
 
 RE_INTERNAL int re__parse_frame_is_empty(re__parse* parse) {
     return parse->ast_prev_child_ref == RE__AST_NONE;
@@ -3709,13 +4121,14 @@ RE_INTERNAL re__ast* re__parse_get_frame(re__parse* parse) {
 RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32* new_ast_ref) {
     re_error err = RE_ERROR_NONE;
     int was_empty = re__parse_frame_is_empty(parse);
-    if ((err = re__ast_root_add(&parse->ast_root, ast, new_ast_ref))) {
-        return err;
-    }
     if (was_empty) {
-        re__ast_root_set_child(&parse->ast_root, parse->ast_frame_root_ref, *new_ast_ref);
+        if ((err = re__ast_root_add_child(&parse->ast_root, parse->ast_frame_root_ref, ast, new_ast_ref))) {
+            return err;
+        }
     } else {
-        re__ast_root_link_siblings(&parse->ast_root, parse->ast_prev_child_ref, *new_ast_ref);
+        if ((err = re__ast_root_add_sibling(&parse->ast_root, parse->ast_prev_child_ref, ast, new_ast_ref))) {
+            return err;
+        }
     }
     if (!was_empty) {
         /* Empty frame: increment stk_ptr, leaving prev_child_ptr untouched */
@@ -3734,15 +4147,12 @@ RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32
  * new node's parent. */
 RE_INTERNAL re_error re__parse_link_wrap_node(re__parse* parse, re__ast outer, re_int32* new_outer) {
     re_error err = RE_ERROR_NONE;
-    re_int32 new_ref;
-    if ((err = re__ast_root_add(&parse->ast_root, outer, &new_ref))) {
+    if ((err = re__ast_root_add_wrap(&parse->ast_root, parse->ast_frame_root_ref, parse->ast_prev_child_ref, outer, new_outer))) {
         return err;
     }
-    re__ast_root_wrap(&parse->ast_root, parse->ast_frame_root_ref, parse->ast_prev_child_ref, new_ref);
-    *new_outer = new_ref;
     parse->depth_max_prev += 1;
     parse->depth_max = RE__MAX(parse->depth_max_prev, parse->depth_max);
-    parse->ast_prev_child_ref = new_ref;
+    parse->ast_prev_child_ref = *new_outer;
     return err;
 }
 
@@ -3775,6 +4185,57 @@ RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
     parse->depth_max = RE__MAX(op.depth_max, parse->depth_max);
 }
 
+RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, int* did_fuse) {
+    re__ast* prev;
+    re__ast_type t_prev, t_next;
+    re_error err = RE_ERROR_NONE;
+    RE_ASSERT(parse->ast_prev_child_ref != RE__AST_NONE);
+    prev = re__ast_root_get(&parse->ast_root, parse->ast_prev_child_ref);
+    t_prev = prev->type;
+    t_next = next->type;
+    *did_fuse = 0;
+    if (t_prev == RE__AST_TYPE_RUNE) {
+        if (t_next == RE__AST_TYPE_RUNE) {
+            /* Opportunity to fuse two runes into a string */
+            re__str new_str;
+            re__ast new_ast;
+            re_char rune_bytes[16]; /* 16 oughta be good */
+            re_int32 new_str_ref;
+            int rune_bytes_ptr = 0;
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(prev), (re_uint8*)rune_bytes + rune_bytes_ptr);
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (re_uint8*)rune_bytes + rune_bytes_ptr);
+            if ((err = re__str_init_n(&new_str, rune_bytes, (re_size)rune_bytes_ptr))) {
+                return err;
+            }
+            if ((err = re__ast_root_add_str(&parse->ast_root, new_str, &new_str_ref))) {
+                re__str_destroy(&new_str);
+                return err;
+            }
+            re__ast_init_str(&new_ast, new_str_ref);
+            re__ast_root_replace(&parse->ast_root, parse->ast_prev_child_ref, new_ast);
+            re__ast_destroy(next);
+            *did_fuse = 1;
+        }
+    } else if (t_prev == RE__AST_TYPE_STR) {
+        if (t_next == RE__AST_TYPE_RUNE) {
+            /* Opportunity to add a rune to a string */
+            re__str* old_str;
+            re_char rune_bytes[16];
+            re_int32 old_str_ref;
+            int rune_bytes_ptr = 0;
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (re_uint8*)rune_bytes + rune_bytes_ptr);
+            old_str_ref = re__ast_get_str_ref(prev);
+            old_str = re__ast_root_get_str(&parse->ast_root, old_str_ref);
+            if ((err = re__str_cat_n(old_str, rune_bytes, (re_size)rune_bytes_ptr))) {
+                return err;
+            }
+            re__ast_destroy(next);
+            *did_fuse = 1;
+        }
+    }
+    return err;
+}
+
 /* Add a new node to the end of the stack, while maintaining these invariants:
  * - Group nodes can only hold one immediate node.
  * - Alt nodes can only hold one immediate node per branch.
@@ -3783,12 +4244,31 @@ RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
  * To maintain these, when we have to add a second child to an alt/group node, 
  * we convert it into a concatenation of the first and second children. */
 RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, re_int32* new_ast_ref) {
-    re__ast* frame = re__parse_get_frame(parse);
-    re__ast_type frame_type = frame->type;
+    re__ast_type frame_type = RE__AST_TYPE_NONE;
     re_error err = RE_ERROR_NONE;
+    /* Firstly, attempt an optimization by fusing the nodes, if possible. */
+    if (!re__parse_frame_is_empty(parse)) {
+        int did_fuse;
+        if ((err = re__parse_opt_fuse_concat(parse, &new_ast, &did_fuse))) {
+            return err;
+        }
+        if (did_fuse) {
+            /* We successfully fused the node, so there is no need to create
+            * a new concatenation. */
+            return err;
+        }
+    }
+    /* If we are here, then the node couldn't be optimized away and we have to
+     * push it. */
+    if (parse->ast_frame_root_ref != RE__AST_NONE) {
+        re__ast* frame = re__parse_get_frame(parse);
+        frame_type = frame->type;
+    }
     /* Weird control flow -- it's the only way I figured out how to do the
      * assertion below. */
-    if (frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT) {
+    if (frame_type == RE__AST_TYPE_NONE) {
+        /* Nothing in root */
+    } else if (frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT) {
         if (re__parse_frame_is_empty(parse)) {
             /* Push node, fallthrough */
         } else {
@@ -3835,9 +4315,15 @@ RE_INTERNAL re_error re__parse_finish(re__parse* parse) {
     re_error err = RE_ERROR_NONE;
     /* Pop frames until frame_ptr == 0. */
     while (1) {
-        re__ast* frame = re__parse_get_frame(parse);
-        re__ast_type peek_type = frame->type;
-        if (parse->ast_frame_root_ref == 0) {
+        re__ast* frame;
+        re__ast_type peek_type;
+        if (!re__parse_frame_vec_size(&parse->frames)) {
+            break;
+        } else {
+            frame = re__parse_get_frame(parse);
+            peek_type = frame->type;
+        }
+        if (parse->ast_frame_root_ref == -1) {
             /* We have hit the base frame successfully. */
             /* Since the base frame is a group, if we continue the loop we will
              * run into an error. */
@@ -3898,13 +4384,14 @@ RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
 /* End a group. Pop operators until we get a group node. */
 RE_INTERNAL re_error re__parse_group_end(re__parse* parse) {
     while (1) {
-        /* Check the type of the current frame */
-        re__ast_type peek_type = re__parse_get_frame(parse)->type;
+        re__ast_type peek_type;
         /* If we are at the absolute bottom of the stack, there was no opening
          * parentheses to begin with. */
-        if (parse->ast_frame_root_ref == 0) {
+        if (!re__parse_frame_vec_size(&parse->frames)) {
             return re__parse_error(parse, "unmatched ')'");
         }
+        /* Check the type of the current frame */
+        peek_type = re__parse_get_frame(parse)->type;
         /* Now pop the current frame */
         re__parse_frame_pop(parse);
         /* If we just popped a group, finish */
@@ -3965,11 +4452,11 @@ RE_INTERNAL re_error re__parse_alt(re__parse* parse) {
     }
 }
 
-/* Ingest a single character literal. */
-RE_INTERNAL re_error re__parse_char(re__parse* parse, re_char ch) {
-    re__ast new_char;
-    re__ast_init_rune(&new_char, ch);
-    return re__parse_add_new_node(parse, new_char);
+/* Ingest a single rune. */
+RE_INTERNAL re_error re__parse_rune(re__parse* parse, re_rune ch) {
+    re__ast new_rune;
+    re__ast_init_rune(&new_rune, ch);
+    return re__parse_add_new_node(parse, new_rune);
 }
 
 /* Clear number parsing state. */
@@ -4132,7 +4619,7 @@ RE_INTERNAL re_error re__parse_disallow_escape_in_charclass(re__parse* parse, re
         if ((err = re__str_init_s(&err_str, (const re_char*)"cannot use escape sequence '\\"))) {
             goto destroy_err_str;
         }
-        if ((err = re__str_cat_n(&err_str, 1, &esc_ch))) {
+        if ((err = re__str_cat_n(&err_str, &esc_ch, 1))) {
             goto destroy_err_str;
         }
         if ((err = re__str_cat_s(&err_str, (const re_char*)"' from within character class (\"[]\")"))) {
@@ -4208,10 +4695,15 @@ RE_INTERNAL re_error re__parse_charclass_finish(re__parse* parse) {
     re__ast new_node;
     re__charclass new_charclass;
     re_error err = RE_ERROR_NONE;
+    re_int32 new_charclass_ref;
     if ((err = re__charclass_builder_finish(&parse->charclass_builder, &new_charclass))) {
         return err;
     }
-    re__ast_init_class(&new_node, new_charclass);
+    if ((err = re__ast_root_add_charclass(&parse->ast_root, new_charclass, &new_charclass_ref))) {
+        re__charclass_destroy(&new_charclass);
+        return err;
+    }
+    re__ast_init_charclass(&new_node, new_charclass_ref);
     if ((err = re__parse_add_new_node(parse, new_node))) {
         return err;
     }
@@ -4263,7 +4755,12 @@ RE_INTERNAL re_error re__parse_finish_escape_class(re__parse* parse, re__charcla
     if (top_state == RE__PARSE_STATE_GND) {
         /* Wrap it in an AST node */
         re__ast new_node;
-        re__ast_init_class(&new_node, new_class);
+        re_int32 new_class_ref;
+        if ((err = re__ast_root_add_charclass(&parse->ast_root, new_class, &new_class_ref))) {
+            re__charclass_destroy(&new_class);
+            return err;
+        }
+        re__ast_init_charclass(&new_node, new_class_ref);
         /* new_node now owns new_class */
         if ((err = re__parse_add_new_node(parse, new_node))) {
             re__charclass_destroy(&new_class);
@@ -4352,8 +4849,37 @@ RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
     re__ast_set_quantifier_greediness(quant, !re__ast_get_quantifier_greediness(quant));
 }
 
+RE_INTERNAL re_error re__parse_finish_named_class(re__parse* parse, int should_invert) {
+    re__charclass new_class;
+    re_error err = RE_ERROR_NONE;
+    re__str_view name_view;
+    re__str_view_init_n(&name_view, parse->str_begin, (re_size)(parse->str_end - parse->str_begin));
+    if ((err = re__charclass_init_from_str(&new_class, name_view, should_invert))) {
+        if (err == RE_ERROR_INVALID) {
+            return re__parse_error(parse, "invalid charclass name");
+        }
+        return err;
+    }
+    if ((err = re__charclass_builder_insert_class(&parse->charclass_builder, &new_class))) {
+        /* destroy charclass */
+        re__charclass_destroy(&new_class);
+        return err;
+    }
+    re__charclass_destroy(&new_class);
+    return err;
+}
+
+RE_INTERNAL void re__parse_str_clear(re__parse* parse, const re_char* begin) {
+    parse->str_begin = begin;
+    parse->str_end = begin;
+}
+
+RE_INTERNAL void re__parse_str_setend(re__parse* parse, const re_char* end) {
+    parse->str_end = end;
+}
+
 #define RE__IS_LAST() (ch == -1)
-/* This macro is only used within re__parse_regex. */
+/* This macro is only used within re__parse_str. */
 /* Try-except usually encourages forgetting to clean stuff up, but the 
  * constraints on code within this function allow us to always use this macro 
  * safely. */
@@ -4363,36 +4889,27 @@ RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
         goto error; \
     }
 
-RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const re_char* regex) {
+RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) {
     /*const re_char* start = regex;*/
-    const re_char* end = regex + regex_size;
+    const re_char* current = re__str_view_get_data(regex);
+    const re_char* end = current + re__str_view_size(regex);
     re_error err = RE_ERROR_NONE;
-    re__ast new_group;
-    re_int32 new_group_ref;
-    /* Start by pushing the initial GROUP node. */
-    re__ast_init_group(&new_group);
-    if ((err = re__ast_root_add(&parse->ast_root, new_group, &new_group_ref))) {
-        return err;
-    }
+    /* ch will only be -1 if the if this is the last character, a.k.a.
+     * "epsilon" as all the cool kids call it */
+    re_rune ch;
     /* Set stack/previous pointers accordingly. */
     parse->ast_prev_child_ref = RE__AST_NONE;
     /* Set initial depth. */
-    parse->depth = 1; /* 1 because of initial group */
-    parse->depth_max = 1;
-    parse->depth_max_prev = 1; /* same as parse->depth */
-    /* Push the base op (group) */
-    if ((err = re__parse_frame_push(parse))) {
-        return err;
-    }
-    /* Set the frame pointer to the group node. */
-    parse->ast_frame_root_ref = new_group_ref;
-    while (regex <= end) {
-        /* ch will only be -1 if the if this is the last character, a.k.a.
-         * "epsilon" as all the cool kids call it */
-        re_rune ch = -1;
-        /* Otherwise ch is the character in question */
-        if (regex < end) {
-            ch = *regex;
+    parse->depth = 0; /* 1 because of initial group */
+    parse->depth_max = 0;
+    parse->depth_max_prev = 0; /* same as parse->depth */
+    while (current <= end) {
+        if (parse->defer) {
+            parse->defer -= 1;
+        } else {
+            if ((err = re__parse_next_char(parse, &current, end, &ch))) {
+                goto error;
+            }
         }
         if (parse->state == RE__PARSE_STATE_GND) {
             /* Within the main body of the state machine, everything is kept 
@@ -4458,7 +4975,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_alt(parse));
             } else {
                 /* Push a character. */
-                RE__TRY(re__parse_char(parse, (re_char)ch));
+                RE__TRY(re__parse_rune(parse, ch));
             }
         } else if (parse->state == RE__PARSE_STATE_MAYBE_QUESTION) {
             if (RE__IS_LAST()) {
@@ -4604,8 +5121,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
         } else if (parse->state == RE__PARSE_STATE_PARENS_INITIAL) {
             /* Start of group: ( */
             if (RE__IS_LAST()) {
-                re__parse_defer(parse);
-                parse->state = RE__PARSE_STATE_GND;
+                RE__TRY(re__parse_error(parse, "unmatched '('"));
             } else if (ch == '?') {
                 /* (?: Start of group flags/name */
                 parse->state = RE__PARSE_STATE_PARENS_FLAG_INITIAL;
@@ -4618,7 +5134,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
         } else if (parse->state == RE__PARSE_STATE_PARENS_FLAG_INITIAL) {
             /* Start of group flags: (? */
             if (RE__IS_LAST()) {
-                RE__TRY(re__parse_error(parse, "expected one of '-', ':', 'P', 'U', 'i', 'm', 's' for group flags or name"));
+                RE__TRY(re__parse_error(parse, "expected one of '-', ':', '<', 'P', 'U', 'i', 'm', 's' for group flags or name"));
             } else if (ch == ')') {
                 /* (?): Go back to GND without creating a group, retain flags */
                 parse->group_flags = parse->group_flags_new;
@@ -4630,11 +5146,13 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 /* (?:: Non-matching group, also signals end of flags */
                 parse->group_flags_new |= RE__AST_GROUP_FLAG_NONMATCHING;
                 parse->state = RE__PARSE_STATE_PARENS_AFTER_COLON;
-            } else if (ch == 'P') {
-                /* (?P: Start of group name */
-                parse->str_begin = regex;
-                parse->str_end = regex;
+            } else if (ch == '<') {
+                /* (?<: start of group name */
+                re__parse_str_clear(parse, current);
                 parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
+            } else if (ch == 'P') {
+                /* (?P: Start of group name (after <) */
+                parse->state = RE__PARSE_STATE_PARENS_AFTER_P;
             } else if (ch == 'U') {
                 /* (?U: Ungreedy mode: *+? operators have priority swapped */
                 parse->group_flags_new |= RE__AST_GROUP_FLAG_UNGREEDY;
@@ -4653,7 +5171,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
         } else if (parse->state == RE__PARSE_STATE_PARENS_FLAG_NEGATE) {
             /* Start of negated group flags: (?:..- */
             if (RE__IS_LAST()) {
-                RE__TRY(re__parse_error(parse, "expected one of ':', 'P', 'U', 'i', 'm', 's' for negated group flags or name"));
+                RE__TRY(re__parse_error(parse, "expected one of ':', '<', 'P', 'U', 'i', 'm', 's' for negated group flags or name"));
             } else if (ch == ')') {
                 /* (?): Go back to GND without creating a group, retain flags */
                 parse->group_flags = parse->group_flags_new;
@@ -4662,11 +5180,13 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 /* (?:: Non-matching group, also signals end of flags */
                 parse->group_flags_new &= ~((unsigned int)RE__AST_GROUP_FLAG_NONMATCHING);
                 parse->state = RE__PARSE_STATE_PARENS_AFTER_COLON;
+            } else if (ch == '<') {
+                /* (?<: Start of group name */
+                re__parse_str_clear(parse, current);
+                parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
             } else if (ch == 'P') {
                 /* (?P: Start of group name */
-                parse->str_begin = regex;
-                parse->str_end = regex;
-                parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
+                parse->state = RE__PARSE_STATE_PARENS_AFTER_P;
             } else if (ch == 'U') {
                 /* (?U: Ungreedy mode: *+? operators have priority swapped */
                 parse->group_flags_new &= ~((unsigned int)RE__AST_GROUP_FLAG_UNGREEDY);
@@ -4703,8 +5223,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_error(parse, "expected '<' to begin group name"));
             } else if (ch == '<') {
                 /* (?P<: Begin group name */
-                parse->str_begin = regex+1;
-                parse->str_end = parse->str_begin;
+                re__parse_str_clear(parse, current);
                 parse->state = RE__PARSE_STATE_PARENS_NAME_INITIAL;
             } else {
                 RE__TRY(re__parse_error(parse, "expected '<' to begin group name"));
@@ -4718,7 +5237,6 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_error(parse, "cannot create empty group name"));
             } else {
                 /* Otherwise, add characters to the group name */
-                parse->str_end++;
                 parse->state = RE__PARSE_STATE_PARENS_NAME;
             }
         } else if (parse->state == RE__PARSE_STATE_PARENS_NAME) {
@@ -4732,7 +5250,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_group_begin(parse));
             } else {
                 /* (?P<...: Name character, append to name */
-                parse->str_end++;
+                re__parse_str_setend(parse, current);
             }
         } else if (parse->state == RE__PARSE_STATE_OCTAL_SECOND_DIGIT) {
             /* Second digit in an octal literal: \0 */
@@ -4829,7 +5347,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 parse->state = RE__PARSE_STATE_QUOTE_ESCAPE;
             } else {
                 /* Otherwise, add char */
-                re__parse_char(parse, (re_char)ch);
+                RE__TRY(re__parse_rune(parse, ch));
             }
         } else if (parse->state == RE__PARSE_STATE_QUOTE_ESCAPE) {
             /* Quote escape: \Q...\ */
@@ -4841,7 +5359,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 parse->state = RE__PARSE_STATE_GND;
             } else {
                 /* Otherwise, add escaped char */
-                re__parse_char(parse, (re_char)ch);
+                RE__TRY(re__parse_rune(parse, ch));
             }
         } else if (parse->state == RE__PARSE_STATE_COUNTING_FIRST_NUM_INITIAL) {
             /* First number in a counting expression */
@@ -4921,7 +5439,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
             if (RE__IS_LAST()) {
                 RE__TRY(re__parse_error(parse, "expected '^', characters, character classes, or character ranges for character class expression '['"));
             } else if (ch == '[') {
-                /* [[: Literal [ or char class*/
+                /* [[: Literal [ or char class */
                 parse->state = RE__PARSE_STATE_CHARCLASS_AFTER_BRACKET;
             } else if (ch == '\\') {
                 /* [\: Escape */
@@ -4974,7 +5492,8 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_charclass_finish(parse));
             } else if (ch == ':') {
                 /* [:: Start of ASCII charclass */
-                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED;
+                re__parse_str_clear(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL;
             } else {
                 /* Otherwise, add the bracket and the character */
                 re__parse_charclass_setlo(parse, '[');
@@ -5051,16 +5570,59 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_charclass_addhi(parse, ch));
                 parse->state = RE__PARSE_STATE_CHARCLASS_LO;
             }
+        } else if (parse->state == RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL) {
+            /* After colon starting named char class: [: */
+            if (RE__IS_LAST() || ch == ':' || ch == ']') {
+                RE__TRY(re__parse_error(parse, "expected a valid character class name or '^' for named character class expression '[:'"));
+            } else if (ch == '^') {
+                re__parse_str_clear(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED;
+            } else {
+                re__parse_str_setend(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED;
+            }
+        } else if (parse->state == RE__PARSE_STATE_CHARCLASS_NAMED) {
+            /* After first character in named char class name: [:. */
+            if (RE__IS_LAST()) {
+                RE__TRY(re__parse_error(parse, "expected a valid character class name for named character class expression '[:'"));
+            } else if (ch == ':') {
+                /* [:..:: Finish and move to AFTER_COLON */
+                RE__TRY(re__parse_finish_named_class(parse, 0));
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON;
+            } else {
+                re__parse_str_setend(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED;
+            }
+        } else if (parse->state == RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED) {
+            /* After first character in named inverted char class name: [:^. */
+            if (RE__IS_LAST()) {
+                RE__TRY(re__parse_error(parse, "expected a valid character class name for named character class expression '[:'"));
+            } else if (ch == ':') {
+                /* [:..:: Finish and move to AFTER_COLON */
+                RE__TRY(re__parse_finish_named_class(parse, 1));
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON;
+            } else {
+                re__parse_str_setend(parse, current);
+                parse->state = RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED;
+            }
+        } else if (parse->state == RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON) {
+            /* After final colon in named char class name: [:...: */
+            if (RE__IS_LAST()) {
+                RE__TRY(re__parse_error(parse, "expected a ']' to end named character class expression"));
+            } else if (ch == ']') {
+                /* [:...:]: Finish char class */
+                parse->state = RE__PARSE_STATE_CHARCLASS_LO;
+            } else {
+                RE__TRY(re__parse_error(parse, "expected a ']' to end named character class expression"));
+            }
         } else {
             RE__ASSERT_UNREACHED();
         }
-        if (parse->defer) {
-            parse->defer -= 1;
-        } else {
-            regex++;
-        }
     }
-    RE_ASSERT(re__parse_frame_vec_size(&parse->frames) == 1);
+    /* Parse state must equal ground when done. Other states must either defer
+     * to ground or create errors. */
+    RE_ASSERT(parse->state == RE__PARSE_STATE_GND);
+    RE_ASSERT(re__parse_frame_vec_size(&parse->frames) == 0);
     return RE_ERROR_NONE;
 error:
     if (err == RE_ERROR_PARSE) {
@@ -5080,12 +5642,12 @@ RE_INTERNAL void re__prog_inst_init(re__prog_inst* inst, re__prog_inst_type inst
     inst->_primary = RE__PROG_LOC_INVALID;
 }
 
-RE_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, re_char chr) {
+RE_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, re_uint8 byte) {
     re__prog_inst_init(inst, RE__PROG_INST_TYPE_BYTE);
-    inst->_inst_data._byte = chr;
+    inst->_inst_data._byte = byte;
 }
 
-RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re_char min, re_char max) {
+RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re_uint8 min, re_uint8 max) {
     re__prog_inst_init(inst, RE__PROG_INST_TYPE_BYTE_RANGE);
     inst->_inst_data._range.min = min;
     inst->_inst_data._range.max = max;
@@ -5124,17 +5686,17 @@ RE_INTERNAL void re__prog_inst_set_primary(re__prog_inst* inst, re__prog_loc loc
     inst->_primary = loc;
 }
 
-RE_INTERNAL re_char re__prog_inst_get_byte(re__prog_inst* inst) {
+RE_INTERNAL re_uint8 re__prog_inst_get_byte(re__prog_inst* inst) {
     RE_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE);
     return inst->_inst_data._byte;
 }
 
-RE_INTERNAL re_char re__prog_inst_get_byte_min(re__prog_inst* inst) {
+RE_INTERNAL re_uint8 re__prog_inst_get_byte_min(re__prog_inst* inst) {
     RE_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE_RANGE);
     return inst->_inst_data._range.min;
 }
 
-RE_INTERNAL re_char re__prog_inst_get_byte_max(re__prog_inst* inst) {
+RE_INTERNAL re_uint8 re__prog_inst_get_byte_max(re__prog_inst* inst) {
     RE_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE_RANGE);
     return inst->_inst_data._range.max;
 }
@@ -5253,14 +5815,12 @@ RE_INTERNAL void re__prog_debug_dump(re__prog* prog) {
 #include <string.h>
 
 RE_INTERNAL void re__error_init(re* reg) {
-    reg->data->error_string_is_const = 0;
     re__str_init(&reg->data->error_string);
+    re__str_view_init_null(&reg->data->error_string_view);
 }
 
 RE_INTERNAL void re__error_destroy(re* reg) {
-    if (!reg->data->error_string_is_const) {
-        re__str_destroy(&reg->data->error_string);
-    }
+    re__str_destroy(&reg->data->error_string);
 }
 
 /* Doesn't take ownership of error_str */
@@ -5270,18 +5830,18 @@ RE_INTERNAL void re__error_destroy(re* reg) {
  * allowing error messages to be saved as just const strings */
 RE_INTERNAL void re__set_error_str(re* reg, const re__str* error_str) {
     re_error err = RE_ERROR_NONE;
+    /* Clear the last error */
     re__error_destroy(reg);
-    reg->data->error_string_is_const = 0;
     if ((err = re__str_init_copy(&reg->data->error_string, error_str))) {
         re__set_error_generic(reg, err);
     }
+    re__str_view_init(&reg->data->error_string_view, &reg->data->error_string);
 }
 
 RE_INTERNAL void re__set_error_generic(re* reg, re_error err) {
     if (err == RE_ERROR_NOMEM) {
         /* No memory: not guaranteed if we can allocate a string. */
-        reg->data->error_string_is_const = 1;
-        RE__STR_INIT_CONST(&reg->data->error_string, "out of memory");
+        re__str_view_init_s(&reg->data->error_string_view, "out of memory");
     } else {
         /* This function is only valid for generic errors */
         RE__ASSERT_UNREACHED();
@@ -5290,19 +5850,20 @@ RE_INTERNAL void re__set_error_generic(re* reg, re_error err) {
 
 re_error re_init(re* reg, const char* regex) {
     re_error err = RE_ERROR_NONE;
-    RE__UNUSED(regex);
+    re__str_view regex_view;
     reg->data = (re_data*)RE_MALLOC(sizeof(re_data));
     if (!reg->data) {
         return RE_ERROR_NOMEM;
     }
+    re__error_init(reg);
+    re__str_view_init_s(&regex_view, regex);
     re__parse_init(&reg->data->parse, reg);
     re__prog_init(&reg->data->program);
     re__compile_init(&reg->data->compile, reg);
     re__exec_init(&reg->data->exec, reg);
-    re__error_init(reg);
-    /*if ((err = re__parse(re, strlen(regex), (const re_char*)regex))) {
+    if ((err = re__parse_str(&reg->data->parse, &regex_view))) {
         return err;
-    }*/
+    }
     return err;
 }
 
@@ -5319,9 +5880,9 @@ re_error re_destroy(re* reg) {
 
 const char* re_get_error(re* reg, re_size* error_len) {
     if (error_len != RE_NULL) {
-        *error_len = re__str_size(&reg->data->error_string);
+        *error_len = re__str_view_size(&reg->data->error_string_view);
     }
-    return (const char*)re__str_get_data(&reg->data->error_string);
+    return (const char*)re__str_view_get_data(&reg->data->error_string_view);
 }
 
 
@@ -5836,7 +6397,7 @@ int re__str_init_s(re__str* str, const re_char* s) {
     return err;
 }
 
-int re__str_init_n(re__str* str, re_size n, const re_char* chrs) {
+int re__str_init_n(re__str* str, const re_char* chrs, re_size n) {
     int err = 0;
     re_size i;
     re__str_init(str);
@@ -5847,15 +6408,6 @@ int re__str_init_n(re__str* str, re_size n, const re_char* chrs) {
         RE__STR_DATA(str)[i] = chrs[i];
     }
     return err;
-}
-
-void re__str_init_const_s(re__str* str, re_size n, const re_char* s) {
-    re__str_init(str);
-    RE__STR_SET_SHORT(str, 0);
-    RE__STR_SET_SIZE(str, n);
-    str->_alloc = 0;
-    /* bad!!!!!! */
-    str->_data = (re_char*)s;
 }
 
 int re__str_cat(re__str* str, const re__str* other) {
@@ -5874,7 +6426,7 @@ int re__str_cat(re__str* str, const re__str* other) {
     return err;
 }
 
-int re__str_cat_n(re__str* str, re_size n, const re_char* chrs) {
+int re__str_cat_n(re__str* str, const re_char* chrs, re_size n) {
     int err = 0;
     re_size i;
     re_size old_size = RE__STR_GET_SIZE(str);
@@ -5891,7 +6443,7 @@ int re__str_cat_n(re__str* str, re_size n, const re_char* chrs) {
 
 int re__str_cat_s(re__str* str, const re_char* chrs) {
     re_size chrs_size = re__str_slen(chrs);
-    return re__str_cat_n(str, chrs_size, chrs);
+    return re__str_cat_n(str, chrs, chrs_size);
 }
 
 int re__str_insert(re__str* str, re_size index, re_char chr) {
@@ -5960,6 +6512,57 @@ int re__str_cmp(const re__str* str_a, const re__str* str_b) {
     return 0;
 }
 
+
+void re__str_view_init(re__str_view* view, const re__str* other) {
+    view->_size = re__str_size(other);
+    view->_data = re__str_get_data(other);
+}
+
+void re__str_view_init_s(re__str_view* view, const re_char* chars) {
+    view->_size = re__str_slen(chars);
+    view->_data = chars;
+}
+
+void re__str_view_init_n(re__str_view* view, const re_char* chars, re_size n) {
+    view->_size = n;
+    view->_data = chars;
+}
+
+void re__str_view_init_null(re__str_view* view) {
+    view->_size = 0;
+    view->_data = RE_NULL;
+}
+
+re_size re__str_view_size(const re__str_view* view) {
+    return view->_size;
+}
+
+const re_char* re__str_view_get_data(const re__str_view* view) {
+    return view->_data;
+}
+
+int re__str_view_cmp(const re__str_view* view_a, const re__str_view* view_b) {
+    re_size a_len = re__str_view_size(view_a);
+    re_size b_len = re__str_view_size(view_b);
+    const re_char* a_data = re__str_view_get_data(view_a);
+    const re_char* b_data = re__str_view_get_data(view_b);
+    re_size i;
+    if (a_len < b_len) {
+        return -1;
+    } else if (a_len > b_len) {
+        return 1;
+    }
+    for (i = 0; i < a_len; i++) {
+        if (a_data[i] != b_data[i]) {
+            if (a_data[i] < b_data[i]) {
+                return -1;
+            } else {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
 
 int re__uint8_check[sizeof(re_uint8)==1];
 int re__int8_check[sizeof(re_int8)==1];
