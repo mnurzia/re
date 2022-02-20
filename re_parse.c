@@ -384,7 +384,10 @@ RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
     re__ast new_group;
     re_error err = RE_ERROR_NONE;
     re_int32 new_group_ref;
-    re__ast_init_group(&new_group);
+    re__str_view group_name;
+    re__str_view_init_n(&group_name, parse->str_begin, (re_size)(parse->str_end - parse->str_begin));
+    re__ast_init_group(&new_group, re__ast_root_get_num_groups(&parse->ast_root));
+    re__ast_root_add_group(&parse->ast_root, group_name);
     /* Set group's flags */
     re__ast_set_group_flags(&new_group, parse->group_flags_new);
     if ((err = re__parse_link_new_node(parse, new_group, &new_group_ref))) {
@@ -963,6 +966,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_END));
             } else if (ch == '(') {
                 /* (: Begin a group. */
+                re__parse_str_clear(parse, current);
                 parse->group_flags_new = parse->group_flags;
                 parse->state = RE__PARSE_STATE_PARENS_INITIAL;
             } else if (ch == ')') {
@@ -1273,8 +1277,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
             if (RE__IS_LAST()) {
                 RE__TRY(re__parse_error(parse, "expected '>' to close group name"));
             } else if (ch == '>') {
-                /* (?P<...>: End of group name, begin group and defer to GND */
-                re__parse_defer(parse);
+                /* (?P<...>: End of group name, begin group, go to GND */
                 parse->state = RE__PARSE_STATE_GND;
                 RE__TRY(re__parse_group_begin(parse));
             } else {

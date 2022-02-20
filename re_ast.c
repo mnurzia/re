@@ -39,10 +39,10 @@ RE_INTERNAL void re__ast_init_quantifier(re__ast* ast, re_int32 min, re_int32 ma
     ast->_data.quantifier_info.greediness = 1;
 }
 
-RE_INTERNAL void re__ast_init_group(re__ast* ast) {
+RE_INTERNAL void re__ast_init_group(re__ast* ast, re_uint32 group_idx) {
     re__ast_init(ast, RE__AST_TYPE_GROUP);
     ast->_data.group_info.flags = 0;
-    ast->_data.group_info.match_number = 0;
+    ast->_data.group_info.group_idx = group_idx;
 }
 
 RE_INTERNAL void re__ast_init_assert(re__ast* ast, re__ast_assert_type assert_type) {
@@ -97,6 +97,11 @@ RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags
     ast->_data.group_info.flags = flags;
 }
 
+RE_INTERNAL re_uint32 re__ast_get_group_idx(re__ast* ast) {
+    RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
+    return ast->_data.group_info.group_idx;
+}
+
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_ASSERT);
     return ast->_data.assert_type;
@@ -123,17 +128,28 @@ RE_REFS_IMPL_FUNC(re__str, begin)
 RE_REFS_IMPL_FUNC(re__str, next)
 RE_REFS_IMPL_FUNC(re__str, add)
 
+RE_VEC_IMPL_FUNC(re__str, init)
+RE_VEC_IMPL_FUNC(re__str, destroy)
+RE_VEC_IMPL_FUNC(re__str, push)
+RE_VEC_IMPL_FUNC(re__str, getref)
+RE_VEC_IMPL_FUNC(re__str, size)
+
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root) {
     re__ast_vec_init(&ast_root->ast_vec);
     ast_root->last_empty_ref = RE__AST_NONE;
     ast_root->root_ref = RE__AST_NONE;
     re__charclass_refs_init(&ast_root->charclasses);
     re__str_refs_init(&ast_root->strings);
+    re__str_vec_init(&ast_root->group_names);
 }
 
 RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root) {
     re_size i;
     re_int32 cur_ref;
+    for (i = 0; i < re__str_vec_size(&ast_root->group_names); i++) {
+        re__str_destroy(re__str_vec_getref(&ast_root->group_names, i));
+    }
+    re__str_vec_destroy(&ast_root->group_names);
     cur_ref = re__charclass_refs_begin(&ast_root->charclasses);
     while (cur_ref != RE_REF_NONE) {
         re__charclass* cur = re__charclass_refs_getref(&ast_root->charclasses, cur_ref);
@@ -281,6 +297,23 @@ RE_INTERNAL re__str_view re__ast_root_get_str_view(const re__ast_root* ast_root,
     const re__str* src = re__str_refs_getcref(&ast_root->strings, str_ref);
     re__str_view_init(&out, src);
     return out;
+}
+
+RE_INTERNAL re_error re__ast_root_add_group(re__ast_root* ast_root, re__str_view group_name) {
+    re__str new_str;
+    re__str_init_n(&new_str, re__str_view_get_data(&group_name), re__str_view_size(&group_name));
+    return re__str_vec_push(&ast_root->group_names, new_str);
+}
+
+RE_INTERNAL re__str_view re__ast_root_get_group(re__ast_root* ast_root, re_uint32 group_number) {
+    re__str_view view;
+    RE_ASSERT(group_number >= 0);
+    re__str_view_init(&view, re__str_vec_getref(&ast_root->group_names, (re_size)group_number));
+    return view;
+}
+
+RE_INTERNAL re_uint32 re__ast_root_get_num_groups(re__ast_root* ast_root) {
+    return (re_uint32)re__str_vec_size(&ast_root->group_names);
 }
 
 #if RE_DEBUG

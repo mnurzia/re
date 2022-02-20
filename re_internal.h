@@ -161,7 +161,7 @@ typedef enum re__ast_group_flags {
 /* Group info */
 typedef struct re__ast_group_info {
     re__ast_group_flags flags;
-    re_uint32 match_number;
+    re_uint32 group_idx;
 } re__ast_group_info;
 
 /* Holds AST node data depending on the node type. */
@@ -196,7 +196,7 @@ RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref);
 RE_INTERNAL void re__ast_init_concat(re__ast* ast);
 RE_INTERNAL void re__ast_init_alt(re__ast* ast);
 RE_INTERNAL void re__ast_init_quantifier(re__ast* ast, re_int32 min, re_int32 max);
-RE_INTERNAL void re__ast_init_group(re__ast* ast);
+RE_INTERNAL void re__ast_init_group(re__ast* ast, re_uint32 group_idx);
 RE_INTERNAL void re__ast_init_assert(re__ast* ast, re__ast_assert_type assert_type);
 RE_INTERNAL void re__ast_init_any_char(re__ast* ast);
 RE_INTERNAL void re__ast_init_any_byte(re__ast* ast);
@@ -207,6 +207,7 @@ RE_INTERNAL re_int32 re__ast_get_quantifier_min(re__ast* ast);
 RE_INTERNAL re_int32 re__ast_get_quantifier_max(re__ast* ast);
 RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast);
 RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast);
+RE_INTERNAL re_uint32 re__ast_get_group_idx(re__ast* ast);
 RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags);
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
 RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast);
@@ -214,12 +215,15 @@ RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast);
 RE_REFS_DECL(re__charclass);
 RE_REFS_DECL(re__str);
 
+RE_VEC_DECL(re__str);
+
 typedef struct re__ast_root {
     re__ast_vec ast_vec;
     re_int32 last_empty_ref;
     re_int32 root_ref;
     re__charclass_refs charclasses;
     re__str_refs strings;
+    re__str_vec group_names;
 } re__ast_root;
 
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
@@ -237,6 +241,10 @@ RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* 
 RE_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, re__str str, re_int32* out_ref);
 RE_INTERNAL re__str* re__ast_root_get_str(re__ast_root* ast_root, re_int32 str_ref);
 RE_INTERNAL re__str_view re__ast_root_get_str_view(const re__ast_root* ast_root, re_int32 str_ref);
+
+RE_INTERNAL re_error re__ast_root_add_group(re__ast_root* ast_root, re__str_view group_name);
+RE_INTERNAL re__str_view re__ast_root_get_group(re__ast_root* ast_root, re_uint32 group_number);
+RE_INTERNAL re_uint32 re__ast_root_get_num_groups(re__ast_root* ast_root);
 
 #if RE_DEBUG
 
