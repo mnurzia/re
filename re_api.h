@@ -21,7 +21,7 @@ typedef struct re {
 } re;
 
 re_error re_init(re* re, const char* regex);
-re_error re_destroy(re* re);
+void re_destroy(re* re);
 const char* re_get_error(re* reg, re_size* error_len);
 
 #endif

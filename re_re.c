@@ -55,15 +55,13 @@ re_error re_init(re* reg, const char* regex) {
     return err;
 }
 
-re_error re_destroy(re* reg) {
-    re_error err = 0;
+void re_destroy(re* reg) {
     re__exec_destroy(&reg->data->exec);
     re__compile_destroy(&reg->data->compile);
     re__prog_destroy(&reg->data->program);
     re__parse_destroy(&reg->data->parse);
     re__error_destroy(reg);
     RE_FREE(reg->data);
-    return err;
 }
 
 const char* re_get_error(re* reg, re_size* error_len) {
