@@ -457,10 +457,12 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
              *        |
              *        +-----1--> ... */
             re__prog_inst new_inst;
+            re__byte_range br;
+            br.min = 0;
+            br.max = 255;
             re__prog_inst_init_byte_range(
                 &new_inst,
-                0, 
-                255
+                br
             ); /* Creates unpatched branch (1) */
             if ((err = re__prog_add(prog, new_inst))) {
                 goto error;

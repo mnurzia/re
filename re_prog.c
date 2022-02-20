@@ -10,10 +10,10 @@ RE_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, re_uint8 byte) {
     inst->_inst_data._byte = byte;
 }
 
-RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re_uint8 min, re_uint8 max) {
+RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re__byte_range br) {
     re__prog_inst_init(inst, RE__PROG_INST_TYPE_BYTE_RANGE);
-    inst->_inst_data._range.min = min;
-    inst->_inst_data._range.max = max;
+    inst->_inst_data._range.min = br.min;
+    inst->_inst_data._range.max = br.max;
 }
 
 RE_INTERNAL void re__prog_inst_init_split(re__prog_inst* inst, re__prog_loc primary, re__prog_loc secondary) {

@@ -731,7 +731,7 @@ re_error re__compile_charclass_generate_prog(re__compile_charclass* char_comp, r
         if (byte_range.min == byte_range.max) {
             re__prog_inst_init_byte(&new_inst, byte_range.min);
         } else {
-            re__prog_inst_init_byte_range(&new_inst, byte_range.min, byte_range.max);
+            re__prog_inst_init_byte_range(&new_inst, byte_range);
         }
         if ((err = re__prog_add(prog, new_inst))) {
             return err;

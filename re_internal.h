@@ -453,11 +453,10 @@ typedef struct re__prog_inst {
     re__prog_inst_data _inst_data;
 } re__prog_inst;
 
-
 RE_VEC_DECL(re__prog_inst);
 
 RE_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, re_uint8 byte);
-RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re_uint8 min, re_uint8 max);
+RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re__byte_range br);
 RE_INTERNAL void re__prog_inst_init_split(re__prog_inst* inst, re__prog_loc primary, re__prog_loc secondary);
 RE_INTERNAL void re__prog_inst_init_match(re__prog_inst* inst, re_uint32 match_idx);
 RE_INTERNAL void re__prog_inst_init_fail(re__prog_inst* inst);
@@ -472,6 +471,9 @@ RE_INTERNAL re__prog_loc re__prog_inst_get_split_secondary(re__prog_inst* inst);
 RE_INTERNAL void re__prog_inst_set_split_secondary(re__prog_inst* inst, re__prog_loc loc);
 RE_INTERNAL re__prog_inst_type re__prog_inst_get_type(re__prog_inst* inst);
 RE_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(re__prog_inst* inst);
+RE_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(re__prog_inst* inst);
+RE_INTERNAL re_uint32 re__prog_inst_get_match_idx(re__prog_inst* inst);
+RE_INTERNAL re_uint32 re__prog_inst_get_save_idx(re__prog_inst* inst);
 
 #define RE__ERROR_PROGMAX (RE_ERROR_COMPILE | (1 << 8))
 #define RE__PROG_SIZE_MAX 100000
