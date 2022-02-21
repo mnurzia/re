@@ -669,24 +669,37 @@ RE_INTERNAL void re__compile_destroy(re__compile* compile);
 RE_INTERNAL re_error re__compile_regex(re__compile* compile);
 RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf);
 
-typedef re__prog_loc re__exec_thrdmin;
+typedef struct re__exec_thrd {
+    re__prog_loc loc;
+    re_int32 save_slot;
+} re__exec_thrd;
 
-typedef struct re__exec_thrdmin_set {
-    re__exec_thrdmin* dense;
-    re__exec_thrdmin* sparse;
+
+RE_VEC_DECL(re__exec_thrd);
+
+typedef struct re__exec_thrd_set {
+    re__exec_thrd* dense;
+    re__prog_loc* sparse;
     re__prog_loc n;
     re__prog_loc size;
-} re__exec_thrdmin_set;
+} re__exec_thrd_set;
 
-RE_VEC_DECL(re__exec_thrdmin);
+RE_VEC_DECL(re_size);
+
+typedef struct re__exec_save {
+    re_size_vec slots;
+    re_int32 last_empty_ref;
+    re_uint32 slots_per_thrd;
+} re__exec_save;
 
 /* Execution context. */
 typedef struct re__exec {
     re* re;
-    re__exec_thrdmin_set set_a;
-    re__exec_thrdmin_set set_b;
-    re__exec_thrdmin_set set_c;
-    re__exec_thrdmin_vec thrd_stk;
+    re__exec_thrd_set set_a;
+    re__exec_thrd_set set_b;
+    re__exec_thrd_set set_c;
+    re__exec_thrd_vec thrd_stk;
+    re__exec_save save_slots;
 } re__exec;
 
 /* Internal data structure */
@@ -706,7 +719,7 @@ struct re_data {
 RE_INTERNAL void re__exec_init(re__exec* exec, re* re);
 RE_INTERNAL void re__exec_destroy(re__exec* exec);
 
-RE_INTERNAL re_error re__exec_nfa(re__exec* exec, const re_char* str, re_size n);
+RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__str_view str_view);
 
 RE_INTERNAL void re__set_error_str(re* re, const re__str* error_str);
 RE_INTERNAL void re__set_error_generic(re* re, re_error err);
@@ -714,10 +727,10 @@ RE_INTERNAL void re__set_error_generic(re* re, re_error err);
 /*RE_INTERNAL re_error re__compile(re* re);*/
 RE_INTERNAL void re__prog_debug_dump(re__prog* prog);
 
-RE_VEC_DECL(re_match_span);
+RE_VEC_DECL(re_span);
 
 struct re_match_data {
-    re_match_span_vec submatches;
+    re_span_vec submatches;
 };
 
 #endif
