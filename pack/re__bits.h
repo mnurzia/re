@@ -324,6 +324,7 @@
     int RE_VEC_IDENT(T, reserve)(RE_VEC_TYPE(T)* vec, re_size cap) { \
         RE_VEC_CHECK(vec); \
         RE__VEC_SETSIZE(T, vec, cap); \
+        return 0; \
     }
 
 
