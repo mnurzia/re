@@ -25,10 +25,10 @@ typedef struct re_match {
     re_match_data* data;
 } re_match;
 
-typedef struct re_match_span {
+typedef struct re_span {
     re_size begin;
     re_size end;
-} re_match_span;
+} re_span;
 
 re_error re_init(re* re, const char* regex);
 void re_destroy(re* re);
@@ -37,7 +37,7 @@ const char* re_get_error(re* reg, re_size* error_len);
 
 re_error re_search(re* re, re_match* output);
 
-re_match_span re_match_get_span(re_match* match, re_uint32 submatch_index);
+re_span re_match_get_span(re_match* match, re_uint32 submatch_index);
 void re_match_destroy(re_match* match);
 
 #endif
