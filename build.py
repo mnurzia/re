@@ -38,6 +38,7 @@ class Project(pack_v4.Project):
         self.tests = [
             "test_ast.c",
             "test_charclass.c",
+            "test_exec.c",
             "test_helpers.c",
             "test_main.c",
             "test_parse.c",

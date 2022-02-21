@@ -3,6 +3,7 @@
 
 #include "test_ast.h"
 #include "test_charclass.h"
+#include "test_exec.h"
 #include "test_parse.h"
 #include "test_prog.h"
 #include "test_range.h"
@@ -15,6 +16,7 @@ int main() {
     RUN_SUITE(s_ast_root);
     RUN_SUITE(s_charclass);
     RUN_SUITE(s_charclass_builder);
+    RUN_SUITE(s_exec);
     RUN_SUITE(s_range);
     RUN_SUITE(s_parse);
     RUN_SUITE(s_prog_inst);
