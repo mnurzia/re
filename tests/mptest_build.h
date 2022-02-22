@@ -1312,6 +1312,7 @@ int mptest__str_view_cmp(const mptest__str_view* a, const mptest__str_view* b);
     int MPTEST_VEC_IDENT(T, reserve)(MPTEST_VEC_TYPE(T)* vec, mptest_size cap) { \
         MPTEST_VEC_CHECK(vec); \
         MPTEST__VEC_SETSIZE(T, vec, cap); \
+        return 0; \
     }
 
 #endif /* #if MPTEST_USE_DYN_ALLOC */
@@ -3017,7 +3018,7 @@ MPTEST_API int mptest_sym_walk_hasmore(mptest_sym_walk* walk) {
     }
 }
 
-MPTEST_API int mptest__sym_walk_peekstr(mptest_sym_walk* walk) {
+MPTEST_API int mptest_sym_walk_peekstr(mptest_sym_walk* walk) {
     int err = 0;
     const mptest__sym_tree* child;
     mptest_int32 child_ref;
@@ -3028,7 +3029,7 @@ MPTEST_API int mptest__sym_walk_peekstr(mptest_sym_walk* walk) {
     return child->type == MPTEST__SYM_TYPE_ATOM_STRING;
 }
 
-MPTEST_API int mptest__sym_walk_peekexpr(mptest_sym_walk* walk) {
+MPTEST_API int mptest_sym_walk_peekexpr(mptest_sym_walk* walk) {
     int err = 0;
     const mptest__sym_tree* child;
     mptest_int32 child_ref;
@@ -3039,7 +3040,7 @@ MPTEST_API int mptest__sym_walk_peekexpr(mptest_sym_walk* walk) {
     return child->type == MPTEST__SYM_TYPE_EXPR;
 }
 
-MPTEST_API int mptest__sym_walk_peeknum(mptest_sym_walk* walk) {
+MPTEST_API int mptest_sym_walk_peeknum(mptest_sym_walk* walk) {
     int err = 0;
     const mptest__sym_tree* child;
     mptest_int32 child_ref;
