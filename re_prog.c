@@ -163,6 +163,9 @@ RE_INTERNAL void re__prog_debug_dump(re__prog* prog) {
             case RE__PROG_INST_TYPE_ASSERT:
                 printf("ASSERT ctx=%u", re__prog_inst_get_assert_ctx(inst));
                 break;
+            default:
+                RE__ASSERT_UNREACHED();
+                break;
         }
         printf(" -> %04X", re__prog_inst_get_primary(inst));
         if (re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_SPLIT) {
