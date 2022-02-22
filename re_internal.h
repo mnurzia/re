@@ -300,8 +300,8 @@ RE_VEC_DECL(re__parse_frame);
 
 typedef struct re__parse {
     re* re;
+    re__ast_root* ast_root;
     re__parse_frame_vec frames;
-    re__ast_root ast_root;
     re_int32 ast_frame_root_ref;
     re_int32 ast_prev_child_ref;
     re__parse_state state;
@@ -705,6 +705,7 @@ typedef struct re__exec {
 /* Internal data structure */
 struct re_data {
     re__parse parse;
+    re__ast_root ast_root;
     re__prog program;
     re__compile compile;
     re__exec exec;

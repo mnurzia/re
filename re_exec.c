@@ -200,7 +200,7 @@ RE_INTERNAL void re__exec_init(re__exec* exec, re* re) {
     re__exec_thrd_set_init(&exec->set_b);
     re__exec_thrd_set_init(&exec->set_c);
     re__exec_thrd_vec_init(&exec->thrd_stk);
-    re__exec_save_init(&exec->save_slots, re__ast_root_get_num_groups(&re->data->parse.ast_root));
+    re__exec_save_init(&exec->save_slots, re__ast_root_get_num_groups(&re->data->ast_root));
 }
 
 RE_INTERNAL void re__exec_destroy(re__exec* exec) {

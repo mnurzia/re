@@ -9,7 +9,7 @@ TEST(t_parse_empty) {
         "empty regex should compile");
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast)",
         "empty regex should return an empty ast"
     );
@@ -22,7 +22,7 @@ TEST(t_parse_text_end) {
     ASSERT(!re_init(&re, "$"));
     ASSERT_SYMEQm(
         re__ast_root, 
-        re.data->parse.ast_root, 
+        re.data->ast_root, 
         "(ast"
         "   (assert (text_end)))",
         "$ should create a text_end ast"
@@ -36,7 +36,7 @@ TEST(t_parse_group) {
     ASSERT(!re_init(&re, "(a)"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (group \"\" () (rune 'a')))",
         "group should create a group"
@@ -131,7 +131,7 @@ TEST(t_parse_group_named) {
     ASSERT(!re_init(&re, "(?<name>a)"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "  (group name ()"
         "    (rune 'a')))"
@@ -145,7 +145,7 @@ TEST(t_parse_star) {
     ASSERT(!re_init(&re, "a*"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (quantifier 0 inf greedy"
         "       (rune 'a')))",
@@ -155,7 +155,7 @@ TEST(t_parse_star) {
     ASSERT(!re_init(&re, "a*?"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (quantifier 0 inf nongreedy"
         "       (rune 'a')))",
@@ -170,7 +170,7 @@ TEST(t_parse_question) {
     ASSERT(!re_init(&re, "a?"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (quantifier 0 2 greedy"
         "       (rune 'a')))"
@@ -179,7 +179,7 @@ TEST(t_parse_question) {
     ASSERT(!re_init(&re, "a??"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (quantifier 0 2 nongreedy"
         "       (rune 'a')))"
@@ -193,7 +193,7 @@ TEST(t_parse_plus) {
     ASSERT(!re_init(&re, "a+"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (quantifier 1 inf greedy"
         "       (rune 'a')))"
@@ -202,7 +202,7 @@ TEST(t_parse_plus) {
     ASSERT(!re_init(&re, "a+?"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (quantifier 1 inf nongreedy"
         "       (rune 'a')))"
@@ -216,7 +216,7 @@ TEST(t_parse_any_char) {
     ASSERT(!re_init(&re, "."));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (any_char))"
     );
@@ -229,7 +229,7 @@ TEST(t_parse_charclass_one) {
     ASSERT(!re_init(&re, "[a]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (charclass ((rune_range 'a' 'a'))))"
     );
@@ -242,7 +242,7 @@ TEST(t_parse_charclass_lbracket) {
     ASSERT(!re_init(&re, "[[]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (charclass ((rune_range '[' '['))))"
     );
@@ -255,7 +255,7 @@ TEST(t_parse_charclass_rbracket) {
     ASSERT(!re_init(&re, "[]]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (charclass ((rune_range ']' ']'))))"
     );
@@ -268,7 +268,7 @@ TEST(t_parse_charclass_hyphen) {
     ASSERT(!re_init(&re, "[-]"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (charclass ((rune_range '-' '-'))))",
         "charclass with only hyphen should just include a hyphen rune"
@@ -277,7 +277,7 @@ TEST(t_parse_charclass_hyphen) {
     ASSERT(!re_init(&re, "[a-]"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (charclass ("
         "       (rune_range '-' '-')"
@@ -288,7 +288,7 @@ TEST(t_parse_charclass_hyphen) {
     ASSERT(!re_init(&re, "[a-z-]"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (charclass ("
         "       (rune_range '-' '-')"
@@ -299,7 +299,7 @@ TEST(t_parse_charclass_hyphen) {
     ASSERT(!re_init(&re, "[a-z]"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast"
         "   (charclass ("
         "       (rune_range 'a' 'z')))",
@@ -415,7 +415,7 @@ TEST(t_parse_charclass_inverted) {
     ASSERT(!re_init(&re, "[^a]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast "
         "    (charclass ((rune_range 0 96) (rune_range 98 0x10FFFF))))"
     );
@@ -423,7 +423,7 @@ TEST(t_parse_charclass_inverted) {
     ASSERT(!re_init(&re, "[^a-z]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast "
         "    (charclass ((rune_range 0 96) (rune_range 123 0x10FFFF))))"
     );
@@ -431,7 +431,7 @@ TEST(t_parse_charclass_inverted) {
     ASSERT(!re_init(&re, "[^a-zA-Z]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast "
         "    (charclass ((rune_range 0 64)"
         "                (rune_range 91 96)"
@@ -446,7 +446,7 @@ TEST(t_parse_charclass_named) {
     ASSERT(!re_init(&re, "[[:alnum:]]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast "
         "  (charclass "
         "    ("
@@ -463,7 +463,7 @@ TEST(t_parse_charclass_named_inverted) {
     ASSERT(!re_init(&re, "[[:^alnum:]]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->parse.ast_root,
+        re.data->ast_root,
         "(ast "
         "  (charclass "
         "    ("
@@ -490,12 +490,12 @@ TEST(t_parse_opt_fuse_rune_rune) {
     ASSERT(!re_init(&re, re__str_get_data(&in_str)));
     {
         re__ast* ast = re__ast_root_get(
-            &re.data->parse.ast_root,
-            re.data->parse.ast_root.root_ref
+            &re.data->ast_root,
+            re.data->ast_root.root_ref
         );
         re__str_view a, b;
         ASSERT(ast->type == RE__AST_TYPE_STR);
-        a = re__ast_root_get_str_view(&re.data->parse.ast_root, ast->_data.str_ref);
+        a = re__ast_root_get_str_view(&re.data->ast_root, ast->_data.str_ref);
         re__str_view_init(&b, &in_str);
         ASSERT(re__str_view_cmp(&a, &b) == 0);
     }
@@ -520,12 +520,12 @@ TEST(t_parse_opt_fuse_str_rune) {
     ASSERT(!re_init(&re, re__str_get_data(&in_str)));
     {
         re__ast* ast = re__ast_root_get(
-            &re.data->parse.ast_root,
-            re.data->parse.ast_root.root_ref
+            &re.data->ast_root,
+            re.data->ast_root.root_ref
         );
         re__str_view a, b;
         ASSERT(ast->type == RE__AST_TYPE_STR);
-        a = re__ast_root_get_str_view(&re.data->parse.ast_root, ast->_data.str_ref);
+        a = re__ast_root_get_str_view(&re.data->ast_root, ast->_data.str_ref);
         re__str_view_init(&b, &in_str);
         ASSERT(re__str_view_cmp(&a, &b) == 0);
     }

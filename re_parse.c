@@ -21,7 +21,6 @@ RE_VEC_IMPL_FUNC(re__parse_frame, size)
 RE_INTERNAL void re__parse_init(re__parse* parse, re* reg) {
     parse->re = reg;
     re__parse_frame_vec_init(&parse->frames);
-    re__ast_root_init(&parse->ast_root);
     re__charclass_builder_init(&parse->charclass_builder);
     parse->ast_prev_child_ref = RE__AST_NONE;
     parse->ast_frame_root_ref = RE__AST_NONE;
@@ -37,11 +36,11 @@ RE_INTERNAL void re__parse_init(re__parse* parse, re* reg) {
     parse->depth_max = 0;
     parse->depth_max_prev = 0;
     parse->depth = 0;
+    parse->ast_root = &reg->data->ast_root;
 }
 
 RE_INTERNAL void re__parse_destroy(re__parse* parse) {
     re__charclass_builder_destroy(&parse->charclass_builder);
-    re__ast_root_destroy(&parse->ast_root);
     re__parse_frame_vec_destroy(&parse->frames);
 }
 
@@ -144,18 +143,18 @@ RE_INTERNAL int re__parse_frame_is_empty(re__parse* parse) {
 }
 
 RE_INTERNAL re__ast* re__parse_get_frame(re__parse* parse) {
-    return re__ast_root_get(&parse->ast_root, parse->ast_frame_root_ref);
+    return re__ast_root_get(parse->ast_root, parse->ast_frame_root_ref);
 }
 
 RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32* new_ast_ref) {
     re_error err = RE_ERROR_NONE;
     int was_empty = re__parse_frame_is_empty(parse);
     if (was_empty) {
-        if ((err = re__ast_root_add_child(&parse->ast_root, parse->ast_frame_root_ref, ast, new_ast_ref))) {
+        if ((err = re__ast_root_add_child(parse->ast_root, parse->ast_frame_root_ref, ast, new_ast_ref))) {
             return err;
         }
     } else {
-        if ((err = re__ast_root_add_sibling(&parse->ast_root, parse->ast_prev_child_ref, ast, new_ast_ref))) {
+        if ((err = re__ast_root_add_sibling(parse->ast_root, parse->ast_prev_child_ref, ast, new_ast_ref))) {
             return err;
         }
     }
@@ -176,7 +175,7 @@ RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32
  * new node's parent. */
 RE_INTERNAL re_error re__parse_link_wrap_node(re__parse* parse, re__ast outer, re_int32* new_outer) {
     re_error err = RE_ERROR_NONE;
-    if ((err = re__ast_root_add_wrap(&parse->ast_root, parse->ast_frame_root_ref, parse->ast_prev_child_ref, outer, new_outer))) {
+    if ((err = re__ast_root_add_wrap(parse->ast_root, parse->ast_frame_root_ref, parse->ast_prev_child_ref, outer, new_outer))) {
         return err;
     }
     parse->depth_max_prev += 1;
@@ -219,7 +218,7 @@ RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, 
     re__ast_type t_prev, t_next;
     re_error err = RE_ERROR_NONE;
     RE_ASSERT(parse->ast_prev_child_ref != RE__AST_NONE);
-    prev = re__ast_root_get(&parse->ast_root, parse->ast_prev_child_ref);
+    prev = re__ast_root_get(parse->ast_root, parse->ast_prev_child_ref);
     t_prev = prev->type;
     t_next = next->type;
     *did_fuse = 0;
@@ -236,12 +235,12 @@ RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, 
             if ((err = re__str_init_n(&new_str, rune_bytes, (re_size)rune_bytes_ptr))) {
                 return err;
             }
-            if ((err = re__ast_root_add_str(&parse->ast_root, new_str, &new_str_ref))) {
+            if ((err = re__ast_root_add_str(parse->ast_root, new_str, &new_str_ref))) {
                 re__str_destroy(&new_str);
                 return err;
             }
             re__ast_init_str(&new_ast, new_str_ref);
-            re__ast_root_replace(&parse->ast_root, parse->ast_prev_child_ref, new_ast);
+            re__ast_root_replace(parse->ast_root, parse->ast_prev_child_ref, new_ast);
             re__ast_destroy(next);
             *did_fuse = 1;
         }
@@ -254,7 +253,7 @@ RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, 
             int rune_bytes_ptr = 0;
             rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (re_uint8*)rune_bytes + rune_bytes_ptr);
             old_str_ref = re__ast_get_str_ref(prev);
-            old_str = re__ast_root_get_str(&parse->ast_root, old_str_ref);
+            old_str = re__ast_root_get_str(parse->ast_root, old_str_ref);
             if ((err = re__str_cat_n(old_str, rune_bytes, (re_size)rune_bytes_ptr))) {
                 return err;
             }
@@ -386,8 +385,8 @@ RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
     re_int32 new_group_ref;
     re__str_view group_name;
     re__str_view_init_n(&group_name, parse->str_begin, (re_size)(parse->str_end - parse->str_begin));
-    re__ast_init_group(&new_group, re__ast_root_get_num_groups(&parse->ast_root));
-    re__ast_root_add_group(&parse->ast_root, group_name);
+    re__ast_init_group(&new_group, re__ast_root_get_num_groups(parse->ast_root));
+    re__ast_root_add_group(parse->ast_root, group_name);
     /* Set group's flags */
     re__ast_set_group_flags(&new_group, parse->group_flags_new);
     if ((err = re__parse_link_new_node(parse, new_group, &new_group_ref))) {
@@ -731,7 +730,7 @@ RE_INTERNAL re_error re__parse_charclass_finish(re__parse* parse) {
     if ((err = re__charclass_builder_finish(&parse->charclass_builder, &new_charclass))) {
         return err;
     }
-    if ((err = re__ast_root_add_charclass(&parse->ast_root, new_charclass, &new_charclass_ref))) {
+    if ((err = re__ast_root_add_charclass(parse->ast_root, new_charclass, &new_charclass_ref))) {
         re__charclass_destroy(&new_charclass);
         return err;
     }
@@ -788,7 +787,7 @@ RE_INTERNAL re_error re__parse_finish_escape_class(re__parse* parse, re__charcla
         /* Wrap it in an AST node */
         re__ast new_node;
         re_int32 new_class_ref;
-        if ((err = re__ast_root_add_charclass(&parse->ast_root, new_class, &new_class_ref))) {
+        if ((err = re__ast_root_add_charclass(parse->ast_root, new_class, &new_class_ref))) {
             re__charclass_destroy(&new_class);
             return err;
         }
@@ -875,7 +874,7 @@ RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
     re__ast* quant;
     /* Cannot make nothing ungreedy */
     RE_ASSERT(!re__parse_frame_is_empty(parse));
-    quant = re__ast_root_get(&parse->ast_root, parse->ast_prev_child_ref);
+    quant = re__ast_root_get(parse->ast_root, parse->ast_prev_child_ref);
     /* Must be a quantifier */
     RE_ASSERT(quant->type == RE__AST_TYPE_QUANTIFIER);
     re__ast_set_quantifier_greediness(quant, !re__ast_get_quantifier_greediness(quant));

@@ -168,7 +168,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
     re_error err = RE_ERROR_NONE;
     re__compile_frame initial_frame;
     re__compile_patches initial_patches;
-    re__ast_root* ast_root = &compile->re->data->parse.ast_root;
+    re__ast_root* ast_root = &compile->re->data->ast_root;
     re__prog* prog = &compile->re->data->program;
     re__compile_frame returned_frame;
     re__prog_inst fail_inst;

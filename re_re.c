@@ -46,6 +46,7 @@ re_error re_init(re* reg, const char* regex) {
     re__error_init(reg);
     re__str_view_init_s(&regex_view, regex);
     re__parse_init(&reg->data->parse, reg);
+    re__ast_root_init(&reg->data->ast_root);
     re__prog_init(&reg->data->program);
     re__compile_init(&reg->data->compile, reg);
     re__exec_init(&reg->data->exec, reg);
@@ -59,6 +60,7 @@ void re_destroy(re* reg) {
     re__exec_destroy(&reg->data->exec);
     re__compile_destroy(&reg->data->compile);
     re__prog_destroy(&reg->data->program);
+    re__ast_root_destroy(&reg->data->ast_root);
     re__parse_destroy(&reg->data->parse);
     re__error_destroy(reg);
     RE_FREE(reg->data);
