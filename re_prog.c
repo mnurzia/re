@@ -93,6 +93,33 @@ RE_INTERNAL re_uint32 re__prog_inst_get_assert_ctx(re__prog_inst* inst) {
     return inst->_inst_data._assert_context;
 }
 
+RE_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b) {
+    int eq = 1;
+    if (re__prog_inst_get_type(a) != re__prog_inst_get_type(b)) {
+        return 0;
+    }
+    if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_BYTE) {
+        eq &= (re__prog_inst_get_byte(a) == re__prog_inst_get_byte(b));
+        eq &= (re__prog_inst_get_primary(a) == re__prog_inst_get_primary(b));
+    } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_BYTE_RANGE) {
+        eq &= (re__prog_inst_get_byte_min(a) == re__prog_inst_get_byte_min(b));
+        eq &= (re__prog_inst_get_byte_max(a) == re__prog_inst_get_byte_max(b));
+        eq &= (re__prog_inst_get_primary(a) == re__prog_inst_get_primary(b));
+    } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_SPLIT) {
+        eq &= (re__prog_inst_get_primary(a) == re__prog_inst_get_primary(b));
+        eq &= (re__prog_inst_get_split_secondary(a) == re__prog_inst_get_split_secondary(b));  
+    } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_MATCH) {
+        eq &= (re__prog_inst_get_match_idx(a) == re__prog_inst_get_match_idx(b));
+    } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_SAVE) {
+        eq &= (re__prog_inst_get_save_idx(a) == re__prog_inst_get_save_idx(b));
+        eq &= (re__prog_inst_get_primary(a) == re__prog_inst_get_primary(b));
+    } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_ASSERT) {
+        eq &= (re__prog_inst_get_assert_ctx(a) == re__prog_inst_get_assert_ctx(b));
+        eq &= (re__prog_inst_get_primary(a) == re__prog_inst_get_primary(b));
+    }
+    return eq;
+}
+
 RE_VEC_IMPL_FUNC(re__prog_inst, init)
 RE_VEC_IMPL_FUNC(re__prog_inst, destroy)
 RE_VEC_IMPL_FUNC(re__prog_inst, push)
@@ -128,6 +155,19 @@ RE_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst) {
     } else {
         return re__prog_inst_vec_push(&prog->_instructions, inst);
     }
+}
+
+RE_INTERNAL int re__prog_equals(re__prog* a, re__prog* b) {
+    re_int32 i;
+    if (re__prog_size(a) != re__prog_size(b)) {
+        return 0;
+    }
+    for (i = 0; i < re__prog_size(a); i++) {
+        if (!re__prog_inst_equals(re__prog_get(a, i), re__prog_get(b, i))) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 #if RE_DEBUG

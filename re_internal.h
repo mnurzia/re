@@ -485,6 +485,7 @@ RE_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(re__prog_inst* inst
 RE_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(re__prog_inst* inst);
 RE_INTERNAL re_uint32 re__prog_inst_get_match_idx(re__prog_inst* inst);
 RE_INTERNAL re_uint32 re__prog_inst_get_save_idx(re__prog_inst* inst);
+RE_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b);
 
 #define RE__ERROR_PROGMAX (RE_ERROR_COMPILE | (1 << 8))
 #define RE__PROG_SIZE_MAX 100000
@@ -499,6 +500,7 @@ RE_INTERNAL void re__prog_destroy(re__prog* prog);
 RE_INTERNAL re__prog_loc re__prog_size(re__prog* prog);
 RE_INTERNAL re__prog_inst* re__prog_get(re__prog* prog, re__prog_loc loc);
 RE_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst);
+RE_INTERNAL int re__prog_equals(re__prog* a, re__prog* b);
 
 /* A list of program patches -- locations in the program that need to point to
  * later instructions */
