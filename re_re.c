@@ -48,7 +48,7 @@ re_error re_init(re* reg, const char* regex) {
     re__parse_init(&reg->data->parse, reg);
     re__ast_root_init(&reg->data->ast_root);
     re__prog_init(&reg->data->program);
-    re__compile_init(&reg->data->compile, reg);
+    re__compile_init(&reg->data->compile);
     re__exec_init(&reg->data->exec, reg);
     if ((err = re__parse_str(&reg->data->parse, &regex_view))) {
         return err;
