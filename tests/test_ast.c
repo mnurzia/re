@@ -210,7 +210,9 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
             }
             type++;
         }
-        return SYM_INVALID;
+        if (type == RE__AST_TYPE_MAX) {
+            return SYM_INVALID;
+        }
     }
     if (type == RE__AST_TYPE_RUNE) {
         re_int32 rune;
@@ -312,14 +314,14 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
 }
 
 int re__ast_root_from_sym(sym_walk* parent, re__ast_root* ast_root) {
-    sym_walk walk, list;
+    sym_walk walk;
     int err = 0;
     SYM_GET_EXPR(parent, &walk);
     SYM_CHECK_TYPE(&walk, "ast");
-    SYM_GET_EXPR(&walk, &list);
-    while (SYM_MORE(&list)) {
+    re__ast_root_init(ast_root);
+    while (SYM_MORE(&walk)) {
         re_int32 dummy_ref;
-        if ((err = re__ast_root_from_sym_r(parent, ast_root, ast_root->root_ref, RE__AST_NONE, &dummy_ref))) {
+        if ((err = re__ast_root_from_sym_r(&walk, ast_root, ast_root->root_ref, RE__AST_NONE, &dummy_ref))) {
             return err;
         }
     }
