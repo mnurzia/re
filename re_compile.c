@@ -116,8 +116,7 @@ RE_INTERNAL void re__compile_frame_init(re__compile_frame* frame, re_int32 ast_r
     frame->rep_idx = 0;
 }
 
-RE_INTERNAL void re__compile_init(re__compile* compile, re* re) {
-    compile->re = re;
+RE_INTERNAL void re__compile_init(re__compile* compile) {
     compile->frames = NULL;
     compile->frames_size = 0;
     compile->frame_ptr = 0;
@@ -164,18 +163,16 @@ RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf) {
 	}
 }
 
-RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
+RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_root, re__prog* prog) {
     re_error err = RE_ERROR_NONE;
     re__compile_frame initial_frame;
     re__compile_patches initial_patches;
-    re__ast_root* ast_root = &compile->re->data->ast_root;
-    re__prog* prog = &compile->re->data->program;
     re__compile_frame returned_frame;
     re__prog_inst fail_inst;
     /* Allocate memory for frames */
     /* depth_max + 1 because we include an extra frame for terminals within the
      * deepest multi-child node */
-    compile->frames_size = compile->re->data->parse.depth_max + 1;
+    compile->frames_size = ast_root->depth_max;
     compile->frames = (re__compile_frame*)RE_MALLOC((sizeof(re__compile_frame)*((re_size)compile->frames_size)));
     if (compile->frames == RE_NULL) {
         err = RE_ERROR_NOMEM;
@@ -514,13 +511,13 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile) {
     }
     RE_FREE(compile->frames);
     compile->frames = NULL;
-    re__prog_debug_dump(&compile->re->data->program);
     return err;
 error:
     if (compile->frames != RE_NULL) {
         RE_FREE(compile->frames);
     }
     compile->frames = NULL;
+    /*
     if (err == RE__ERROR_PROGMAX) {
         re__str err_str;
         if ((err = re__str_init_s(&err_str, "compiled program length exceeds maximum of " RE__STRINGIFY(RE__PROG_SIZE_MAX) " instructions"))) {
@@ -535,7 +532,7 @@ error:
         RE_ASSERT(re__str_size(&compile->re->data->error_string));
     } else {
         re__set_error_generic(compile->re, err);
-    }
+    }*/
     return err;
 }
 

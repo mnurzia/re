@@ -1654,6 +1654,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
      * to ground or create errors. */
     RE_ASSERT(parse->state == RE__PARSE_STATE_GND);
     RE_ASSERT(re__parse_frame_vec_size(&parse->frames) == 0);
+    parse->ast_root->depth_max = parse->depth_max + 1;
     return RE_ERROR_NONE;
 error:
     if (err == RE_ERROR_PARSE) {

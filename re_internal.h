@@ -224,6 +224,7 @@ typedef struct re__ast_root {
     re__charclass_refs charclasses;
     re__str_refs strings;
     re__str_vec group_names;
+    re_int32 depth_max;
 } re__ast_root;
 
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
@@ -432,7 +433,9 @@ typedef enum re__prog_inst_type {
      * +---+---+
      *     |
      *     +-----> */
-    RE__PROG_INST_TYPE_ASSERT
+    RE__PROG_INST_TYPE_ASSERT,
+    /* maximum value of enum */
+    RE__PROG_INST_TYPE_MAX
 } re__prog_inst_type;
 
 /* Opcode-specific data */
@@ -656,7 +659,6 @@ typedef struct re__compile_frame {
 } re__compile_frame;
 
 typedef struct re__compile {
-    re* re;
     re__compile_frame* frames;
     re_int32 frames_size;
     re_int32 frame_ptr;
@@ -664,9 +666,9 @@ typedef struct re__compile {
     re__compile_charclass char_comp;
 } re__compile;
 
-RE_INTERNAL void re__compile_init(re__compile* compile, re* re);
+RE_INTERNAL void re__compile_init(re__compile* compile);
 RE_INTERNAL void re__compile_destroy(re__compile* compile);
-RE_INTERNAL re_error re__compile_regex(re__compile* compile);
+RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_root, re__prog* prog);
 RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf);
 
 typedef struct re__exec_thrd {
