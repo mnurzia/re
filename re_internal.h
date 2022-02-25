@@ -698,7 +698,6 @@ typedef struct re__exec_save {
 
 /* Execution context. */
 typedef struct re__exec {
-    re* re;
     re__exec_thrd_set set_a;
     re__exec_thrd_set set_b;
     re__exec_thrd_set set_c;
@@ -721,10 +720,10 @@ struct re_data {
     re__str_view error_string_view;
 };
 
-RE_INTERNAL void re__exec_init(re__exec* exec, re* re);
+RE_INTERNAL void re__exec_init(re__exec* exec);
 RE_INTERNAL void re__exec_destroy(re__exec* exec);
 
-RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__str_view str_view);
+RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view);
 
 RE_INTERNAL void re__set_error_str(re* re, const re__str* error_str);
 RE_INTERNAL void re__set_error_generic(re* re, re_error err);

@@ -9,10 +9,14 @@ RE_VEC_IMPL_FUNC(re_size, reserve)
 RE_VEC_IMPL_FUNC(re_size, push)
 RE_VEC_IMPL_FUNC(re_size, getref)
 
-RE_INTERNAL void re__exec_save_init(re__exec_save* save, re_uint32 max_slots_per_thrd) {
+RE_INTERNAL void re__exec_save_init(re__exec_save* save) {
     re_size_vec_init(&save->slots);
     save->last_empty_ref = RE__EXEC_SAVE_REF_NONE;
-    save->slots_per_thrd = max_slots_per_thrd + 1; /* +1 for ref count */
+    save->slots_per_thrd = 1; /* +1 for ref count */
+}
+
+RE_INTERNAL void re__exec_save_set_slots_per_thrd(re__exec_save* save, re_uint32 slots_per_thrd) {
+    save->slots_per_thrd = slots_per_thrd + 1;
 }
 
 RE_INTERNAL void re__exec_save_destroy(re__exec_save* save) {
@@ -194,13 +198,12 @@ RE_VEC_IMPL_FUNC(re__exec_thrd, pop)
 RE_VEC_IMPL_FUNC(re__exec_thrd, clear)
 RE_VEC_IMPL_FUNC(re__exec_thrd, size)
 
-RE_INTERNAL void re__exec_init(re__exec* exec, re* re) {
-    exec->re = re;
+RE_INTERNAL void re__exec_init(re__exec* exec) {
     re__exec_thrd_set_init(&exec->set_a);
     re__exec_thrd_set_init(&exec->set_b);
     re__exec_thrd_set_init(&exec->set_c);
     re__exec_thrd_vec_init(&exec->thrd_stk);
-    re__exec_save_init(&exec->save_slots, re__ast_root_get_num_groups(&re->data->ast_root));
+    re__exec_save_init(&exec->save_slots);
 }
 
 RE_INTERNAL void re__exec_destroy(re__exec* exec) {
@@ -211,8 +214,7 @@ RE_INTERNAL void re__exec_destroy(re__exec* exec) {
     re__exec_thrd_set_destroy(&exec->set_a);
 }
 
-RE_INTERNAL re_error re__exec_follow(re__exec* exec, re__exec_thrd thrd, re__ast_assert_type assert_context, re_size pos) {
-    re__prog* prog = &exec->re->data->program;
+RE_INTERNAL re_error re__exec_follow(re__exec* exec, re__prog* prog, re__exec_thrd thrd, re__ast_assert_type assert_context, re_size pos) {
     re_error err = RE_ERROR_NONE;
     re__exec_thrd_vec_clear(&exec->thrd_stk);
     re__exec_thrd_set_clear(&exec->set_c);
@@ -291,14 +293,14 @@ RE_INTERNAL void re__exec_swap(re__exec* exec) {
     exec->set_b = temp;
 }
 
-RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__str_view str_view) {
+RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view) {
     re_error err = RE_ERROR_NONE;
-    re__prog* prog = &exec->re->data->program;
     re__prog_loc set_size = re__prog_size(prog);
     re__ast_assert_type assert_ctx;
     re__exec_thrd thrd;
     re_size pos, j;
     const re_char* str = re__str_view_get_data(&str_view);
+    re__exec_save_set_slots_per_thrd(&exec->save_slots, num_groups * 2);
     if ((err = re__exec_thrd_set_alloc(&exec->set_a, set_size))) {
         return err;
     }
@@ -310,7 +312,7 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__str_view str_view) {
     }
     assert_ctx = RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_START;
     re__exec_thrd_init(&thrd, 1, RE__EXEC_SAVE_REF_NONE);
-    if ((err = re__exec_follow(exec, thrd, assert_ctx, 0))) {
+    if ((err = re__exec_follow(exec, prog, thrd, assert_ctx, 0))) {
         return err;
     }
     re__exec_thrd_set_clear(&exec->set_a);
@@ -325,7 +327,7 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__str_view str_view) {
                 if (ch == re__prog_inst_get_byte(cur_inst)) {
                     re__exec_thrd primary_thrd;
                     re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(cur_inst), cur_thrd.save_slot);
-                    if ((err = re__exec_follow(exec, cur_thrd, assert_ctx, pos))) {
+                    if ((err = re__exec_follow(exec, prog, cur_thrd, assert_ctx, pos))) {
                         return err;
                     }
                 } else {
@@ -335,7 +337,7 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__str_view str_view) {
                 if (ch >= re__prog_inst_get_byte_min(cur_inst) && ch <= re__prog_inst_get_byte_max(cur_inst)) {
                     re__exec_thrd primary_thrd;
                     re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(cur_inst), cur_thrd.save_slot);
-                    if ((err = re__exec_follow(exec, cur_thrd, assert_ctx, pos))) {
+                    if ((err = re__exec_follow(exec, prog, cur_thrd, assert_ctx, pos))) {
                         return err;
                     }
                 } else {
