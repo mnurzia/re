@@ -310,6 +310,10 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         re__ast_assert_type assert_type;
         SYM_GET_SUB(&walk, re__ast_assert_type, &assert_type);
         re__ast_init_assert(&ast, assert_type);
+    } else if (type == RE__AST_TYPE_ANY_CHAR) {
+        re__ast_init_any_char(&ast);
+    } else if (type == RE__AST_TYPE_ANY_BYTE) {
+        re__ast_init_any_byte(&ast);
     }
     {
         if (prev_sibling_ref == RE__AST_NONE) {
