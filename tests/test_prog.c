@@ -73,10 +73,14 @@ int re__prog_inst_from_sym(sym_walk* parent, re__prog_inst* prog_inst) {
         br.min = (re_uint8)min;
         br.max = (re_uint8)max;
         re__prog_inst_init_byte_range(prog_inst, br);
+    } else if (inst_type == RE__PROG_INST_TYPE_SPLIT) {
+        re__prog_inst_init_split(prog_inst, RE__PROG_LOC_INVALID, RE__PROG_LOC_INVALID);  
     } else if (inst_type == RE__PROG_INST_TYPE_MATCH) {
         re_int32 match_idx;
         SYM_GET_NUM(&walk, &match_idx);
         re__prog_inst_init_match(prog_inst, (re_uint32)match_idx);
+    } else if (inst_type == RE__PROG_INST_TYPE_FAIL) {
+        re__prog_inst_init_fail(prog_inst);  
     } else if (inst_type == RE__PROG_INST_TYPE_SAVE) {
         re_int32 save_idx;
         SYM_GET_NUM(&walk, &save_idx);
