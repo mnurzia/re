@@ -158,7 +158,7 @@ RE_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst) {
 }
 
 RE_INTERNAL int re__prog_equals(re__prog* a, re__prog* b) {
-    re_int32 i;
+    re__prog_loc i;
     if (re__prog_size(a) != re__prog_size(b)) {
         return 0;
     }
