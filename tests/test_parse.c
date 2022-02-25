@@ -38,7 +38,7 @@ TEST(t_parse_group) {
         re__ast_root,
         re.data->ast_root,
         "(ast"
-        "   (group \"\" () (rune 'a')))",
+        "   (group () 0 (rune 'a')))",
         "group should create a group"
     );
     re_destroy(&re);
@@ -133,7 +133,7 @@ TEST(t_parse_group_named) {
         re__ast_root,
         re.data->ast_root,
         "(ast"
-        "  (group name ()"
+        "  (group (named) 0 name"
         "    (rune 'a')))"
     );
     re_destroy(&re);

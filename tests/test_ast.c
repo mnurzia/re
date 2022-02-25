@@ -35,6 +35,9 @@ int re__ast_group_flags_to_sym(sym_build* parent, re__ast_group_flags group_flag
     if (group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
         SYM_PUT_STR(&build, "nonmatching");
     }
+    if (group_flags & RE__AST_GROUP_FLAG_NAMED) {
+        SYM_PUT_STR(&build, "named");
+    }
     return SYM_OK;
 }
 
@@ -43,7 +46,8 @@ static const char* group_flag_sym_types[] = {
     "multiline",
     "dot_newline",
     "ungreedy",
-    "nonmatching"
+    "nonmatching",
+    "named"
 };
 
 int re__ast_group_flags_from_sym(sym_walk* parent, re__ast_group_flags* group_flags) {
@@ -146,9 +150,14 @@ int re__ast_root_to_sym_r(sym_build* parent, re__ast_root* ast_root, re__ast* as
         SYM_PUT_STR(&build, greed);
     } else if (type == RE__AST_TYPE_GROUP) {
         re__ast_group_flags flags = re__ast_get_group_flags(ast);
-        re__str_view group_name = re__ast_root_get_group(ast_root, re__ast_get_group_idx(ast));
-        SYM_PUT_STRN(&build, re__str_view_get_data(&group_name), re__str_view_size(&group_name));
         SYM_PUT_SUB(&build, re__ast_group_flags, flags);
+        if (!(flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
+            SYM_PUT_NUM(&build, (re_int32)re__ast_get_group_idx(ast));
+            if (flags & RE__AST_GROUP_FLAG_NAMED) {
+                re__str_view group_name = re__ast_root_get_group(ast_root, re__ast_get_group_idx(ast));
+                SYM_PUT_STRN(&build, re__str_view_get_data(&group_name), re__str_view_size(&group_name));
+            }
+        }
     } else if (type == RE__AST_TYPE_ASSERT) {
         re__ast_assert_type atype = re__ast_get_assert_type(ast);
         SYM_PUT_SUB(&build, re__ast_assert_type, atype);
@@ -279,9 +288,24 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         re__ast_set_quantifier_greediness(&ast, greedy);
     } else if (type == RE__AST_TYPE_GROUP) {
         re__ast_group_flags group_flags;
-        re__ast_init_group(&ast, re__ast_root_get_num_groups(ast_root) + 1);
         SYM_GET_SUB(&walk, re__ast_group_flags, &group_flags);
-        re__ast_set_group_flags(&ast, group_flags);
+        if (group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
+            re__ast_init_group(&ast, 0, group_flags);
+        } else {
+            re__str_view str_view;
+            re_int32 group_num;
+            SYM_GET_NUM(&walk, &group_num);
+            re__ast_init_group(&ast, (re_uint32)group_num, group_flags);
+            if (group_flags & RE__AST_GROUP_FLAG_NAMED) {
+                const char* str_data;
+                mptest_size str_size;
+                SYM_GET_STR(&walk, &str_data, &str_size);
+                re__str_view_init_n(&str_view, str_data, str_size);
+            } else {
+                re__str_view_init_null(&str_view);
+            }
+            re__ast_root_add_group(ast_root, str_view);
+        }
     } else if (type == RE__AST_TYPE_ASSERT) {
         re__ast_assert_type assert_type;
         SYM_GET_SUB(&walk, re__ast_assert_type, &assert_type);
@@ -386,9 +410,25 @@ TEST(t_ast_init_quantifier) {
     PASS();
 }
 
-TEST(t_ast_init_group) {
+TEST(t_ast_init_group_nonmatching) {
     re__ast ast;
-    re__ast_init_group(&ast, 0);
+    re__ast_init_group(&ast, 0, RE__AST_GROUP_FLAG_NONMATCHING);
+    ASSERT_EQ(ast.type, RE__AST_TYPE_GROUP);
+    re__ast_destroy(&ast);
+    PASS();
+}
+
+TEST(t_ast_init_group_matching) {
+    re__ast ast;
+    re__ast_init_group(&ast, 0, 0);
+    ASSERT_EQ(ast.type, RE__AST_TYPE_GROUP);
+    re__ast_destroy(&ast);
+    PASS();
+}
+
+TEST(t_ast_init_group_named) {
+    re__ast ast;
+    re__ast_init_group(&ast, 0, RE__AST_GROUP_FLAG_NAMED);
     ASSERT_EQ(ast.type, RE__AST_TYPE_GROUP);
     re__ast_destroy(&ast);
     PASS();
@@ -426,6 +466,9 @@ SUITE(s_ast_init) {
     RUN_TEST(t_ast_init_concat);
     RUN_TEST(t_ast_init_alt);
     FUZZ_TEST(t_ast_init_quantifier);
+    RUN_TEST(t_ast_init_group_nonmatching);
+    RUN_TEST(t_ast_init_group_matching);
+    RUN_TEST(t_ast_init_group_named);
     FUZZ_TEST(t_ast_init_assert);
     FUZZ_TEST(t_ast_init_any_char);
     FUZZ_TEST(t_ast_init_any_byte);
@@ -465,7 +508,7 @@ TEST(t_ast_get_rune) {
     PASS();
 }
 
-TEST(t_ast_group_flags) {
+/*TEST(t_ast_group_flags) {
     re__ast ast;
     re__ast_group_flags flags = RAND_PARAM(RE__AST_GROUP_FLAG_MAX >> 1);
     re__ast_init_group(&ast, 0);
@@ -473,7 +516,7 @@ TEST(t_ast_group_flags) {
     ASSERT_EQ(re__ast_get_group_flags(&ast), flags);
     re__ast_destroy(&ast);
     PASS();
-}
+}*/
 
 TEST(t_ast_assert_type) {
     re__ast ast;
@@ -489,7 +532,6 @@ SUITE(s_ast) {
     RUN_TEST(t_ast_quantifier_greediness);
     FUZZ_TEST(t_ast_quantifier_minmax);
     FUZZ_TEST(t_ast_get_rune);
-    FUZZ_TEST(t_ast_group_flags);
     FUZZ_TEST(t_ast_assert_type);
 }
 
