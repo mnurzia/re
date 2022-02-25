@@ -561,7 +561,7 @@ re__prog_loc re__compile_charclass_cache_get(re__compile_charclass* char_comp, r
     dense_index = char_comp->cache_sparse[sparse_index];
     /* If dense_index_initial is more than the dense size, sparse_index is
      * nonsensical and the item isn't in the cache. */
-    if (dense_index < (re_int32)re__compile_charclass_hash_entry_vec_size(&char_comp->cache_dense)) {
+    if (dense_index < (re_int32)re__compile_charclass_hash_entry_vec_size(&char_comp->cache_dense) && dense_index >= 0) {
         /* Load the hash entry at dense_index_initial */
         re__compile_charclass_hash_entry* hash_entry_prev = re__compile_charclass_hash_entry_vec_getref(&char_comp->cache_dense, (re_size)dense_index);
         /* If hash_entry_prev->sparse_index doesn't point back to sparse_index,
@@ -614,7 +614,7 @@ re_error re__compile_charclass_cache_add(re__compile_charclass* char_comp, re_in
     }
     dense_index = char_comp->cache_sparse[sparse_index];
     /* Look up the element in the cache, see re__compile_charclass_cache_get */
-    if (dense_index < (re_int32)re__compile_charclass_hash_entry_vec_size(&char_comp->cache_dense)) {
+    if (dense_index < (re_int32)re__compile_charclass_hash_entry_vec_size(&char_comp->cache_dense) && dense_index >= 0) {
         hash_entry_prev = re__compile_charclass_hash_entry_vec_getref(&char_comp->cache_dense, (re_size)dense_index);
         if (hash_entry_prev->sparse_index == sparse_index) {
             while (1) {
