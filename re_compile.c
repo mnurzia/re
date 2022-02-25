@@ -85,6 +85,42 @@ RE_INTERNAL void re__compile_patches_patch(re__compile_patches* patches, re__pro
 
 #if RE_DEBUG
 
+RE_VEC_DECL(re__prog_loc);
+RE_VEC_IMPL_FUNC(re__prog_loc, init)
+RE_VEC_IMPL_FUNC(re__prog_loc, destroy)
+RE_VEC_IMPL_FUNC(re__prog_loc, push)
+RE_VEC_IMPL_FUNC(re__prog_loc, size)
+RE_VEC_IMPL_FUNC(re__prog_loc, get)
+
+/* check for cycles in compile_patches */
+RE_INTERNAL int re__compile_patches_verify(re__compile_patches* patches, re__prog* prog) {
+    re__prog_loc current_loc = patches->first_inst;
+    re__prog_loc_vec found_list;
+    if (patches->first_inst == RE__PROG_LOC_INVALID) {
+        return patches->last_inst == RE__PROG_LOC_INVALID;
+    }
+    re__prog_loc_vec_init(&found_list);
+    /* O(n^2) so use with care! */
+    while (current_loc != patches->last_inst) {
+        re_size i;
+        re__prog_inst* inst = re__prog_get(prog, current_loc >> 1);
+        for (i = 0; i < re__prog_loc_vec_size(&found_list); i++) {
+            re__prog_loc found = re__prog_loc_vec_get(&found_list, i);
+            if (found == current_loc) {
+                return 0; /* cycle detected */
+            }
+        }
+        re__prog_loc_vec_push(&found_list, current_loc);
+        if (!(current_loc & 1)) {
+            current_loc = re__prog_inst_get_primary(inst);
+        } else {
+            current_loc = re__prog_inst_get_split_secondary(inst);
+        }
+    }
+    re__prog_loc_vec_destroy(&found_list);
+    return 1;
+}
+
 RE_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog* prog) {
     re__prog_loc current_loc = patches->first_inst;
     if (current_loc == RE__PROG_LOC_INVALID) {
@@ -211,14 +247,46 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
             int num_bytes = re__compile_gen_utf8(re__ast_get_rune(top_node), utf8_bytes);
             int i;
             for (i = 0; i < num_bytes; i++) {
-                if (i == num_bytes - 1) {
-                    /* Add an outgoing patch (1) */
-                    re__compile_patches_append(&top_frame.patches, prog, re__prog_size(prog), 0);
-                }
                 re__prog_inst_init_byte(
                     &new_inst, 
                     utf8_bytes[i]
                 );
+                if (i == num_bytes - 1) {
+                    /* Add an outgoing patch (1) */
+                    re__compile_patches_append(&top_frame.patches, prog, re__prog_size(prog), 0);
+                } else {
+                    re__prog_inst_set_primary(&new_inst, re__prog_size(prog) + 1);
+                }
+                if ((err = re__prog_add(prog, new_inst))) {
+                    goto error;
+                }
+            }
+            next_child = 1;
+        } else if (top_node_type == RE__AST_TYPE_STR) {
+            /* Generates a single Byte or series of Byte instructions for a
+             * string. */
+            /*    +0
+             * ~~~+-------+~~~
+             * .. | Byte  | ..
+             * .. | Instr | ..
+             * ~~~+---+---+~~~
+             *        |
+             *        +-----1--> ... */
+            re__prog_inst new_inst;
+            re__str_view str_view = re__ast_root_get_str_view(ast_root, re__ast_get_str_ref(top_node));
+            re_size i;
+            re_size sz = re__str_view_size(&str_view);
+            for (i = 0; i < sz; i++) {
+                re__prog_inst_init_byte(
+                    &new_inst, 
+                    (re_uint8)re__str_view_get_data(&str_view)[i]
+                );
+                if (i == sz - 1) {
+                    /* Add an outgoing patch (1) */
+                    re__compile_patches_append(&top_frame.patches, prog, re__prog_size(prog), 0);
+                } else {
+                    re__prog_inst_set_primary(&new_inst, re__prog_size(prog) + 1);
+                }
                 if ((err = re__prog_add(prog, new_inst))) {
                     goto error;
                 }

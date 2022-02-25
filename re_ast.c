@@ -138,6 +138,7 @@ RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root) {
     re__ast_vec_init(&ast_root->ast_vec);
     ast_root->last_empty_ref = RE__AST_NONE;
     ast_root->root_ref = RE__AST_NONE;
+    ast_root->depth_max = 0;
     re__charclass_refs_init(&ast_root->charclasses);
     re__str_refs_init(&ast_root->strings);
     re__str_vec_init(&ast_root->group_names);
@@ -178,6 +179,9 @@ RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref) 
 
 RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref) {
     re__ast* empty = re__ast_root_get(ast_root, ast_ref);
+    if (ast_root->root_ref == ast_ref) {
+        ast_root->root_ref = RE__AST_NONE;
+    }
     empty->type = RE__AST_TYPE_NONE;
     empty->next_sibling_ref = ast_root->last_empty_ref;
     ast_root->last_empty_ref = ast_ref;
@@ -485,6 +489,26 @@ RE_VEC_IMPL_FUNC(re_int32, push)
 RE_VEC_IMPL_FUNC(re_int32, size)
 RE_VEC_IMPL_FUNC(re_int32, get)
 
+RE_INTERNAL int re__ast_root_verify_depth(re__ast_root* ast_root, re_int32 start_ref, re_int32 depth) {
+    re__ast* cur_node;
+    if (depth == 0) {
+        if (start_ref == RE__AST_NONE) {
+            return 1;
+        } else {
+            return 0;
+        }
+    } else {
+        while (start_ref != RE__AST_NONE) {
+            cur_node = re__ast_root_get(ast_root, start_ref);
+            if (!re__ast_root_verify_depth(ast_root, cur_node->first_child_ref, depth - 1)) {
+                return 0;
+            }
+            start_ref = cur_node->next_sibling_ref;
+        }
+    }
+    return 1;
+}
+
 RE_INTERNAL int re__ast_root_verify(re__ast_root* ast_root) {
     re_int32_vec removed_list;
     re_int32_vec_init(&removed_list);
@@ -548,7 +572,7 @@ cont:
         }
     }
     re_int32_vec_destroy(&removed_list);
-    return 1;
+    return re__ast_root_verify_depth(ast_root, ast_root->root_ref, ast_root->depth_max);
 }
 
 #endif
