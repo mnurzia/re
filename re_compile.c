@@ -465,13 +465,13 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
                     } else {
                         re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
                         if (re__ast_get_quantifier_greediness(top_node)) {
-                            re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
+                            re__prog_inst_init_split(&new_spl, returned_frame.start, RE__PROG_LOC_INVALID);
                             if ((err = re__prog_add(prog, new_spl))) {
                                 goto error;
                             }
                             re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
                         } else {
-                            re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, this_start_pc + 1);
+                            re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, returned_frame.start);
                             if ((err = re__prog_add(prog, new_spl))) {
                                 goto error;
                             }
