@@ -39,9 +39,13 @@ RE_INTERNAL void re__ast_init_quantifier(re__ast* ast, re_int32 min, re_int32 ma
     ast->_data.quantifier_info.greediness = 1;
 }
 
-RE_INTERNAL void re__ast_init_group(re__ast* ast, re_uint32 group_idx) {
+RE_INTERNAL void re__ast_init_group(re__ast* ast, re_uint32 group_idx, re__ast_group_flags group_flags) {
     re__ast_init(ast, RE__AST_TYPE_GROUP);
-    ast->_data.group_info.flags = 0;
+    if (group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
+        RE_ASSERT(!(group_flags & RE__AST_GROUP_FLAG_NAMED));
+        RE_ASSERT(group_idx == 0);
+    }
+    ast->_data.group_info.flags = group_flags;
     ast->_data.group_info.group_idx = group_idx;
 }
 
@@ -90,11 +94,6 @@ RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast) {
 RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
     return ast->_data.group_info.flags;
-}
-
-RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags) {
-    RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
-    ast->_data.group_info.flags = flags;
 }
 
 RE_INTERNAL re_uint32 re__ast_get_group_idx(re__ast* ast) {

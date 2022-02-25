@@ -384,11 +384,21 @@ RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
     re_error err = RE_ERROR_NONE;
     re_int32 new_group_ref;
     re__str_view group_name;
-    re__str_view_init_n(&group_name, parse->str_begin, (re_size)(parse->str_end - parse->str_begin));
-    re__ast_init_group(&new_group, re__ast_root_get_num_groups(parse->ast_root));
-    re__ast_root_add_group(parse->ast_root, group_name);
-    /* Set group's flags */
-    re__ast_set_group_flags(&new_group, parse->group_flags_new);
+    re_uint32 new_group_idx = 0;
+    if (parse->group_flags & RE__AST_GROUP_FLAG_NAMED) {
+        if (parse->group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
+            return re__parse_error(parse, "cannot have non-matching group with a name");
+        } else {
+            re__str_view_init_n(&group_name, parse->str_begin, (re_size)(parse->str_end - parse->str_begin));
+            new_group_idx = re__ast_root_get_num_groups(parse->ast_root);
+            re__ast_root_add_group(parse->ast_root, group_name);
+        }
+    } else if (!(parse->group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
+        re__str_view_init_null(&group_name);
+        new_group_idx = re__ast_root_get_num_groups(parse->ast_root);
+        re__ast_root_add_group(parse->ast_root, group_name);
+    }
+    re__ast_init_group(&new_group, new_group_idx, parse->group_flags);
     if ((err = re__parse_link_new_node(parse, new_group, &new_group_ref))) {
         return err;
     }
@@ -1278,6 +1288,7 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
             } else if (ch == '>') {
                 /* (?P<...>: End of group name, begin group, go to GND */
                 parse->state = RE__PARSE_STATE_GND;
+                parse->group_flags |= RE__AST_GROUP_FLAG_NAMED;
                 RE__TRY(re__parse_group_begin(parse));
             } else {
                 /* (?P<...: Name character, append to name */

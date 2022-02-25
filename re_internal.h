@@ -156,7 +156,8 @@ typedef enum re__ast_group_flags {
     RE__AST_GROUP_FLAG_DOT_NEWLINE = 4,
     RE__AST_GROUP_FLAG_UNGREEDY = 8,
     RE__AST_GROUP_FLAG_NONMATCHING = 16,
-    RE__AST_GROUP_FLAG_MAX = 32
+    RE__AST_GROUP_FLAG_NAMED = 32,
+    RE__AST_GROUP_FLAG_MAX = 64
 } re__ast_group_flags;
 
 /* Group info */
@@ -197,7 +198,7 @@ RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref);
 RE_INTERNAL void re__ast_init_concat(re__ast* ast);
 RE_INTERNAL void re__ast_init_alt(re__ast* ast);
 RE_INTERNAL void re__ast_init_quantifier(re__ast* ast, re_int32 min, re_int32 max);
-RE_INTERNAL void re__ast_init_group(re__ast* ast, re_uint32 group_idx);
+RE_INTERNAL void re__ast_init_group(re__ast* ast, re_uint32 group_idx, re__ast_group_flags flags);
 RE_INTERNAL void re__ast_init_assert(re__ast* ast, re__ast_assert_type assert_type);
 RE_INTERNAL void re__ast_init_any_char(re__ast* ast);
 RE_INTERNAL void re__ast_init_any_byte(re__ast* ast);
@@ -209,7 +210,6 @@ RE_INTERNAL re_int32 re__ast_get_quantifier_max(re__ast* ast);
 RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast);
 RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast);
 RE_INTERNAL re_uint32 re__ast_get_group_idx(re__ast* ast);
-RE_INTERNAL void re__ast_set_group_flags(re__ast* ast, re__ast_group_flags flags);
 RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
 RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast);
 
