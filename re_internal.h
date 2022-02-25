@@ -93,6 +93,7 @@ typedef enum re__ast_type {
     /* No type. Should never occur. */
     RE__AST_TYPE_NONE = 0,
     /* A single character. */
+    /* TODO: fold into type_str */
     RE__AST_TYPE_RUNE,
     /* A string of characters. */
     RE__AST_TYPE_STR,
