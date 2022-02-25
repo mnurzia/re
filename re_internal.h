@@ -653,7 +653,7 @@ void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_
 #endif
 
 typedef struct re__compile_frame {
-    re_int32 ast_root_ref;
+    re_int32 ast_base_ref;
     re_int32 ast_child_ref;
     re__compile_patches patches;
     re__prog_loc start;
@@ -665,7 +665,6 @@ typedef struct re__compile {
     re__compile_frame* frames;
     re_int32 frames_size;
     re_int32 frame_ptr;
-    re_int32 ast_ref;
     re__compile_charclass char_comp;
 } re__compile;
 
