@@ -39,6 +39,7 @@ class Project(pack_v4.Project):
             "test_ast.c",
             "test_charclass.c",
             "test_compile.c",
+            "test_compile_charclass.c",
             "test_exec.c",
             "test_helpers.c",
             "test_main.c",
