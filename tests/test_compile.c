@@ -68,7 +68,7 @@ TEST(t_compile_rune_unicode) {
     PASS();
 }
 
-TEST(t_compile_str) {
+TEST(t_compile_str_basic) {
     re__ast_root ast_root;
     re__prog prog;
     re__compile compile;
@@ -144,9 +144,37 @@ TEST(t_compile_str_thrash) {
     PASS();
 }
 
+TEST(t_compile_concat_basic) {
+    re__ast_root ast_root;
+    re__prog prog, prog_actual;
+    re__compile compile;
+    SYM(re__ast_root,
+        "(ast"
+        "    (concat"
+        "        ("
+        "            (rune 'a')"
+        "            (rune 'b'))))", &ast_root);
+    SYM(re__prog,
+        "(prog"
+        "    (fail)"
+        "    (byte 'a' 2)"
+        "    (byte 'b' 3)"
+        "    (match 0)", &prog);
+    re__compile_init(&compile);
+    re__prog_init(&prog_actual);
+    ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual));
+    ASSERT(re__prog_equals(&prog, &prog_actual));
+    re__compile_destroy(&compile);
+    re__prog_destroy(&prog);
+    re__prog_destroy(&prog_actual);
+    re__ast_root_destroy(&ast_root);
+    PASS();
+}
+
 SUITE(s_compile) {
     RUN_TEST(t_compile_rune_ascii);
     FUZZ_TEST(t_compile_rune_unicode);
-    RUN_TEST(t_compile_str);
-    RUN_TEST(t_compile_str_thrash);
+    RUN_TEST(t_compile_str_basic);
+    FUZZ_TEST(t_compile_str_thrash);
+    RUN_TEST(t_compile_concat_basic);
 }
