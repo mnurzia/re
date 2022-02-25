@@ -505,14 +505,35 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
                 }
             }
         } else if (top_node_type == RE__AST_TYPE_GROUP) {
+            re__prog_inst new_inst;
+            re_uint32 group_idx;
+            re__ast_group_flags group_flags = re__ast_get_group_flags(top_node);
             RE_ASSERT(top_node->first_child_ref != RE__AST_NONE);
             if (top_frame.ast_child_ref != RE__AST_NONE) {
                 /* Before child */
+                if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
+                    group_idx = re__ast_get_group_idx(top_node);
+                    re__prog_inst_init_save(&new_inst, group_idx * 2);
+                    re__prog_inst_set_primary(&new_inst, this_start_pc + 1);
+                    if ((err = re__prog_add(prog, new_inst))) {
+                        goto error;
+                    }
+                }
                 should_push_child = 1;
                 should_push_child_ref = current_child_ref;
             } else {
                 /* After child */
-                re__compile_patches_merge(&top_frame.patches, prog, &returned_frame.patches);
+                if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
+                    group_idx = re__ast_get_group_idx(top_node);
+                    re__prog_inst_init_save(&new_inst, (group_idx * 2) + 1);
+                    if ((err = re__prog_add(prog, new_inst))) {
+                        goto error;
+                    }
+                    re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
+                    re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
+                } else {
+                    re__compile_patches_merge(&top_frame.patches, prog, &returned_frame.patches);
+                }
             }
         } else if (top_node_type == RE__AST_TYPE_ASSERT) {
             /* Generates a single Assert instruction. */
