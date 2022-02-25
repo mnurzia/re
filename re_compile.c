@@ -444,11 +444,19 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
                     re__prog_inst new_spl;
                     if (min == 0) {
                         if (int_idx == 0) {
-                            re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
-                            if ((err = re__prog_add(prog, new_spl))) {
-                                goto error;
+                            if (re__ast_get_quantifier_greediness(top_node)) {
+                                re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
+                                if ((err = re__prog_add(prog, new_spl))) {
+                                    goto error;
+                                }
+                                re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
+                            } else {
+                                re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, this_start_pc + 1);
+                                if ((err = re__prog_add(prog, new_spl))) {
+                                    goto error;
+                                }
+                                re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
                             }
-                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
                             should_push_child = 1;
                             should_push_child_ref = top_node->first_child_ref;
                         } else if (int_idx == 1) {
@@ -456,23 +464,39 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
                         }
                     } else {
                         re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
-                        re__prog_inst_init_split(&new_spl, returned_frame.start, RE__PROG_LOC_INVALID);
-                        if ((err = re__prog_add(prog, new_spl))) {
-                            goto error;
+                        if (re__ast_get_quantifier_greediness(top_node)) {
+                            re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
+                            if ((err = re__prog_add(prog, new_spl))) {
+                                goto error;
+                            }
+                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
+                        } else {
+                            re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, this_start_pc + 1);
+                            if ((err = re__prog_add(prog, new_spl))) {
+                                goto error;
+                            }
+                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
                         }
-                        re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
                     }
                 } else {
-                    if (int_idx > 0) {
-                        re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
-                    }
-                    if (int_idx <= max - 2) {
+                    if (int_idx <= max - 1) {
                         re__prog_inst new_spl;
-                        re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
-                        if ((err = re__prog_add(prog, new_spl))) {
-                            goto error;
+                        if (int_idx > 0) {
+                            re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
                         }
-                        re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
+                        if (re__ast_get_quantifier_greediness(top_node)) {
+                            re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
+                            if ((err = re__prog_add(prog, new_spl))) {
+                                goto error;
+                            }
+                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
+                        } else {
+                            re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, this_start_pc + 1);
+                            if ((err = re__prog_add(prog, new_spl))) {
+                                goto error;
+                            }
+                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
+                        }
                         should_push_child = 1;
                         should_push_child_ref = top_node->first_child_ref;
                     } else {
