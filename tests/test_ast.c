@@ -192,12 +192,13 @@ int re__ast_root_to_sym(sym_build* parent, re__ast_root ast_root) {
     return SYM_OK;
 }
 
-int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 parent_ref, re_int32 prev_sibling_ref, re_int32* out_ast_ref) {
+int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 parent_ref, re_int32 prev_sibling_ref, re_int32* out_ast_ref, re_int32 depth) {
     sym_walk walk;
     const char* type_str;
     mptest_size type_str_size;
     re__ast_type type = 0;
     re__ast ast;
+    ast_root->depth_max = RE__MAX(ast_root->depth_max, depth);
     SYM_GET_EXPR(parent, &walk);
     SYM_GET_STR(&walk, &type_str, &type_str_size);
     {
@@ -299,14 +300,14 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         SYM_GET_EXPR(&walk, &children);
         while (SYM_MORE(&children)) {
             int err;
-            if ((err = re__ast_root_from_sym_r(&children, ast_root, *out_ast_ref, child_ref, &child_ref))) {
+            if ((err = re__ast_root_from_sym_r(&children, ast_root, *out_ast_ref, child_ref, &child_ref, depth + 1))) {
                 return err;
             }
         }
     } else if (type == RE__AST_TYPE_GROUP || type == RE__AST_TYPE_QUANTIFIER) {
         int err;
         re_int32 dummy_ref;
-        if ((err = re__ast_root_from_sym_r(&walk, ast_root, *out_ast_ref, RE__AST_NONE, &dummy_ref))) {
+        if ((err = re__ast_root_from_sym_r(&walk, ast_root, *out_ast_ref, RE__AST_NONE, &dummy_ref, depth + 1))) {
             return err;
         }
     }
@@ -321,7 +322,7 @@ int re__ast_root_from_sym(sym_walk* parent, re__ast_root* ast_root) {
     re__ast_root_init(ast_root);
     while (SYM_MORE(&walk)) {
         re_int32 dummy_ref;
-        if ((err = re__ast_root_from_sym_r(&walk, ast_root, ast_root->root_ref, RE__AST_NONE, &dummy_ref))) {
+        if ((err = re__ast_root_from_sym_r(&walk, ast_root, ast_root->root_ref, RE__AST_NONE, &dummy_ref, 1))) {
             return err;
         }
     }
@@ -517,6 +518,7 @@ TEST(t_ast_root_addget) {
         }
         refs[i] = prev_ref;
     }
+    ast_root.depth_max = 1;
     for (i = 0; i < l; i++) {
         re_int32 ref = refs[i];
         re__ast* ast = re__ast_root_get(&ast_root, ref);
@@ -548,6 +550,7 @@ TEST(t_ast_root_remove) {
     for (i = l; i > 0; i--) {
         re__ast_root_remove(&ast_root, refs[i-1]);
     }
+    ast_root.depth_max = 0;
     ASSERT(re__ast_root_verify(&ast_root));
     re__ast_root_destroy(&ast_root);
     RE_FREE(refs);
