@@ -513,6 +513,45 @@ TEST(t_compile_group_nonmatching) {
     PASS();
 }
 
+TEST(t_compile_assert) {
+    re__ast_root ast_root;
+    re__prog prog, prog_actual;
+    re__compile compile;
+    SYM(re__ast_root,
+        "(ast"
+        "    (assert (text_start text_end word word_not)))", &ast_root);
+    SYM(re__prog,
+        "(prog"
+        "    (fail)"
+        "    (assert (text_start text_end word word_not) 2)"
+        "    (match 0))", &prog);
+    re__compile_init(&compile);
+    re__prog_init(&prog_actual);
+    ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual));
+    ASSERT(re__prog_equals(&prog, &prog_actual));
+    re__compile_destroy(&compile);
+    re__prog_destroy(&prog);
+    re__prog_destroy(&prog_actual);
+    re__ast_root_destroy(&ast_root);
+    PASS();
+}
+
+TEST(t_compile_any_char) {
+    re__ast_root ast_root;
+    re__prog prog_actual;
+    re__compile compile;
+    SYM(re__ast_root,
+        "(ast"
+        "    (any_char))", &ast_root);
+    re__compile_init(&compile);
+    re__prog_init(&prog_actual);
+    ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual));
+    re__compile_destroy(&compile);
+    re__prog_destroy(&prog_actual);
+    re__ast_root_destroy(&ast_root);
+    PASS();
+}
+
 SUITE(s_compile) {
     RUN_TEST(t_compile_rune_ascii);
     FUZZ_TEST(t_compile_rune_unicode);
@@ -532,4 +571,6 @@ SUITE(s_compile) {
     RUN_TEST(t_compile_quantifier_minmax_nongreedy);
     RUN_TEST(t_compile_group);
     RUN_TEST(t_compile_group_nonmatching);
+    RUN_TEST(t_compile_assert);
+    RUN_TEST(t_compile_any_char);
 }
