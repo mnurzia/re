@@ -15,15 +15,10 @@ typedef re_int32 re_rune;
 #define RE_ERROR_COMPILE 4
 
 typedef struct re_data re_data;
-typedef struct re_match_data re_match_data;
 
 typedef struct re {
     re_data* data;
 } re;
-
-typedef struct re_match {
-    re_match_data* data;
-} re_match;
 
 typedef struct re_span {
     re_size begin;
@@ -35,9 +30,28 @@ void re_destroy(re* reg);
 
 const char* re_get_error(re* reg, re_size* error_len);
 
-re_error re_fullmatch(re* reg, const char* text, re_size text_size, re_match* output);
+#define RE__MATCH_GROUPS_MAX 10000
 
-re_span re_match_get_span(re_match* match, re_uint32 submatch_index);
-void re_match_destroy(re_match* match);
+typedef enum re_match_anchor_type {
+    RE_MATCH_ANCHOR_FULL,
+    RE_MATCH_ANCHOR_START,
+    RE_MATCH_ANCHOR_END,
+    RE_MATCH_UNANCHORED
+} re_match_anchor_type;
+
+typedef enum re_match_groups_type {
+    RE_MATCH_GROUPS_NONE = -1,
+    RE_MATCH_GROUPS_MATCH_BOUNDARIES = 0,
+    RE_MATCH_GROUPS_ALL = RE__MATCH_GROUPS_MAX
+} re_match_groups_type;
+
+typedef struct re_match_data {
+    int matched;
+    re_span match_boundaries;
+    re_uint32 groups_size;
+    re_span* groups;
+} re_match_data;
+
+re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_match_data* out);
 
 #endif

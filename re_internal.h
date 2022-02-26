@@ -678,7 +678,6 @@ typedef struct re__exec_thrd {
     re_int32 save_slot;
 } re__exec_thrd;
 
-
 RE_VEC_DECL(re__exec_thrd);
 
 typedef struct re__exec_thrd_set {
@@ -722,7 +721,7 @@ struct re_data {
 RE_INTERNAL void re__exec_init(re__exec* exec);
 RE_INTERNAL void re__exec_destroy(re__exec* exec);
 
-RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view);
+RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view, re_match_data* out);
 
 RE_INTERNAL void re__set_error_str(re* re, const re__str* error_str);
 RE_INTERNAL void re__set_error_generic(re* re, re_error err);
@@ -730,10 +729,7 @@ RE_INTERNAL void re__set_error_generic(re* re, re_error err);
 /*RE_INTERNAL re_error re__compile(re* re);*/
 RE_INTERNAL void re__prog_debug_dump(re__prog* prog);
 
-RE_VEC_DECL(re_span);
-
-struct re_match_data {
-    re_span_vec submatches;
-};
+RE_INTERNAL void re__match_data_init(re_match_data* match_data);
+re_error re__match_data_add_groups(re_match_data* match_data, re_size* sizes, re_uint32 num_groups);
 
 #endif
