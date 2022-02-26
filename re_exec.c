@@ -332,7 +332,7 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
                 if (ch == re__prog_inst_get_byte(cur_inst)) {
                     re__exec_thrd primary_thrd;
                     re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(cur_inst), cur_thrd.save_slot);
-                    if ((err = re__exec_follow(exec, prog, cur_thrd, assert_ctx, pos))) {
+                    if ((err = re__exec_follow(exec, prog, primary_thrd, assert_ctx, pos))) {
                         return err;
                     }
                 } else {
@@ -342,7 +342,7 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
                 if (ch >= re__prog_inst_get_byte_min(cur_inst) && ch <= re__prog_inst_get_byte_max(cur_inst)) {
                     re__exec_thrd primary_thrd;
                     re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(cur_inst), cur_thrd.save_slot);
-                    if ((err = re__exec_follow(exec, prog, cur_thrd, assert_ctx, pos))) {
+                    if ((err = re__exec_follow(exec, prog, primary_thrd, assert_ctx, pos))) {
                         return err;
                     }
                 } else {
@@ -382,8 +382,3 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
     return err;
 }
 
-#if RE_DEBUG
-
-
-
-#endif
