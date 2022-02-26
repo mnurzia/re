@@ -49,7 +49,6 @@ re_error re_init(re* reg, const char* regex) {
     re__ast_root_init(&reg->data->ast_root);
     re__prog_init(&reg->data->program);
     re__compile_init(&reg->data->compile);
-    re__exec_init(&reg->data->exec);
     if ((err = re__parse_str(&reg->data->parse, &regex_view))) {
         return err;
     }
@@ -57,7 +56,6 @@ re_error re_init(re* reg, const char* regex) {
 }
 
 void re_destroy(re* reg) {
-    re__exec_destroy(&reg->data->exec);
     re__compile_destroy(&reg->data->compile);
     re__prog_destroy(&reg->data->program);
     re__ast_root_destroy(&reg->data->ast_root);
@@ -71,4 +69,24 @@ const char* re_get_error(re* reg, re_size* error_len) {
         *error_len = re__str_view_size(&reg->data->error_string_view);
     }
     return (const char*)re__str_view_get_data(&reg->data->error_string_view);
+}
+
+re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_match_data* out) {
+    re_error err = RE_ERROR_NONE;
+    re__exec exec;
+    re__str_view string_view;
+    RE__UNUSED(anchor_type);
+    RE__UNUSED(groups_type);
+    if (!re__prog_size(&reg->data->program)) {
+        if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program))) {
+            return err;
+        }
+    }
+    re__exec_init(&exec);
+    re__str_view_init_n(&string_view, string, string_size);
+    if ((err = re__exec_nfa(&exec, &reg->data->program, re__ast_root_get_num_groups(&reg->data->ast_root), string_view, out))) {
+        return err;
+    }
+    re__exec_destroy(&exec);
+    return err;
 }
