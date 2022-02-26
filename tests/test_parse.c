@@ -79,6 +79,23 @@ TEST(t_parse_group_unmatched) {
     PASS();
 }
 
+TEST(t_parse_groups) {
+    re re;
+    ASSERT(!re_init(&re, "(a)(b)"));
+    ASSERT_SYMEQm(
+        re__ast_root,
+        re.data->ast_root,
+        "(ast"
+        "    (concat"
+        "        ("
+        "            (group () 0 (rune 'a'))"
+        "            (group () 1 (rune 'b'))))",
+        "two adjacent groups should create a concat with two groups"
+    );
+    re_destroy(&re);
+    PASS();
+}
+
 TEST(t_parse_group_balance) {
     re__str reg;
     int balance = 0;
@@ -542,6 +559,7 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_group_unmatched);
     FUZZ_TEST(t_parse_group_balance);
     RUN_TEST(t_parse_group_named);
+    RUN_TEST(t_parse_groups);
     RUN_TEST(t_parse_star);
     RUN_TEST(t_parse_question);
     RUN_TEST(t_parse_plus);
