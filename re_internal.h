@@ -711,7 +711,6 @@ struct re_data {
     re__ast_root ast_root;
     re__prog program;
     re__compile compile;
-    re__exec exec;
     /* Note: error_string_view always points to either a static const char* that
      * is a compiletime constant or a dynamically-allocated const char* inside
      * of error_string. Either way, in OOM situations, we will not allocate more
