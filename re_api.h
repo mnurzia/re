@@ -30,12 +30,12 @@ typedef struct re_span {
     re_size end;
 } re_span;
 
-re_error re_init(re* re, const char* regex);
-void re_destroy(re* re);
+re_error re_init(re* reg, const char* regex);
+void re_destroy(re* reg);
 
 const char* re_get_error(re* reg, re_size* error_len);
 
-re_error re_search(re* re, re_match* output);
+re_error re_fullmatch(re* reg, const char* text, re_size text_size, re_match* output);
 
 re_span re_match_get_span(re_match* match, re_uint32 submatch_index);
 void re_match_destroy(re_match* match);
