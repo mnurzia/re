@@ -294,9 +294,7 @@ RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, 
     }
     /* Weird control flow -- it's the only way I figured out how to do the
      * assertion below. */
-    if (frame_type == RE__AST_TYPE_NONE) {
-        /* Nothing in root */
-    } else if (frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT) {
+    if (frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT || frame_type == RE__AST_TYPE_NONE) {
         if (re__parse_frame_is_empty(parse)) {
             /* Push node, fallthrough */
         } else {
