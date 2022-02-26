@@ -554,28 +554,6 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
             }
             /* Add an outgoing patch (1) */
             re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
-        } else if (top_node_type == RE__AST_TYPE_ANY_BYTE) {
-            /* Generates a single Byte Range instruction. */
-            /*    +0
-             * ~~~+-------+~~~
-             * .. | ByteR | ..
-             * .. | Instr | ..
-             * ~~~+---+---+~~~
-             *        |
-             *        +-----1--> ... */
-            re__prog_inst new_inst;
-            re__byte_range br;
-            br.min = 0;
-            br.max = 255;
-            re__prog_inst_init_byte_range(
-                &new_inst,
-                br
-            ); /* Creates unpatched branch (1) */
-            if ((err = re__prog_add(prog, new_inst))) {
-                goto error;
-            }
-            /* Add an outgoing patch (1) */
-            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
         } else if (top_node_type == RE__AST_TYPE_ANY_CHAR) {
             /* Generates a sequence of instructions corresponding to a single
              * UTF-8 codepoint. */
@@ -639,6 +617,28 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
                 ptr++;
                 compressed_insts++;
             }
+        } else if (top_node_type == RE__AST_TYPE_ANY_BYTE) {
+            /* Generates a single Byte Range instruction. */
+            /*    +0
+             * ~~~+-------+~~~
+             * .. | ByteR | ..
+             * .. | Instr | ..
+             * ~~~+---+---+~~~
+             *        |
+             *        +-----1--> ... */
+            re__prog_inst new_inst;
+            re__byte_range br;
+            br.min = 0;
+            br.max = 255;
+            re__prog_inst_init_byte_range(
+                &new_inst,
+                br
+            ); /* Creates unpatched branch (1) */
+            if ((err = re__prog_add(prog, new_inst))) {
+                goto error;
+            }
+            /* Add an outgoing patch (1) */
+            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
         } else {
             RE__ASSERT_UNREACHED();
         }
