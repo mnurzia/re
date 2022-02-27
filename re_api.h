@@ -30,11 +30,6 @@ typedef struct re_span {
     re_size end;
 } re_span;
 
-re_error re_init(re* reg, const char* regex);
-void re_destroy(re* reg);
-
-const char* re_get_error(re* reg, re_size* error_len);
-
 #define RE__MATCH_GROUPS_MAX 10000
 
 typedef enum re_match_anchor_type {
@@ -49,6 +44,11 @@ typedef enum re_match_groups_type {
     RE_MATCH_GROUPS_MATCH_BOUNDARIES = 0,
     RE_MATCH_GROUPS_ALL = RE__MATCH_GROUPS_MAX
 } re_match_groups_type;
+
+re_error re_init(re* reg, const char* regex);
+void re_destroy(re* reg);
+
+const char* re_get_error(re* reg, re_size* error_len);
 
 re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_span* out);
 
