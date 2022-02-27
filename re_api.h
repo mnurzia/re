@@ -9,10 +9,15 @@ typedef re_int32 re_rune;
 #define RE_RUNE_MAX 0x10FFFF
 
 #define RE_ERROR_NONE 0
+#define RE_ERROR_MATCH 0
 #define RE_ERROR_NOMEM 1
 #define RE_ERROR_INVALID 2
 #define RE_ERROR_PARSE 3
 #define RE_ERROR_COMPILE 4
+#define RE_ERROR_NOMATCH 5
+
+#define RE_MATCH 0
+#define RE_NOMATCH 5
 
 typedef struct re_data re_data;
 
