@@ -8,6 +8,7 @@ RE_VEC_IMPL_FUNC(re_size, size)
 RE_VEC_IMPL_FUNC(re_size, reserve)
 RE_VEC_IMPL_FUNC(re_size, push)
 RE_VEC_IMPL_FUNC(re_size, getref)
+RE_VEC_IMPL_FUNC(re_size, getcref)
 
 RE_INTERNAL void re__exec_save_init(re__exec_save* save) {
     re_size_vec_init(&save->slots);
@@ -23,6 +24,11 @@ RE_INTERNAL void re__exec_save_destroy(re__exec_save* save) {
     re_size_vec_destroy(&save->slots);
 }
 
+RE_INTERNAL const re_size* re__exec_save_get_slots_const(const re__exec_save* save, re_int32 slots_ref) {
+    RE_ASSERT(slots_ref != RE__EXEC_SAVE_REF_NONE);
+    return re_size_vec_getcref(&save->slots, (re_size)slots_ref);
+}
+
 RE_INTERNAL re_size* re__exec_save_get_slots(re__exec_save* save, re_int32 slots_ref) {
     RE_ASSERT(slots_ref != RE__EXEC_SAVE_REF_NONE);
     return re_size_vec_getref(&save->slots, (re_size)slots_ref);
@@ -34,7 +40,11 @@ RE_INTERNAL void re__exec_save_inc_refs(re__exec_save* save, re_int32 slots_ref)
 }
 
 RE_INTERNAL void re__exec_save_dec_refs(re__exec_save* save, re_int32 slots_ref) {
-    re_size* slots = re__exec_save_get_slots(save, slots_ref);
+    re_size* slots;
+    if (slots_ref == -1) {
+        return;
+    }
+    slots = re__exec_save_get_slots(save, slots_ref);
     if (--slots[save->slots_per_thrd - 1] == 0) {
         re_int32* next_empty_save = ((re_int32*)(slots + (save->slots_per_thrd - 1)));
         save->last_empty_ref = slots_ref;
@@ -64,7 +74,7 @@ RE_INTERNAL re_error re__exec_save_get_new(re__exec_save* save, re_int32* slots_
         if ((err = re_size_vec_reserve(&save->slots, re_size_vec_size(&save->slots) + save->slots_per_thrd))) {
             return err;
         }
-        for (i = 0; i < save->slots_per_thrd - 1; i++) {
+        for (i = 0; i < save->slots_per_thrd; i++) {
             if ((err = re_size_vec_push(&save->slots, 0))) {
                 return err;
             }
@@ -96,6 +106,8 @@ RE_INTERNAL re_error re__exec_save_do_save(re__exec_save* save, re_int32* slots_
         for (i = 0; i < save->slots_per_thrd - 1; i++) {
             slots[i] = old_slots[i];
         }
+    } else {
+        slots = re__exec_save_get_slots(save, *slots_inout_ref);
     }
     RE_ASSERT(slot_number < save->slots_per_thrd - 1);
     slots[slot_number] = data;
@@ -158,7 +170,7 @@ RE_INTERNAL int re__exec_thrd_set_ismemb(re__exec_thrd_set* set, re__exec_thrd t
 
 #if RE_DEBUG
 
-RE_INTERNAL void re__exec_thrd_set_dump(re__exec_thrd_set* set, re__exec* exec, int with_save) {
+RE_INTERNAL void re__exec_thrd_set_dump(const re__exec_thrd_set* set, const re__exec* exec, int with_save) {
     printf("n: %u\n", set->n);
     printf("s: %u\n", set->size);
     printf("memb:\n");
@@ -174,12 +186,12 @@ RE_INTERNAL void re__exec_thrd_set_dump(re__exec_thrd_set* set, re__exec* exec, 
             re_uint32 i;
             for (i = 0; i < set->n; i++) {
                 re_int32 slot_ref = set->dense[i].save_slot;
-                re_size* slots;
+                const re_size* slots;
                 re_uint32 j;
                 if (slot_ref == RE__EXEC_SAVE_REF_NONE) {
                     continue;
                 }
-                slots = re__exec_save_get_slots(&exec->save_slots, slot_ref);
+                slots = re__exec_save_get_slots_const(&exec->save_slots, slot_ref);
                 printf("%i: %u\n", slot_ref, (re_uint32)re__exec_save_get_refs(&exec->save_slots, slot_ref));
                 for (j = 0; j < exec->save_slots.slots_per_thrd - 1; j++) {
                     printf("  %i: %u\n", j, (re_uint32)slots[j]);
