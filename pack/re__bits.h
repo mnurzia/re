@@ -514,6 +514,9 @@ int re__str_view_cmp(const re__str_view* a, const re__str_view* b);
 /* bit: max */
 #define RE__MAX(a, b) (((a) < (b)) ? (b) : (a))
 
+/* bit: min */
+#define RE__MIN(a, b) (((a) > (b)) ? (b) : (a))
+
 /* bit: hash/murmurhash3 */
 RE_INTERNAL re_uint32 re__murmurhash3_32(const re_uint8* data, re_size data_len);
 

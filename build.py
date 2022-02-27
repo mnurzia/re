@@ -15,6 +15,7 @@ class Project(pack_v4.Project):
             "ds_string_view",
             "ds_refs",
             "max",
+            "min",
             "debug",
             "unused",
             "hash/murmurhash3",
