@@ -293,12 +293,23 @@ RE_INTERNAL void re__exec_swap(re__exec* exec) {
     exec->set_b = temp;
 }
 
-RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view, re_match_data* out) {
+RE_INTERNAL re__ast_assert_type re__exec_next_assert_ctx(re_size pos, re_size len) {
+    re__ast_assert_type out = 0;
+    if (pos == 0) {
+        out |= RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_START;
+    }
+    if (pos == len) {
+        out |= RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_END;
+    }
+    return out;
+}
+
+RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view, re_span* out) {
     re_error err = RE_ERROR_NONE;
     re__prog_loc set_size = re__prog_size(prog);
     re__ast_assert_type assert_ctx;
     re__exec_thrd thrd;
-    re_size pos, j;
+    re_size pos, j, len = re__str_view_size(&str_view);
     const re_char* str = re__str_view_get_data(&str_view);
     re__exec_save_set_slots_per_thrd(&exec->save_slots, num_groups * 2);
     if ((err = re__exec_thrd_set_alloc(&exec->set_a, set_size))) {
@@ -310,16 +321,17 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
     if ((err = re__exec_thrd_set_alloc(&exec->set_c, set_size))) {
         return err;
     }
-    assert_ctx = RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_START;
+    pos = 0;
+    assert_ctx = re__exec_next_assert_ctx(pos, len);
     re__exec_thrd_init(&thrd, 1, RE__EXEC_SAVE_REF_NONE);
     if ((err = re__exec_follow(exec, prog, thrd, assert_ctx, 0))) {
         return err;
     }
     re__exec_thrd_set_clear(&exec->set_a);
     re__exec_swap(exec);
-    assert_ctx = 0;
-    for (pos = 0; pos < re__str_view_size(&str_view); pos++) {
+    for (; pos < len; pos++) {
         re_char ch = str[pos];
+        assert_ctx = re__exec_next_assert_ctx(pos + 1, len);
         if (exec->set_a.n == 0) {
             /* no more threads */
             break;
@@ -332,7 +344,7 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
                 if (ch == re__prog_inst_get_byte(cur_inst)) {
                     re__exec_thrd primary_thrd;
                     re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(cur_inst), cur_thrd.save_slot);
-                    if ((err = re__exec_follow(exec, prog, primary_thrd, assert_ctx, pos))) {
+                    if ((err = re__exec_follow(exec, prog, primary_thrd, assert_ctx, pos + 1))) {
                         return err;
                     }
                 } else {
@@ -342,7 +354,7 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
                 if (ch >= re__prog_inst_get_byte_min(cur_inst) && ch <= re__prog_inst_get_byte_max(cur_inst)) {
                     re__exec_thrd primary_thrd;
                     re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(cur_inst), cur_thrd.save_slot);
-                    if ((err = re__exec_follow(exec, prog, primary_thrd, assert_ctx, pos))) {
+                    if ((err = re__exec_follow(exec, prog, primary_thrd, assert_ctx, pos + 1))) {
                         return err;
                     }
                 } else {
@@ -364,21 +376,26 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
     re__exec_thrd_set_clear(&exec->set_a);
     re__exec_swap(exec);*/
     /* extract matches from the top thread */
-    re__match_data_init(out);
     if (exec->set_a.n) {
         re__exec_thrd top_thrd = exec->set_a.dense[0];
         if (top_thrd.save_slot != RE__EXEC_SAVE_REF_NONE) {
-            re_size* group_boundaries = re__exec_save_get_slots(&exec->save_slots, top_thrd.save_slot);
-            out->match_boundaries.begin = 0;
-            out->match_boundaries.end = re__str_view_size(&str_view);
-            out->matched = 1;
-            if ((err = re__match_data_add_groups(out, group_boundaries, num_groups))) {
-                return err;
+            re_size* slots = re__exec_save_get_slots(&exec->save_slots, top_thrd.save_slot);
+            re_span out_span;
+            re_size i;
+            out_span.begin = 0;
+            out_span.end = len;
+            *(out++) = out_span;
+            for (i = 0; i < num_groups; i++) {
+                out_span.begin = slots[i*2];
+                out_span.end = slots[i*2 + 1];
+                *(out++) = out_span;
             }
+            return RE_MATCH;
+        } else {
+            return RE_NOMATCH;
         }
     } else {
-        /* no matches */
+        return RE_NOMATCH;
     }
-    return err;
 }
 

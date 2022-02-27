@@ -45,15 +45,6 @@ typedef enum re_match_groups_type {
     RE_MATCH_GROUPS_ALL = RE__MATCH_GROUPS_MAX
 } re_match_groups_type;
 
-typedef struct re_match_data {
-    int matched;
-    re_span match_boundaries;
-    re_uint32 groups_size;
-    re_span* groups;
-} re_match_data;
-
-re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_match_data* out);
-
-void re_match_data_destroy(re_match_data* match_data);
+re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_span* out);
 
 #endif

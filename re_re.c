@@ -71,7 +71,7 @@ const char* re_get_error(re* reg, re_size* error_len) {
     return (const char*)re__str_view_get_data(&reg->data->error_string_view);
 }
 
-re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_match_data* out) {
+re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_span* out) {
     re_error err = RE_ERROR_NONE;
     re__exec exec;
     re__str_view string_view;

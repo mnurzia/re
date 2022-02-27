@@ -29,7 +29,6 @@ class Project(pack_v4.Project):
             "re_compile.c",
             "re_compile_charclass.c",
             "re_exec.c",
-            "re_match_data.c",
             "re_parse.c",
             "re_prog.c",
             "re_re.c",
