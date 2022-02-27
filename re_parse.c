@@ -148,8 +148,7 @@ RE_INTERNAL re__ast* re__parse_get_frame(re__parse* parse) {
 
 RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32* new_ast_ref) {
     re_error err = RE_ERROR_NONE;
-    int was_empty = re__parse_frame_is_empty(parse);
-    if (was_empty) {
+    if (re__parse_frame_is_empty(parse)) {
         if ((err = re__ast_root_add_child(parse->ast_root, parse->ast_frame_root_ref, ast, new_ast_ref))) {
             return err;
         }
@@ -158,16 +157,8 @@ RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32
             return err;
         }
     }
-    if (!was_empty) {
-        /* Empty frame: increment stk_ptr, leaving prev_child_ptr untouched */
-        /* Since we just pushed the first node, prev_child_ptr should now
-         * point to it. */
-    } else {
-        /* Non-empty frame: increment stk_ptr, and set prev_child_ptr to 
-         * stk_ptr - 1, so that it points to the just-pushed node. */
-        parse->ast_prev_child_ref = *new_ast_ref;
-        parse->depth_max_prev = parse->depth;
-    }
+    parse->ast_prev_child_ref = *new_ast_ref;
+    parse->depth_max_prev = parse->depth;
     return err;
 }
 
