@@ -54,4 +54,6 @@ typedef struct re_match_data {
 
 re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_match_data* out);
 
+void re_match_data_destroy(re_match_data* match_data);
+
 #endif
