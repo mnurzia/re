@@ -43,9 +43,9 @@ RE_INTERNAL void re__exec_save_dec_refs(re__exec_save* save, re_int32 slots_ref)
     }
 }
 
-RE_INTERNAL re_size re__exec_save_get_refs(re__exec_save* save, re_int32 slots_ref) {
-    re_size* slots = re__exec_save_get_slots(save, slots_ref);
-    return slots[save->slots_per_thrd - 1] += 1;
+RE_INTERNAL re_size re__exec_save_get_refs(const re__exec_save* save, re_int32 slots_ref) {
+    const re_size* slots = re__exec_save_get_slots_const(save, slots_ref);
+    return slots[save->slots_per_thrd - 1];
 }
 
 RE_INTERNAL re_error re__exec_save_get_new(re__exec_save* save, re_int32* slots_out_ref) {
