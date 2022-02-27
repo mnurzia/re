@@ -695,6 +695,17 @@ typedef struct re__exec_save {
     re_uint32 slots_per_thrd;
 } re__exec_save;
 
+RE_INTERNAL void re__exec_save_init(re__exec_save* save);
+RE_INTERNAL void re__exec_save_set_slots_per_thrd(re__exec_save* save, re_uint32 slots_per_thrd);
+RE_INTERNAL void re__exec_save_destroy(re__exec_save* save);
+RE_INTERNAL const re_size* re__exec_save_get_slots_const(const re__exec_save* save, re_int32 slots_ref);
+RE_INTERNAL re_size* re__exec_save_get_slots(re__exec_save* save, re_int32 slots_ref);
+RE_INTERNAL void re__exec_save_inc_refs(re__exec_save* save, re_int32 slots_ref);
+RE_INTERNAL void re__exec_save_dec_refs(re__exec_save* save, re_int32 slots_ref);
+RE_INTERNAL re_size re__exec_save_get_refs(const re__exec_save* save, re_int32 slots_ref);
+RE_INTERNAL re_error re__exec_save_get_new(re__exec_save* save, re_int32* slots_out_ref);
+RE_INTERNAL re_error re__exec_save_do_save(re__exec_save* save, re_int32* slots_inout_ref, re_uint32 slot_number, re_size data);
+
 /* Execution context. */
 typedef struct re__exec {
     re__exec_thrd_set set_a;
@@ -703,6 +714,11 @@ typedef struct re__exec {
     re__exec_thrd_vec thrd_stk;
     re__exec_save save_slots;
 } re__exec;
+
+RE_INTERNAL void re__exec_init(re__exec* exec);
+RE_INTERNAL void re__exec_destroy(re__exec* exec);
+
+RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view, re_span* out);
 
 /* Internal data structure */
 struct re_data {
@@ -717,11 +733,6 @@ struct re_data {
     re__str error_string;
     re__str_view error_string_view;
 };
-
-RE_INTERNAL void re__exec_init(re__exec* exec);
-RE_INTERNAL void re__exec_destroy(re__exec* exec);
-
-RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view, re_span* out);
 
 RE_INTERNAL void re__set_error_str(re* re, const re__str* error_str);
 RE_INTERNAL void re__set_error_generic(re* re, re_error err);
