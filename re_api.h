@@ -46,10 +46,12 @@ typedef enum re_match_groups_type {
 } re_match_groups_type;
 
 re_error re_init(re* reg, const char* regex);
+re_error re_init_set(re* reg, const char** regexes, re_uint32 regexes_size);
 void re_destroy(re* reg);
 
 const char* re_get_error(re* reg, re_size* error_len);
 
 re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_span* out);
+re_error re_match_set(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_uint32* out_match_index, re_span* out)
 
 #endif
