@@ -1,16 +1,5 @@
 #include "re_internal.h"
 
-RE_VEC_IMPL_FUNC(re__ast, init)
-RE_VEC_IMPL_FUNC(re__ast, destroy)
-RE_VEC_IMPL_FUNC(re__ast, get)
-RE_VEC_IMPL_FUNC(re__ast, get_data)
-RE_VEC_IMPL_FUNC(re__ast, getref)
-RE_VEC_IMPL_FUNC(re__ast, insert)
-RE_VEC_IMPL_FUNC(re__ast, peek)
-RE_VEC_IMPL_FUNC(re__ast, pop)
-RE_VEC_IMPL_FUNC(re__ast, push)
-RE_VEC_IMPL_FUNC(re__ast, size)
-
 RE_VEC_IMPL_FUNC(re__parse_frame, init)
 RE_VEC_IMPL_FUNC(re__parse_frame, destroy)
 RE_VEC_IMPL_FUNC(re__parse_frame, push)

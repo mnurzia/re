@@ -117,11 +117,6 @@ typedef enum re__ast_type {
 } re__ast_type;
 
 RE_VEC_DECL(re__ast);
-RE_VEC_DECL_FUNC(re__ast, init);
-RE_VEC_DECL_FUNC(re__ast, destroy);
-RE_VEC_DECL_FUNC(re__ast, push);
-RE_VEC_DECL_FUNC(re__ast, getref);
-RE_VEC_DECL_FUNC(re__ast, size);
 
 #define RE__AST_QUANTIFIER_MAX 2000
 #define RE__AST_QUANTIFIER_INFINITY RE__AST_QUANTIFIER_MAX+2
@@ -231,6 +226,7 @@ typedef struct re__ast_root {
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
 RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root);
 RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref);
+RE_INTERNAL const re__ast* re__ast_root_get_const(const re__ast_root* ast_root, re_int32 ast_ref);
 RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
 RE_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, re_int32 ast_ref, re__ast replacement);
 RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref);
