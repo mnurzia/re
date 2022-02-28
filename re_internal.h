@@ -648,48 +648,93 @@ re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__c
 void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_idx, re_int32 indent);
 #endif
 
+/* Stack frame for the compiler. */
 typedef struct re__compile_frame {
+    /* Base AST node being compiled. Represents the current node that is being
+     * examined at any given point. */
     re_int32 ast_base_ref;
+    /* Next child node of ast_base_ref that will be compiled. Will be AST_NONE
+     * if the last child has already been processed. */
     re_int32 ast_child_ref;
+    /* Running set of patches for this AST node. */
     re__compile_patches patches;
+    /* Start and end PCs of this frame */
     re__prog_loc start;
     re__prog_loc end;
+    /* For repetitions: the number of times the node's child has been generated
+     * already */
     re_int32 rep_idx;
 } re__compile_frame;
 
+/* Compiler internal structure. */
 typedef struct re__compile {
+    /* Stack frames list. This is not a frame_vec because we already have the
+     * maximum stack depth (stored in ast_root). frames is a static worst-case
+     * allocation. Generally pretty speedy. */
+    /* "In retrospect, I think the tree form and the Walker might have been a 
+     *  mistake ... if the RPN form recorded the maximum stack depth used in the 
+     *  expression, a traversal would allocate a stack of exactly that size and 
+     *  then zip through the representation in a single linear scan." 
+     *    -rsc */
     re__compile_frame* frames;
+    /* Size of frames (equal to ast_root->max_depth) */
     re_int32 frames_size;
+    /* Current location in frames (the stack pointer) */
     re_int32 frame_ptr;
+    /* Charclass compiler object to be used to compile all charclasses, it's
+     * better to store it here in case there are multiple character classes in
+     * the regex */
     re__compile_charclass char_comp;
+    /* The ast root object, marked const so we don't modify it (after the parse
+     * phase, we should ideally never touch ast_root) */
     const re__ast_root* ast_root;
+    /* Flag set if the compiler should push a child frame to the stack for the
+     * next iteration. */ 
     int should_push_child;
+    /* Reference to the child that should get pushed. After the child is done
+     * processing, the parent's frame->ast_child_ref will point to the next
+     * sibling of should_push_child_ref. */
     re_int32 should_push_child_ref;
+    /* Returned (popped) frame from child compilation. Contains child boundaries
+     * and, more importantly, child patches. */ 
     re__compile_frame returned_frame;
+    /* Whether or not we are compiling in reverse mode. */
     int reversed;
 } re__compile;
 
 RE_INTERNAL void re__compile_init(re__compile* compile);
 RE_INTERNAL void re__compile_destroy(re__compile* compile);
-RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog);
+RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog, int reversed);
 RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf);
 
+/* Execution thread. */
 typedef struct re__exec_thrd {
+    /* PC of this thread */
     re__prog_loc loc;
+    /* Slot to save match boundaries to. May be -1 if this thread hasn't found
+     * anything yet. */
     re_int32 save_slot;
 } re__exec_thrd;
 
 RE_VEC_DECL(re__exec_thrd);
 
+/* Sparse set of threads. */
 typedef struct re__exec_thrd_set {
-    re__exec_thrd* dense;
+    /* Sparse representation: when indexed with a program location, returns the
+     * index within 'dense' that holds the thread data */
     re__prog_loc* sparse;
+    /* Dense representation: stores each thread based on the order they were
+     * added, each thread->prog_loc in this should point back to 'sparse' */
+    re__exec_thrd* dense;
+    /* Number of elements actually in 'dense' */
     re__prog_loc n;
+    /* Allocation size of 'dense' (sparse is a single worst case alloc) */
     re__prog_loc size;
 } re__exec_thrd_set;
 
 RE_VEC_DECL(re_size);
 
+/* Save state manager for exec. */
 typedef struct re__exec_save {
     re_size_vec slots;
     re_int32 last_empty_ref;
