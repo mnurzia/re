@@ -33,7 +33,7 @@ typedef struct re_span {
 #define RE__MATCH_GROUPS_MAX 10000
 
 typedef enum re_match_anchor_type {
-    RE_MATCH_ANCHOR_FULL,
+    RE_MATCH_ANCHOR_BOTH,
     RE_MATCH_ANCHOR_START,
     RE_MATCH_ANCHOR_END,
     RE_MATCH_UNANCHORED
