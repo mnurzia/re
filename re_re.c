@@ -1,7 +1,5 @@
 #include "re_internal.h"
 
-#include <string.h>
-
 RE_INTERNAL void re__error_init(re* reg) {
     re__str_init(&reg->data->error_string);
     re__str_view_init_null(&reg->data->error_string_view);
