@@ -662,11 +662,15 @@ typedef struct re__compile {
     re_int32 frames_size;
     re_int32 frame_ptr;
     re__compile_charclass char_comp;
+    const re__ast_root* ast_root;
+    int should_push_child;
+    re_int32 should_push_child_ref;
+    re__compile_frame returned_frame;
 } re__compile;
 
 RE_INTERNAL void re__compile_init(re__compile* compile);
 RE_INTERNAL void re__compile_destroy(re__compile* compile);
-RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_root, re__prog* prog);
+RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog);
 RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf);
 
 typedef struct re__exec_thrd {
@@ -723,7 +727,7 @@ struct re_data {
     re__prog program;
     re__compile compile;
     /* Note: error_string_view always points to either a static const char* that
-     * is a compiletime constant or a dynamically-allocated const char* inside
+     * is a compile-time constant or a dynamically-allocated const char* inside
      * of error_string. Either way, in OOM situations, we will not allocate more
      * memory to store an error string and default to a constant. */  
     re__str error_string;

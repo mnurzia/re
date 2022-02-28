@@ -157,6 +157,12 @@ RE_INTERNAL void re__compile_init(re__compile* compile) {
     compile->frames_size = 0;
     compile->frame_ptr = 0;
     re__compile_charclass_init(&compile->char_comp);
+    /* set to NULL, re__compile_regex() sets ast_root */
+    compile->ast_root = NULL;
+    compile->should_push_child = 0;
+    compile->should_push_child_ref = RE__AST_NONE;
+    /* purposefully don't initialize returned_frame */
+    /* compile->returned_frame; */
 }
 
 RE_INTERNAL void re__compile_destroy(re__compile* compile) {
@@ -198,13 +204,465 @@ RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf) {
 	}
 }
 
-RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_root, re__prog* prog) {
+RE_INTERNAL re_error re__compile_do_rune(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /* Generates a single Byte or series of Byte instructions for a
+     * UTF-8 codepoint. */
+    /*    +0
+     * ~~~+-------+~~~
+     * .. | Byte  | ..
+     * .. | Instr | ..
+     * ~~~+---+---+~~~
+     *        |
+     *        +-----1--> ... */
+    re_error err = RE_ERROR_NONE;
+    re__prog_inst new_inst;
+    re_uint8 utf8_bytes[4];
+    int num_bytes = re__compile_gen_utf8(re__ast_get_rune(ast), utf8_bytes);
+    int i;
+    RE__UNUSED(compile);
+    for (i = 0; i < num_bytes; i++) {
+        re__prog_inst_init_byte(
+            &new_inst, 
+            utf8_bytes[i]
+        );
+        if (i == num_bytes - 1) {
+            /* Add an outgoing patch (1) */
+            re__compile_patches_append(&frame->patches, prog, re__prog_size(prog), 0);
+        } else {
+            re__prog_inst_set_primary(&new_inst, re__prog_size(prog) + 1);
+        }
+        if ((err = re__prog_add(prog, new_inst))) {
+            return err;
+        }
+    }
+    return err;
+}
+
+RE_INTERNAL re_error re__compile_do_str(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /* Generates a single Byte or series of Byte instructions for a
+     * string. */
+    /*    +0
+     * ~~~+-------+~~~
+     * .. | Byte  | ..
+     * .. | Instr | ..
+     * ~~~+---+---+~~~
+     *        |
+     *        +-----1--> ... */
+    re_error err = RE_ERROR_NONE;
+    re__prog_inst new_inst;
+    re__str_view str_view = re__ast_root_get_str_view(compile->ast_root, re__ast_get_str_ref(ast));
+    re_size i;
+    re_size sz = re__str_view_size(&str_view);
+    for (i = 0; i < sz; i++) {
+        re__prog_inst_init_byte(
+            &new_inst, 
+            (re_uint8)re__str_view_get_data(&str_view)[i]
+        );
+        if (i == sz - 1) {
+            /* Add an outgoing patch (1) */
+            re__compile_patches_append(&frame->patches, prog, re__prog_size(prog), 0);
+        } else {
+            re__prog_inst_set_primary(&new_inst, re__prog_size(prog) + 1);
+        }
+        if ((err = re__prog_add(prog, new_inst))) {
+            return err;
+        }
+    }
+    return err;
+}
+
+RE_INTERNAL re_error re__compile_do_charclass(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /* Generates a character class, which is a complex series of Byte
+     * and Split instructions. */
+    const re__charclass* charclass = re__ast_root_get_charclass(compile->ast_root,
+        ast->_data.charclass_ref);
+    return re__compile_charclass_gen(
+        &compile->char_comp, 
+        charclass,
+        prog, &frame->patches);
+}
+
+RE_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /* Generates each child node, and patches them all together,
+     * leaving the final child's outgoing branch targets unpatched. */
+    /*    +0        +L(C0)          ...
+     * ~~~+--.....--+--.....--+.....+--.....--+~~~
+     * .. | Child 0 | Child 1 |.....| Child n | ..
+     * .. | Instrs  | Instrs  |.....| Instrs  | ..
+     * ~~~+--..+..--+--..+..+-+.....+--..+..+-+~~~
+     *         |      ^  |  |         ^  |  |
+     *         1      |  2  3         |  +--|----4-> ...
+     *         |      |  |  |         |     |
+     *         |      |  +--|---...---+     +----5-> ...
+     *         +------+     |         |
+     *                      +---...---+                 */
+    RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
+    if (frame->ast_child_ref != RE__AST_NONE) {
+        const re__ast* child = re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
+        if (child->prev_sibling_ref == RE__AST_NONE) {
+            /* Before first child */
+            compile->should_push_child = 1;
+            compile->should_push_child_ref = frame->ast_child_ref;
+        } else {
+            /* Patch outgoing branches (1, 2, 3) */
+            re__compile_patches_patch(&compile->returned_frame.patches, prog, re__prog_size(prog));
+            /* There are children left to check */
+            compile->should_push_child = 1;
+            compile->should_push_child_ref = frame->ast_child_ref;
+        }
+    } else {
+        /* After last child */
+        /* Collect outgoing branches (4, 5) */
+        re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+    }
+    return RE_ERROR_NONE; /* <- cool! */
+}
+
+RE_INTERNAL re_error re__compile_do_alt(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /* For each child node except for the last one, generates a SPLIT 
+     * instruction, and then the instructions of the child.
+     * Each split instruction's primary branch target is patched to the
+     * next child, and the secondary branch targets are patched to the 
+     * next split instruction. Leaves each child's outgoing branch
+     * targets unpatched. */
+    /*    +0      +1        +L(C0)+1                ...
+     * ~~~+-------+--.....--+-------+--.....--+.....+--.....--+~~~
+     * .. | Split | Child 0 | Split | Child 1 |.....| Child n | ..
+     * .. | Instr | Instrs  | Instr | Instrs  |.....| Instrs  | ..
+     * ~~~+---+-+-+--..+..+-+---+-+-+--..+..+-+.....+--..+..+-+~~~
+     *        | |   ^  |  |   ^ | |   ^  |  |         ^  |  |
+     *        | |   |  |  |   | | |   |  |  |         |  |  |
+     *        +---1-+  |  |   | +---3-+  |  |         |  |  |
+     *          |      |  |   |   |      |  |         |  |  |
+     *          +-----------2-+   +-------------...-4-+  |  |
+     *                 |  |              |  |            |  |
+     *                 +------------------------...--------------5-> ...
+     *                    |              |  |            |  |
+     *                    +---------------------...--------------6-> ...
+     *                                   |  |            |  |
+     *                                   +------...--------------7-> ...
+     *                                      |            |  |
+     *                                      +---...--------------8-> ...
+     *                                                   |  |
+     *                                                   +-------9-> ...
+     *                                                      |
+     *                                                      +---10-> ...
+     */
+    re_error err = RE_ERROR_NONE;
+    RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
+    if (frame->ast_child_ref != RE__AST_NONE) {
+        const re__ast* child = re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
+        if (child->prev_sibling_ref == RE__AST_NONE) {
+            /* Before first child */
+            /* Initialize split instruction */
+            re__prog_inst new_inst;
+            re__prog_inst_init_split(
+                &new_inst, 
+                re__prog_size(prog) + 1, /* Outgoing branch (1) */
+                RE__PROG_LOC_INVALID /* Will become outgoing branch (2) */
+            );
+            /* Add the Split instruction */
+            if ((err = re__prog_add(prog, new_inst))) {
+                return err;
+            }
+            compile->should_push_child = 1;
+            compile->should_push_child_ref = frame->ast_child_ref;
+        } else {
+            /* Before intermediate children and last child */
+            /* Patch the secondary branch target of the old SPLIT
+             * instruction. Corresponds to outgoing branch (2). */
+            /* top.seg.end points to the instruction after the old split 
+             * instruction, since we didn't set the endpoint before the 
+             * first child. */
+            re__prog_loc old_split_loc = frame->end - 1;
+            re__prog_inst* old_inst = re__prog_get(prog, old_split_loc);
+            /* Patch outgoing branch (2). */
+            re__prog_inst_set_split_secondary(old_inst, re__prog_size(prog));
+            /* Collect outgoing branches (5, 6, 7, 8). */
+            re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+            if (child->next_sibling_ref != RE__AST_NONE) {
+                /* Before intermediate children and NOT last child */
+                re__prog_inst new_inst;
+                /* Create the intermediary SPLIT instruction, if there
+                    * are more than two child nodes in the alternation. */
+                re__prog_inst_init_split(
+                    &new_inst, 
+                    re__prog_size(prog) + 1, /* Outgoing branch (3) */
+                    RE__PROG_LOC_INVALID /* Outgoing branch (4) */
+                );
+                /* Add it to the program. */
+                if ((err = re__prog_add(prog, new_inst))) {
+                    return err;
+                }
+            }
+            compile->should_push_child = 1;
+            compile->should_push_child_ref = frame->ast_child_ref;
+        }
+    } else {
+        /* After last child */
+        /* Collect outgoing branches (9, 10). */
+        re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+    }
+    return err;
+}
+
+RE_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /*   *   min=0 max=INF */ /* Spl E -> 1 to 2 and out, 2 to 1 */
+    /*   +   min=1 max=INF */ /* E Spl -> 1 to 2, 2 to 1 and out */
+    /*   ?   min=0 max=1   */ /* Spl E -> 1 to 2 and out, 2 to out */
+    /*  {n}  min=n max=n+1 */ /* E repeated -> out */
+    /* {n, } min=n max=INF */ /* E repeated, Spl -> spl to last and out */
+    /* {n,m} min=n max=m+1 */ /* E repeated, E Spl E Spl E*/
+    re_error err = RE_ERROR_NONE;
+    re_int32 min = re__ast_get_quantifier_min(ast);
+    re_int32 max = re__ast_get_quantifier_max(ast);
+    re_int32 int_idx = frame->rep_idx;
+    re__prog_loc this_start_pc = re__prog_size(prog);
+    frame->rep_idx++;
+    if (int_idx < min) {
+        /* Generate child min times */
+        if (int_idx > 0) {
+            /* Patch previous */
+            re__compile_patches_patch(&compile->returned_frame.patches, prog, this_start_pc);
+        }
+        compile->should_push_child = 1;
+        compile->should_push_child_ref = ast->first_child_ref;
+    } else { /* int_idx >= min */
+        if (max == RE__AST_QUANTIFIER_INFINITY) {
+            re__prog_inst new_spl;
+            if (min == 0) {
+                if (int_idx == 0) {
+                    if (re__ast_get_quantifier_greediness(ast)) {
+                        re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
+                        if ((err = re__prog_add(prog, new_spl))) {
+                            return err;
+                        }
+                        re__compile_patches_append(&frame->patches, prog, this_start_pc, 1);
+                    } else {
+                        re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, this_start_pc + 1);
+                        if ((err = re__prog_add(prog, new_spl))) {
+                            return err;
+                        }
+                        re__compile_patches_append(&frame->patches, prog, this_start_pc, 0);
+                    }
+                    compile->should_push_child = 1;
+                    compile->should_push_child_ref = ast->first_child_ref;
+                } else if (int_idx == 1) {
+                    re__compile_patches_patch(&compile->returned_frame.patches, prog, frame->end - 1);
+                }
+            } else {
+                re__compile_patches_patch(&compile->returned_frame.patches, prog, this_start_pc);
+                if (re__ast_get_quantifier_greediness(ast)) {
+                    re__prog_inst_init_split(&new_spl, compile->returned_frame.start, RE__PROG_LOC_INVALID);
+                    if ((err = re__prog_add(prog, new_spl))) {
+                        return err;
+                    }
+                    re__compile_patches_append(&frame->patches, prog, this_start_pc, 1);
+                } else {
+                    re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, compile->returned_frame.start);
+                    if ((err = re__prog_add(prog, new_spl))) {
+                        return err;
+                    }
+                    re__compile_patches_append(&frame->patches, prog, this_start_pc, 0);
+                }
+            }
+        } else {
+            if (int_idx <= max - 1) {
+                re__prog_inst new_spl;
+                if (int_idx > 0) {
+                    re__compile_patches_patch(&compile->returned_frame.patches, prog, this_start_pc);
+                }
+                if (re__ast_get_quantifier_greediness(ast)) {
+                    re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
+                    if ((err = re__prog_add(prog, new_spl))) {
+                        return err;
+                    }
+                    re__compile_patches_append(&frame->patches, prog, this_start_pc, 1);
+                } else {
+                    re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, this_start_pc + 1);
+                    if ((err = re__prog_add(prog, new_spl))) {
+                        return err;
+                    }
+                    re__compile_patches_append(&frame->patches, prog, this_start_pc, 0);
+                }
+                compile->should_push_child = 1;
+                compile->should_push_child_ref = ast->first_child_ref;
+            } else {
+                re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+            }
+        }
+    }
+    return err;
+}
+
+RE_INTERNAL re_error re__compile_do_group(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    re_error err = RE_ERROR_NONE;
+    re__prog_inst new_inst;
+    re_uint32 group_idx;
+    re__ast_group_flags group_flags = re__ast_get_group_flags(ast);
+    RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
+    if (frame->ast_child_ref != RE__AST_NONE) {
+        /* Before child */
+        if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
+            group_idx = re__ast_get_group_idx(ast);
+            re__prog_inst_init_save(&new_inst, group_idx * 2);
+            re__prog_inst_set_primary(&new_inst, re__prog_size(prog) + 1);
+            if ((err = re__prog_add(prog, new_inst))) {
+                return err;
+            }
+        }
+        compile->should_push_child = 1;
+        compile->should_push_child_ref = frame->ast_child_ref;
+    } else {
+        /* After child */
+        if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
+            re__prog_loc save_pc = re__prog_size(prog);
+            group_idx = re__ast_get_group_idx(ast);
+            re__prog_inst_init_save(&new_inst, (group_idx * 2) + 1);
+            if ((err = re__prog_add(prog, new_inst))) {
+                return err;
+            }
+            re__compile_patches_patch(&compile->returned_frame.patches, prog, save_pc);
+            re__compile_patches_append(&frame->patches, prog, save_pc, 0);
+        } else {
+            re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+        }
+    }
+    return err;
+}
+
+RE_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /* Generates a single Assert instruction. */
+    /*    +0
+     * ~~~+-------+~~~
+     * .. |  Ass  | ..
+     * .. | Instr | ..
+     * ~~~+---+---+~~~
+     *        |
+     *        +-----1--> ... */
+    re_error err = RE_ERROR_NONE;
+    re__prog_inst new_inst;
+    re__prog_loc assert_pc = re__prog_size(prog);
+    RE__UNUSED(compile);
+    re__prog_inst_init_assert(
+        &new_inst,
+        (re_uint32)re__ast_get_assert_type(ast)
+    ); /* Creates unpatched branch (1) */
+    if ((err = re__prog_add(prog, new_inst))) {
+        return err;
+    }
+    /* Add an outgoing patch (1) */
+    re__compile_patches_append(&frame->patches, prog, assert_pc, 0);
+    return err;
+}
+
+RE_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /* Generates a sequence of instructions corresponding to a single
+     * UTF-8 codepoint. */
+    re_error err = RE_ERROR_NONE;
+    re__prog_inst new_inst;
+    re__prog_loc begin = re__prog_size(prog);
+    re__prog_loc ptr = begin;
+    re_uint8 compressed_insts_data[] = {
+        0x00,             0x01, 0x02, /* SPLIT -> 1, 2 */
+        0x01, 0x00, 0x7F, 0x00,       /* RANGE 0, 127 -> out */
+        0x00,             0x03, 0x05, /* SPLIT -> 3, 5 */
+        0x01, 0xC2, 0xDF, 0x04,       /* RANGE 194, 223 -> 4 */
+        0x01, 0x80, 0xBF, 0x00,       /* RANGE 128, 191 -> out */
+        0x00,             0x06, 0x08, /* SPLIT -> 6, 8 */
+        0x02, 0xE0,       0x07,       /* BYTE 224 -> 7 */
+        0x01, 0xA0, 0xBF, 0x04,       /* RANGE 160, 191 -> 4 */
+        0x00,             0x09, 0x0B, /* SPLIT -> 9, 11 */
+        0x01, 0xE1, 0xEF, 0x0A,       /* RANGE 225, 239 -> 10 */
+        0x01, 0x80, 0xBF, 0x04,       /* RANGE 128, 191 -> 4 */
+        0x00,             0x0C, 0x0E, /* SPLIT -> 12, 14 */
+        0x02, 0xF0,       0x0D,       /* BYTE 240 -> 13 */
+        0x01, 0x90, 0xBF, 0x0A,       /* RANGE 144, 191 -> 10 */
+        0x00,             0x0F, 0x11, /* SPLIT -> 15, 17 */
+        0x01, 0xF1, 0xF3, 0x10,       /* RANGE 241, 243 -> 16 */
+        0x01, 0x80, 0xBF, 0x0A,       /* RANGE 128, 191 -> 10 */
+        0x02, 0xF4,       0x12,       /* BYTE 244 -> 18 */
+        0x01, 0x80, 0x8F, 0x0A,       /* RANGE 128, 143 -> 10 */
+        0x03                          /* END */
+    };
+    re_uint8* compressed_insts = compressed_insts_data;
+    RE__UNUSED(compile);
+    RE__UNUSED(ast);
+    while (*compressed_insts != 0x03) {
+        re__prog_loc primary;
+        if (*compressed_insts == 0x00) {
+            re__prog_loc secondary;
+            primary = *(++compressed_insts);
+            secondary = *(++compressed_insts);
+            re__prog_inst_init_split(
+                &new_inst,
+                begin + primary,
+                begin + secondary);
+        } else if (*compressed_insts == 0x01) {
+            re__byte_range br;
+            br.min = *(++compressed_insts);
+            br.max = *(++compressed_insts);
+            primary = *(++compressed_insts);
+            re__prog_inst_init_byte_range(
+                &new_inst,
+                br
+            );
+            if (primary == 0) {
+                re__compile_patches_append(&frame->patches, prog, ptr, 0);
+            } else {
+                re__prog_inst_set_primary(&new_inst, begin + primary);
+            }
+        } else if (*compressed_insts == 0x02) {
+            re__prog_inst_init_byte(&new_inst, *(++compressed_insts));
+            primary = *(++compressed_insts);
+            re__prog_inst_set_primary(&new_inst, begin + primary);
+        }
+        if ((err = re__prog_add(prog, new_inst))) {
+            return err;
+        }
+        ptr++;
+        compressed_insts++;
+    }
+    return err;
+}
+
+RE_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+    /* Generates a single Byte Range instruction. */
+    /*    +0
+     * ~~~+-------+~~~
+     * .. | ByteR | ..
+     * .. | Instr | ..
+     * ~~~+---+---+~~~
+     *        |
+     *        +-----1--> ... */
+    re_error err = RE_ERROR_NONE;
+    re__prog_inst new_inst;
+    re__prog_loc byte_range_pc = re__prog_size(prog);
+    re__byte_range br;
+    RE__UNUSED(compile);
+    RE__UNUSED(ast);
+    br.min = 0;
+    br.max = 255;
+    re__prog_inst_init_byte_range(
+        &new_inst,
+        br
+    ); /* Creates unpatched branch (1) */
+    if ((err = re__prog_add(prog, new_inst))) {
+        return err;
+    }
+    /* Add an outgoing patch (1) */
+    re__compile_patches_append(&frame->patches, prog, byte_range_pc, 0);
+    return err;
+}
+
+RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog) {
     re_error err = RE_ERROR_NONE;
     re__compile_frame initial_frame;
     re__compile_patches initial_patches;
-    re__compile_frame returned_frame;
     re__prog_inst fail_inst;
-    re__ast* root_node;
+    const re__ast* root_node;
+    /* Set ast_root */
+    compile->ast_root = ast_root;
     /* Allocate memory for frames */
     /* depth_max + 1 because we include an extra frame for terminals within the
      * deepest multi-child node */
@@ -220,7 +678,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
         goto error;
     }
     re__compile_patches_init(&initial_patches);
-    root_node = re__ast_root_get(ast_root, ast_root->root_ref);
+    root_node = re__ast_root_get_const(ast_root, ast_root->root_ref);
     /* Start first frame */
     re__compile_frame_init(&initial_frame, ast_root->root_ref, root_node->first_child_ref, initial_patches, 0, 0);
     /* Push it */
@@ -228,428 +686,61 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
     /* While there are nodes left to compile... */
     while (compile->frame_ptr != 0) {
         re__compile_frame top_frame = re__compile_frame_pop(compile);
-        re__ast* top_node = re__ast_root_get(ast_root, top_frame.ast_base_ref);
+        const re__ast* top_node = re__ast_root_get_const(ast_root, top_frame.ast_base_ref);
         re__ast_type top_node_type = top_node->type;
-        const re__prog_loc this_start_pc = re__prog_size(prog);
-        int should_push_child = 0;
-        re_int32 should_push_child_ref = RE__AST_NONE;
-        re_int32 current_child_ref = top_frame.ast_child_ref;
+        compile->should_push_child = 0;
+        compile->should_push_child_ref = top_frame.ast_child_ref;
         if (top_node_type == RE__AST_TYPE_RUNE) {
-            /* Generates a single Byte or series of Byte instructions for a
-             * UTF-8 codepoint. */
-            /*    +0
-             * ~~~+-------+~~~
-             * .. | Byte  | ..
-             * .. | Instr | ..
-             * ~~~+---+---+~~~
-             *        |
-             *        +-----1--> ... */
-            re__prog_inst new_inst;
-            re_uint8 utf8_bytes[4];
-            int num_bytes = re__compile_gen_utf8(re__ast_get_rune(top_node), utf8_bytes);
-            int i;
-            for (i = 0; i < num_bytes; i++) {
-                re__prog_inst_init_byte(
-                    &new_inst, 
-                    utf8_bytes[i]
-                );
-                if (i == num_bytes - 1) {
-                    /* Add an outgoing patch (1) */
-                    re__compile_patches_append(&top_frame.patches, prog, re__prog_size(prog), 0);
-                } else {
-                    re__prog_inst_set_primary(&new_inst, re__prog_size(prog) + 1);
-                }
-                if ((err = re__prog_add(prog, new_inst))) {
-                    goto error;
-                }
+            if ((err = re__compile_do_rune(compile, &top_frame, top_node, prog))) {
+                return err;
             }
         } else if (top_node_type == RE__AST_TYPE_STR) {
-            /* Generates a single Byte or series of Byte instructions for a
-             * string. */
-            /*    +0
-             * ~~~+-------+~~~
-             * .. | Byte  | ..
-             * .. | Instr | ..
-             * ~~~+---+---+~~~
-             *        |
-             *        +-----1--> ... */
-            re__prog_inst new_inst;
-            re__str_view str_view = re__ast_root_get_str_view(ast_root, re__ast_get_str_ref(top_node));
-            re_size i;
-            re_size sz = re__str_view_size(&str_view);
-            for (i = 0; i < sz; i++) {
-                re__prog_inst_init_byte(
-                    &new_inst, 
-                    (re_uint8)re__str_view_get_data(&str_view)[i]
-                );
-                if (i == sz - 1) {
-                    /* Add an outgoing patch (1) */
-                    re__compile_patches_append(&top_frame.patches, prog, re__prog_size(prog), 0);
-                } else {
-                    re__prog_inst_set_primary(&new_inst, re__prog_size(prog) + 1);
-                }
-                if ((err = re__prog_add(prog, new_inst))) {
-                    goto error;
-                }
+            if ((err = re__compile_do_str(compile, &top_frame, top_node, prog))) {
+                return err;
             }
         } else if (top_node_type == RE__AST_TYPE_CHARCLASS) {
-            /* Generates a character class, which is a complex series of Byte
-             * and Split instructions. */
-            const re__charclass* charclass = re__ast_root_get_charclass(ast_root,
-                top_node->_data.charclass_ref);
-            if ((err = re__compile_charclass_gen(
-                &compile->char_comp, 
-                charclass,
-                prog, &top_frame.patches))) {
-                goto error;
+            if ((err = re__compile_do_charclass(compile, &top_frame, top_node, prog))) {
+                return err;
             }
         } else if (top_node_type == RE__AST_TYPE_CONCAT) {
-            /* Generates each child node, and patches them all together,
-             * leaving the final child's outgoing branch targets unpatched. */
-            /*    +0        +L(C0)          ...
-             * ~~~+--.....--+--.....--+.....+--.....--+~~~
-             * .. | Child 0 | Child 1 |.....| Child n | ..
-             * .. | Instrs  | Instrs  |.....| Instrs  | ..
-             * ~~~+--..+..--+--..+..+-+.....+--..+..+-+~~~
-             *         |      ^  |  |         ^  |  |
-             *         1      |  2  3         |  +--|----4-> ...
-             *         |      |  |  |         |     |
-             *         |      |  +--|---...---+     +----5-> ...
-             *         +------+     |         |
-             *                      +---...---+                 */
-            RE_ASSERT(top_node->first_child_ref != RE__AST_NONE);
-            if (current_child_ref != RE__AST_NONE) {
-                re__ast* child = re__ast_root_get(ast_root, top_frame.ast_child_ref);
-                if (child->prev_sibling_ref == RE__AST_NONE) {
-                    /* Before first child */
-                    should_push_child = 1;
-                    should_push_child_ref = current_child_ref;
-                } else {
-                    /* Patch outgoing branches (1, 2, 3) */
-                    re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
-                    /* There are children left to check */
-                    should_push_child = 1;
-                    should_push_child_ref = current_child_ref;
-                }
-            } else {
-                /* After last child */
-                /* Collect outgoing branches (4, 5) */
-                re__compile_patches_merge(&top_frame.patches, prog, &returned_frame.patches);
+            if ((err = re__compile_do_concat(compile, &top_frame, top_node, prog))) {
+                return err;
             }
         } else if (top_node_type == RE__AST_TYPE_ALT) {
-            /* For each child node except for the last one, generates a SPLIT 
-             * instruction, and then the instructions of the child.
-             * Each split instruction's primary branch target is patched to the
-             * next child, and the secondary branch targets are patched to the 
-             * next split instruction. Leaves each child's outgoing branch
-             * targets unpatched. */
-            /*    +0      +1        +L(C0)+1                ...
-             * ~~~+-------+--.....--+-------+--.....--+.....+--.....--+~~~
-             * .. | Split | Child 0 | Split | Child 1 |.....| Child n | ..
-             * .. | Instr | Instrs  | Instr | Instrs  |.....| Instrs  | ..
-             * ~~~+---+-+-+--..+..+-+---+-+-+--..+..+-+.....+--..+..+-+~~~
-             *        | |   ^  |  |   ^ | |   ^  |  |         ^  |  |
-             *        | |   |  |  |   | | |   |  |  |         |  |  |
-             *        +---1-+  |  |   | +---3-+  |  |         |  |  |
-             *          |      |  |   |   |      |  |         |  |  |
-             *          +-----------2-+   +-------------...-4-+  |  |
-             *                 |  |              |  |            |  |
-             *                 +------------------------...--------------5-> ...
-             *                    |              |  |            |  |
-             *                    +---------------------...--------------6-> ...
-             *                                   |  |            |  |
-             *                                   +------...--------------7-> ...
-             *                                      |            |  |
-             *                                      +---...--------------8-> ...
-             *                                                   |  |
-             *                                                   +-------9-> ...
-             *                                                      |
-             *                                                      +---10-> ...
-             */
-            RE_ASSERT(top_node->first_child_ref != RE__AST_NONE);
-            if (top_frame.ast_child_ref != RE__AST_NONE) {
-                re__ast* child = re__ast_root_get(ast_root, top_frame.ast_child_ref);
-                if (child->prev_sibling_ref == RE__AST_NONE) {
-                    /* Before first child */
-                    /* Initialize split instruction */
-                    re__prog_inst new_inst;
-                    re__prog_inst_init_split(
-                        &new_inst, 
-                        this_start_pc + 1, /* Outgoing branch (1) */
-                        RE__PROG_LOC_INVALID /* Will become outgoing branch (2) */
-                    );
-                    /* Add the Split instruction */
-                    if ((err = re__prog_add(prog, new_inst))) {
-                        goto error;
-                    }
-                    should_push_child = 1;
-                    should_push_child_ref = current_child_ref;
-                } else {
-                    /* Before intermediate children and last child */
-                    /* Patch the secondary branch target of the old SPLIT
-                     * instruction. Corresponds to outgoing branch (2). */
-                    /* top.seg.end points to the instruction after the old split 
-                     * instruction, since we didn't set the endpoint before the 
-                     * first child. */
-                    re__prog_loc old_split_loc = top_frame.end - 1;
-                    re__prog_inst* old_inst = re__prog_get(prog, old_split_loc);
-                    /* Patch outgoing branch (2). */
-                    re__prog_inst_set_split_secondary(old_inst, this_start_pc);
-                    /* Collect outgoing branches (5, 6, 7, 8). */
-                    re__compile_patches_merge(&top_frame.patches, prog, &returned_frame.patches);
-                    if (child->next_sibling_ref != RE__AST_NONE) {
-                        /* Before intermediate children and NOT last child */
-                        re__prog_inst new_inst;
-                        /* Create the intermediary SPLIT instruction, if there
-                         * are more than two child nodes in the alternation. */
-                        re__prog_inst_init_split(
-                            &new_inst, 
-                            this_start_pc + 1, /* Outgoing branch (3) */
-                            RE__PROG_LOC_INVALID /* Outgoing branch (4) */
-                        );
-                        /* Add it to the program. */
-                        if ((err = re__prog_add(prog, new_inst))) {
-                            goto error;
-                        }
-                    }
-                    should_push_child = 1;
-                    should_push_child_ref = current_child_ref;
-                }
-            } else {
-                /* After last child */
-                /* Collect outgoing branches (9, 10). */
-                re__compile_patches_merge(&top_frame.patches, prog, &returned_frame.patches);
+            if ((err = re__compile_do_alt(compile, &top_frame, top_node, prog))) {
+                return err;
             }
         } else if (top_node_type == RE__AST_TYPE_QUANTIFIER) {
-            /*   *   min=0 max=INF */ /* Spl E -> 1 to 2 and out, 2 to 1 */
-            /*   +   min=1 max=INF */ /* E Spl -> 1 to 2, 2 to 1 and out */
-            /*   ?   min=0 max=1   */ /* Spl E -> 1 to 2 and out, 2 to out */
-            /*  {n}  min=n max=n+1 */ /* E repeated -> out */
-            /* {n, } min=n max=INF */ /* E repeated, Spl -> spl to last and out */
-            /* {n,m} min=n max=m+1 */ /* E repeated, E Spl E Spl E*/
-            re_int32 min = re__ast_get_quantifier_min(top_node);
-            re_int32 max = re__ast_get_quantifier_max(top_node);
-            re_int32 int_idx = top_frame.rep_idx;
-            top_frame.rep_idx++;
-            if (int_idx < min) {
-                /* Generate child min times */
-                if (int_idx > 0) {
-                    /* Patch previous */
-                    re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
-                }
-                should_push_child = 1;
-                should_push_child_ref = top_node->first_child_ref;
-            } else { /* int_idx >= min */
-                if (max == RE__AST_QUANTIFIER_INFINITY) {
-                    re__prog_inst new_spl;
-                    if (min == 0) {
-                        if (int_idx == 0) {
-                            if (re__ast_get_quantifier_greediness(top_node)) {
-                                re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
-                                if ((err = re__prog_add(prog, new_spl))) {
-                                    goto error;
-                                }
-                                re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
-                            } else {
-                                re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, this_start_pc + 1);
-                                if ((err = re__prog_add(prog, new_spl))) {
-                                    goto error;
-                                }
-                                re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
-                            }
-                            should_push_child = 1;
-                            should_push_child_ref = top_node->first_child_ref;
-                        } else if (int_idx == 1) {
-                            re__compile_patches_patch(&returned_frame.patches, prog, top_frame.end - 1);
-                        }
-                    } else {
-                        re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
-                        if (re__ast_get_quantifier_greediness(top_node)) {
-                            re__prog_inst_init_split(&new_spl, returned_frame.start, RE__PROG_LOC_INVALID);
-                            if ((err = re__prog_add(prog, new_spl))) {
-                                goto error;
-                            }
-                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
-                        } else {
-                            re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, returned_frame.start);
-                            if ((err = re__prog_add(prog, new_spl))) {
-                                goto error;
-                            }
-                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
-                        }
-                    }
-                } else {
-                    if (int_idx <= max - 1) {
-                        re__prog_inst new_spl;
-                        if (int_idx > 0) {
-                            re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
-                        }
-                        if (re__ast_get_quantifier_greediness(top_node)) {
-                            re__prog_inst_init_split(&new_spl, this_start_pc + 1, RE__PROG_LOC_INVALID);
-                            if ((err = re__prog_add(prog, new_spl))) {
-                                goto error;
-                            }
-                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 1);
-                        } else {
-                            re__prog_inst_init_split(&new_spl, RE__PROG_LOC_INVALID, this_start_pc + 1);
-                            if ((err = re__prog_add(prog, new_spl))) {
-                                goto error;
-                            }
-                            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
-                        }
-                        should_push_child = 1;
-                        should_push_child_ref = top_node->first_child_ref;
-                    } else {
-                        re__compile_patches_merge(&top_frame.patches, prog, &returned_frame.patches);
-                    }
-                }
+            if ((err = re__compile_do_quantifier(compile, &top_frame, top_node, prog))) {
+                return err;
             }
         } else if (top_node_type == RE__AST_TYPE_GROUP) {
-            re__prog_inst new_inst;
-            re_uint32 group_idx;
-            re__ast_group_flags group_flags = re__ast_get_group_flags(top_node);
-            RE_ASSERT(top_node->first_child_ref != RE__AST_NONE);
-            if (top_frame.ast_child_ref != RE__AST_NONE) {
-                /* Before child */
-                if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
-                    group_idx = re__ast_get_group_idx(top_node);
-                    re__prog_inst_init_save(&new_inst, group_idx * 2);
-                    re__prog_inst_set_primary(&new_inst, this_start_pc + 1);
-                    if ((err = re__prog_add(prog, new_inst))) {
-                        goto error;
-                    }
-                }
-                should_push_child = 1;
-                should_push_child_ref = current_child_ref;
-            } else {
-                /* After child */
-                if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
-                    group_idx = re__ast_get_group_idx(top_node);
-                    re__prog_inst_init_save(&new_inst, (group_idx * 2) + 1);
-                    if ((err = re__prog_add(prog, new_inst))) {
-                        goto error;
-                    }
-                    re__compile_patches_patch(&returned_frame.patches, prog, this_start_pc);
-                    re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
-                } else {
-                    re__compile_patches_merge(&top_frame.patches, prog, &returned_frame.patches);
-                }
+            if ((err = re__compile_do_group(compile, &top_frame, top_node, prog))) {
+                return err;
             }
         } else if (top_node_type == RE__AST_TYPE_ASSERT) {
-            /* Generates a single Assert instruction. */
-            /*    +0
-             * ~~~+-------+~~~
-             * .. |  Ass  | ..
-             * .. | Instr | ..
-             * ~~~+---+---+~~~
-             *        |
-             *        +-----1--> ... */
-            re__prog_inst new_inst;
-            re__prog_inst_init_assert(
-                &new_inst,
-                (re_uint32)re__ast_get_assert_type(top_node)
-            ); /* Creates unpatched branch (1) */
-            if ((err = re__prog_add(prog, new_inst))) {
-                goto error;
+            if ((err = re__compile_do_assert(compile, &top_frame, top_node, prog))) {
+                return err;
             }
-            /* Add an outgoing patch (1) */
-            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
         } else if (top_node_type == RE__AST_TYPE_ANY_CHAR) {
-            /* Generates a sequence of instructions corresponding to a single
-             * UTF-8 codepoint. */
-            re__prog_inst new_inst;
-            re__prog_loc ptr = this_start_pc;
-            re_uint8 compressed_insts_data[] = {
-                0x00,             0x01, 0x02, /* SPLIT -> 1, 2 */
-                0x01, 0x00, 0x7F, 0x00,       /* RANGE 0, 127 -> out */
-                0x00,             0x03, 0x05, /* SPLIT -> 3, 5 */
-                0x01, 0xC2, 0xDF, 0x04,       /* RANGE 194, 223 -> 4 */
-                0x01, 0x80, 0xBF, 0x00,       /* RANGE 128, 191 -> out */
-                0x00,             0x06, 0x08, /* SPLIT -> 6, 8 */
-                0x02, 0xE0,       0x07,       /* BYTE 224 -> 7 */
-                0x01, 0xA0, 0xBF, 0x04,       /* RANGE 160, 191 -> 4 */
-                0x00,             0x09, 0x0B, /* SPLIT -> 9, 11 */
-                0x01, 0xE1, 0xEF, 0x0A,       /* RANGE 225, 239 -> 10 */
-                0x01, 0x80, 0xBF, 0x04,       /* RANGE 128, 191 -> 4 */
-                0x00,             0x0C, 0x0E, /* SPLIT -> 12, 14 */
-                0x02, 0xF0,       0x0D,       /* BYTE 240 -> 13 */
-                0x01, 0x90, 0xBF, 0x0A,       /* RANGE 144, 191 -> 10 */
-                0x00,             0x0F, 0x11, /* SPLIT -> 15, 17 */
-                0x01, 0xF1, 0xF3, 0x10,       /* RANGE 241, 243 -> 16 */
-                0x01, 0x80, 0xBF, 0x0A,       /* RANGE 128, 191 -> 10 */
-                0x02, 0xF4,       0x12,       /* BYTE 244 -> 18 */
-                0x01, 0x80, 0x8F, 0x0A,       /* RANGE 128, 143 -> 10 */
-                0x03                          /* END */
-            };
-            re_uint8* compressed_insts = compressed_insts_data;
-            while (*compressed_insts != 0x03) {
-                re__prog_loc primary;
-                if (*compressed_insts == 0x00) {
-                    re__prog_loc secondary;
-                    primary = *(++compressed_insts);
-                    secondary = *(++compressed_insts);
-                    re__prog_inst_init_split(
-                        &new_inst,
-                        this_start_pc + primary,
-                        this_start_pc + secondary);
-                } else if (*compressed_insts == 0x01) {
-                    re__byte_range br;
-                    br.min = *(++compressed_insts);
-                    br.max = *(++compressed_insts);
-                    primary = *(++compressed_insts);
-                    re__prog_inst_init_byte_range(
-                        &new_inst,
-                        br
-                    );
-                    if (primary == 0) {
-                        re__compile_patches_append(&top_frame.patches, prog, ptr, 0);
-                    } else {
-                        re__prog_inst_set_primary(&new_inst, this_start_pc + primary);
-                    }
-                } else if (*compressed_insts == 0x02) {
-                    re__prog_inst_init_byte(&new_inst, *(++compressed_insts));
-                    primary = *(++compressed_insts);
-                    re__prog_inst_set_primary(&new_inst, this_start_pc + primary);
-                }
-                if ((err = re__prog_add(prog, new_inst))) {
-                    goto error;
-                }
-                ptr++;
-                compressed_insts++;
+            if ((err = re__compile_do_any_char(compile, &top_frame, top_node, prog))) {
+                return err;
             }
         } else if (top_node_type == RE__AST_TYPE_ANY_BYTE) {
-            /* Generates a single Byte Range instruction. */
-            /*    +0
-             * ~~~+-------+~~~
-             * .. | ByteR | ..
-             * .. | Instr | ..
-             * ~~~+---+---+~~~
-             *        |
-             *        +-----1--> ... */
-            re__prog_inst new_inst;
-            re__byte_range br;
-            br.min = 0;
-            br.max = 255;
-            re__prog_inst_init_byte_range(
-                &new_inst,
-                br
-            ); /* Creates unpatched branch (1) */
-            if ((err = re__prog_add(prog, new_inst))) {
-                goto error;
+            if ((err = re__compile_do_any_byte(compile, &top_frame, top_node, prog))) {
+                return err;
             }
-            /* Add an outgoing patch (1) */
-            re__compile_patches_append(&top_frame.patches, prog, this_start_pc, 0);
         } else {
             RE__ASSERT_UNREACHED();
         }
         /* Set the end of the segment to the next instruction */
         top_frame.end = re__prog_size(prog);
-        if (should_push_child) {
+        if (compile->should_push_child) {
             re__compile_frame up_frame;
             re__compile_patches up_patches;
-            re__ast* up_node;
-            RE_ASSERT(should_push_child_ref != RE__AST_NONE);
-            up_node = re__ast_root_get(ast_root, should_push_child_ref);
+            const re__ast* up_node;
+            RE_ASSERT(compile->should_push_child_ref != RE__AST_NONE);
+            up_node = re__ast_root_get_const(ast_root, compile->should_push_child_ref);
             top_frame.ast_child_ref = up_node->next_sibling_ref;
             re__compile_frame_push(compile, top_frame);
             /* Prepare the child's patches */
@@ -657,7 +748,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
             /* Prepare the child's stack frame */
             re__compile_frame_init(
                 &up_frame,
-                should_push_child_ref,
+                compile->should_push_child_ref,
                 up_node->first_child_ref, /* Start at first child *of* child */
                 up_patches,
                 top_frame.end,
@@ -665,12 +756,12 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, re__ast_root* ast_r
             );
             re__compile_frame_push(compile, up_frame);
         }
-        returned_frame = top_frame;
+        compile->returned_frame = top_frame;
     }
     /* There should be no more frames. */
     RE_ASSERT(compile->frame_ptr == 0);
     /* Link the returned patches to a final MATCH instruction. */
-    re__compile_patches_patch(&returned_frame.patches, prog, re__prog_size(prog));
+    re__compile_patches_patch(&compile->returned_frame.patches, prog, re__prog_size(prog));
     {
         re__prog_inst match_inst;
         re__prog_inst_init_match(&match_inst, 0);
