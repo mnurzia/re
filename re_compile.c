@@ -163,6 +163,7 @@ RE_INTERNAL void re__compile_init(re__compile* compile) {
     compile->should_push_child_ref = RE__AST_NONE;
     /* purposefully don't initialize returned_frame */
     /* compile->returned_frame; */
+    compile->reversed = 0;
 }
 
 RE_INTERNAL void re__compile_destroy(re__compile* compile) {
@@ -221,10 +222,17 @@ RE_INTERNAL re_error re__compile_do_rune(re__compile* compile, re__compile_frame
     int i;
     RE__UNUSED(compile);
     for (i = 0; i < num_bytes; i++) {
-        re__prog_inst_init_byte(
-            &new_inst, 
-            utf8_bytes[i]
-        );
+        if (!compile->reversed) {
+            re__prog_inst_init_byte(
+                &new_inst, 
+                utf8_bytes[i]
+            );
+        } else {
+            re__prog_inst_init_byte(
+                &new_inst, 
+                utf8_bytes[(num_bytes - 1) - i]
+            );
+        }
         if (i == num_bytes - 1) {
             /* Add an outgoing patch (1) */
             re__compile_patches_append(&frame->patches, prog, re__prog_size(prog), 0);
@@ -254,10 +262,17 @@ RE_INTERNAL re_error re__compile_do_str(re__compile* compile, re__compile_frame*
     re_size i;
     re_size sz = re__str_view_size(&str_view);
     for (i = 0; i < sz; i++) {
-        re__prog_inst_init_byte(
-            &new_inst, 
-            (re_uint8)re__str_view_get_data(&str_view)[i]
-        );
+        if (!compile->reversed) {
+            re__prog_inst_init_byte(
+                &new_inst, 
+                (re_uint8)re__str_view_get_data(&str_view)[i]
+            );
+        } else {
+            re__prog_inst_init_byte(
+                &new_inst, 
+                (re_uint8)re__str_view_get_data(&str_view)[(sz - 1) - i]
+            );
+        }
         if (i == sz - 1) {
             /* Add an outgoing patch (1) */
             re__compile_patches_append(&frame->patches, prog, re__prog_size(prog), 0);
@@ -655,7 +670,7 @@ RE_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_f
     return err;
 }
 
-RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog) {
+RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog, int reversed) {
     re_error err = RE_ERROR_NONE;
     re__compile_frame initial_frame;
     re__compile_patches initial_patches;
@@ -663,6 +678,8 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
     const re__ast* root_node;
     /* Set ast_root */
     compile->ast_root = ast_root;
+    /* Set reversed flag, more economical to set here */
+    compile->reversed = reversed;
     /* Allocate memory for frames */
     /* depth_max + 1 because we include an extra frame for terminals within the
      * deepest multi-child node */

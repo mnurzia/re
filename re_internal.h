@@ -666,6 +666,7 @@ typedef struct re__compile {
     int should_push_child;
     re_int32 should_push_child_ref;
     re__compile_frame returned_frame;
+    int reversed;
 } re__compile;
 
 RE_INTERNAL void re__compile_init(re__compile* compile);

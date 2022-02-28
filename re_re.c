@@ -69,8 +69,8 @@ const char* re_get_error(re* reg, re_size* error_len) {
     return (const char*)re__str_view_get_data(&reg->data->error_string_view);
 }
 
-/*      Match?  | Bounds? | Subs?
- *    +---------+---------+---------
+/*    | Match?  | Bounds? | Subs?
+ * ---+---------+---------+-------
  * ^$ | DFA-F   | DFA-F   | NFA-F
  * ^- | DFA-F   | DFA-F   | NFA-F
  * -$ | DFA-R   | DFA-R   | NFA-R
@@ -84,7 +84,7 @@ re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_typ
     RE__UNUSED(anchor_type);
     RE__UNUSED(groups_type);
     if (!re__prog_size(&reg->data->program)) {
-        if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program))) {
+        if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program, 0))) {
             return err;
         }
     }
