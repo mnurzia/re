@@ -71,42 +71,42 @@ RE_INTERNAL void re__ast_set_quantifier_greediness(re__ast* ast, int is_greedy) 
     ast->_data.quantifier_info.greediness = is_greedy;
 }
 
-RE_INTERNAL int re__ast_get_quantifier_greediness(re__ast* ast) {
+RE_INTERNAL int re__ast_get_quantifier_greediness(const re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_QUANTIFIER);
     return ast->_data.quantifier_info.greediness;
 }
 
-RE_INTERNAL re_int32 re__ast_get_quantifier_min(re__ast* ast) {
+RE_INTERNAL re_int32 re__ast_get_quantifier_min(const re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_QUANTIFIER);
     return ast->_data.quantifier_info.min;
 }
 
-RE_INTERNAL re_int32 re__ast_get_quantifier_max(re__ast* ast) {
+RE_INTERNAL re_int32 re__ast_get_quantifier_max(const re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_QUANTIFIER);
     return ast->_data.quantifier_info.max;
 }
 
-RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast) {
+RE_INTERNAL re_rune re__ast_get_rune(const re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_RUNE);
     return ast->_data.rune;
 }
 
-RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast) {
+RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(const re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
     return ast->_data.group_info.flags;
 }
 
-RE_INTERNAL re_uint32 re__ast_get_group_idx(re__ast* ast) {
+RE_INTERNAL re_uint32 re__ast_get_group_idx(const re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_GROUP);
     return ast->_data.group_info.group_idx;
 }
 
-RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast) {
+RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(const re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_ASSERT);
     return ast->_data.assert_type;
 }
 
-RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast) {
+RE_INTERNAL re_int32 re__ast_get_str_ref(const re__ast* ast) {
     RE_ASSERT(ast->type == RE__AST_TYPE_STR);
     return ast->_data.str_ref;
 }
@@ -132,6 +132,18 @@ RE_VEC_IMPL_FUNC(re__str, destroy)
 RE_VEC_IMPL_FUNC(re__str, push)
 RE_VEC_IMPL_FUNC(re__str, getref)
 RE_VEC_IMPL_FUNC(re__str, size)
+
+RE_VEC_IMPL_FUNC(re__ast, init)
+RE_VEC_IMPL_FUNC(re__ast, destroy)
+RE_VEC_IMPL_FUNC(re__ast, get)
+RE_VEC_IMPL_FUNC(re__ast, get_data)
+RE_VEC_IMPL_FUNC(re__ast, getref)
+RE_VEC_IMPL_FUNC(re__ast, getcref)
+RE_VEC_IMPL_FUNC(re__ast, insert)
+RE_VEC_IMPL_FUNC(re__ast, peek)
+RE_VEC_IMPL_FUNC(re__ast, pop)
+RE_VEC_IMPL_FUNC(re__ast, push)
+RE_VEC_IMPL_FUNC(re__ast, size)
 
 RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root) {
     re__ast_vec_init(&ast_root->ast_vec);
@@ -174,6 +186,12 @@ RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref) 
     RE_ASSERT(ast_ref != RE__AST_NONE);
     RE_ASSERT(ast_ref < (re_int32)re__ast_vec_size(&ast_root->ast_vec));
     return re__ast_vec_getref(&ast_root->ast_vec, (re_size)ast_ref);
+}
+
+RE_INTERNAL const re__ast* re__ast_root_get_const(const re__ast_root* ast_root, re_int32 ast_ref) {
+    RE_ASSERT(ast_ref != RE__AST_NONE);
+    RE_ASSERT(ast_ref < (re_int32)re__ast_vec_size(&ast_root->ast_vec));
+    return re__ast_vec_getcref(&ast_root->ast_vec, (re_size)ast_ref);
 }
 
 RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref) {

@@ -203,15 +203,15 @@ RE_INTERNAL void re__ast_init_assert(re__ast* ast, re__ast_assert_type assert_ty
 RE_INTERNAL void re__ast_init_any_char(re__ast* ast);
 RE_INTERNAL void re__ast_init_any_byte(re__ast* ast);
 RE_INTERNAL void re__ast_destroy(re__ast* ast);
-RE_INTERNAL int re__ast_get_quantifier_greediness(re__ast* ast);
+RE_INTERNAL int re__ast_get_quantifier_greediness(const re__ast* ast);
 RE_INTERNAL void re__ast_set_quantifier_greediness(re__ast* ast, int is_greedy);
-RE_INTERNAL re_int32 re__ast_get_quantifier_min(re__ast* ast);
-RE_INTERNAL re_int32 re__ast_get_quantifier_max(re__ast* ast);
-RE_INTERNAL re_rune re__ast_get_rune(re__ast* ast);
-RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(re__ast* ast);
-RE_INTERNAL re_uint32 re__ast_get_group_idx(re__ast* ast);
-RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(re__ast* ast);
-RE_INTERNAL re_int32 re__ast_get_str_ref(re__ast* ast);
+RE_INTERNAL re_int32 re__ast_get_quantifier_min(const re__ast* ast);
+RE_INTERNAL re_int32 re__ast_get_quantifier_max(const re__ast* ast);
+RE_INTERNAL re_rune re__ast_get_rune(const re__ast* ast);
+RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(const re__ast* ast);
+RE_INTERNAL re_uint32 re__ast_get_group_idx(const re__ast* ast);
+RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(const re__ast* ast);
+RE_INTERNAL re_int32 re__ast_get_str_ref(const re__ast* ast);
 
 RE_REFS_DECL(re__charclass);
 RE_REFS_DECL(re__str);
