@@ -13,6 +13,8 @@ typedef struct re__byte_range {
 
 int re__byte_range_equals(re__byte_range range, re__byte_range other);
 int re__byte_range_adjacent(re__byte_range range, re__byte_range other);
+int re__byte_range_intersects(re__byte_range range, re__byte_range clip);
+re__byte_range re__byte_range_intersection(re__byte_range range, re__byte_range clip);
 re__byte_range re__byte_range_merge(re__byte_range range, re__byte_range other);
 
 /* POD type */
@@ -520,6 +522,8 @@ RE_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog
 
 #endif
 
+typedef struct re__compile_charclass re__compile_charclass;
+
 /* Tree node, used for representing a character class. */
 /* The tree representation is convenient because it allows a completely
  * optimized UTF-8 DFA with a somewhat simple construction. */
@@ -578,21 +582,20 @@ RE_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog
  *    [70-70]
  * 
  * This is equivalent to the above graph. */
-#define RE__COMPILE_CHARCLASS_TREE_NONE -1
+#define RE__COMPILE_CHARCLASS_TREE_NONE 0
 typedef struct re__compile_charclass_tree {
     /* Range of bytes to match */
     re__byte_range byte_range;
     /* Reference to next sibling */
-    re_int32 next_sibling_ref;
-    /* Reference to previous sibling (used for reverse-iterating) */
-    re_int32 prev_sibling_ref;
+    re_int32 sibling_ref;
     /* Reference to first child */
-    re_int32 first_child_ref;
-    /* Reference to last child (used for reverse-iterating) */
-    re_int32 last_child_ref;
+    re_int32 child_ref;
     /* Hash of this tree, used for caching */
     re_uint32 hash;
 } re__compile_charclass_tree;
+/* 16 bytes, nominally, (16 on my M1 Max) */
+
+re_error re__compile_charclass_touch_child(re__compile_charclass* char_comp, re_int32 root_ref, re__byte_range byte_range, re_int32* out_child_ref);
 
 #define RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE -1
 
@@ -626,10 +629,14 @@ RE_VEC_DECL(re__compile_charclass_tree);
 #define RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE 1024
 
 /* Character class compiler. */
-typedef struct re__compile_charclass {
+struct re__compile_charclass {
     /* Vector of tree nodes. Each '_ref' entry in re__compile_charclass_tree
      * represents an index in this vector. */
     re__compile_charclass_tree_vec tree;
+    /* Reference to root node. */
+    re_int32 root_ref;
+    /* Reference to last child of root node. */
+    re_int32 root_last_child_ref;
     /* Sparse tree cache. Each element in this array points to a corresponding
      * position in 'cache_dense'. Lookup is performed by moduloing a tree's hash
      * with the sparse cache size. Since cache hits are relatively rare, this
@@ -638,7 +645,7 @@ typedef struct re__compile_charclass {
     /* Dense tree cache. Entries with duplicate hashes are linked using their
      * 'next' member. */
     re__compile_charclass_hash_entry_vec cache_dense;
-} re__compile_charclass;
+};
 
 void re__compile_charclass_init(re__compile_charclass* char_comp);
 void re__compile_charclass_destroy(re__compile_charclass* char_comp);
