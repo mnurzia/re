@@ -47,7 +47,7 @@
         /* ensure size is not greater than allocation size */ \
         RE_ASSERT(vec->_size <= vec->_alloc); \
         /* ensure that data is not null if size is greater than 0 */ \
-        RE_ASSERT(vec->_size ? vec->_data != NULL : 1); \
+        RE_ASSERT(vec->_size ? vec->_data != RE_NULL : 1); \
     } while (0)
 
 #else
