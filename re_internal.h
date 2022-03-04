@@ -597,7 +597,7 @@ typedef struct re__compile_charclass_tree {
 } re__compile_charclass_tree;
 /* 16 bytes, nominally, (16 on my M1 Max) */
 
-re_error re__compile_charclass_touch_child(re__compile_charclass* char_comp, re_int32 root_ref, re__byte_range byte_range, re_int32* out_child_ref);
+re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_int32 parent_ref, re__byte_range byte_range, re_int32* out_new_node_ref);
 
 #define RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE -1
 
@@ -652,6 +652,8 @@ struct re__compile_charclass {
 void re__compile_charclass_init(re__compile_charclass* char_comp);
 void re__compile_charclass_destroy(re__compile_charclass* char_comp);
 re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out);
+re_error re__compile_charclass_split_rune_range(re__compile_charclass* char_comp, re__rune_range range);
+RE_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compile_charclass* char_comp, re_int32 tree_ref);
 
 #if RE_DEBUG
 void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_idx, re_int32 indent);

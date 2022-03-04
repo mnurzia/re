@@ -167,7 +167,7 @@ re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, 
                         re__byte_range intersection = re__byte_range_intersection(prev_sibling->byte_range, brs[i]);
                         re__byte_range rest;
                         rest.min = intersection.max + 1;
-                        rest.max = brs[i].max;
+                    rest.max = brs[i].max;
                         if ((err = re__compile_charclass_add_rune_range(char_comp, prev_sibling_ref, rrs[i], next_num_x_bits, next_num_y_bits))) {
                             return err;
                         } 
@@ -612,3 +612,59 @@ void re__compile_charclass_destroy(re__compile_charclass* char_comp) {
     }
     re__compile_charclass_tree_vec_destroy(&char_comp->tree);
 }
+
+#if RE_DEBUG
+
+void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_idx, re_int32 indent) {
+    re_int32 i;
+    re_int32 node = tree_idx;
+    if (indent == 0) {
+        printf("Charclass Compiler %p:\n", (void*)char_comp);
+    }
+    if (node == RE__COMPILE_CHARCLASS_TREE_NONE) {
+        for (i = 0; i < indent + 1; i++) {
+            printf("  ");
+        }
+        printf("<term>\n");
+    } else {
+        while (node != RE__COMPILE_CHARCLASS_TREE_NONE) {
+            re__compile_charclass_tree* tree = re__compile_charclass_tree_vec_getref(&char_comp->tree, (re_size)node);
+            for (i = 0; i < indent + 1; i++) {
+                printf("  ");
+            }
+            printf("%04X | [%02X-%02X] hash=%08X\n", node, tree->byte_range.min, tree->byte_range.max, tree->hash);
+            re__compile_charclass_dump(char_comp, tree->child_ref, indent+1);
+            node = tree->sibling_ref;
+        }
+    }
+    if (indent == 0) {
+        printf("  Cache:\n");
+        if (char_comp->cache_sparse == RE_NULL) {
+            printf("    Empty cache!\n");
+        } else {
+            for (i = 0; i < RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE; i++) {
+                re_int32 j;
+                re_int32 dense_loc = char_comp->cache_sparse[i];
+                re__compile_charclass_hash_entry* hash_entry;
+                if (dense_loc >= (re_int32)re__compile_charclass_hash_entry_vec_size(&char_comp->cache_dense)) {
+                    continue;
+                }
+                hash_entry = re__compile_charclass_hash_entry_vec_getref(&char_comp->cache_dense, (re_size)dense_loc);
+                if (hash_entry->sparse_index != i) {
+                    continue;
+                }
+                printf("    Sparse index: %i\n", i);
+                j = 0;
+                printf("      [%i] root_ref=%04X prog_loc=%04X\n", j, hash_entry->root_ref, hash_entry->prog_loc);
+                j++;
+                while (hash_entry->next != RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE) {
+                    hash_entry = re__compile_charclass_hash_entry_vec_getref(&char_comp->cache_dense, (re_size)hash_entry->next);
+                    printf("      [%i] root_ref=%04X prog_loc=%04X\n", j, hash_entry->root_ref, hash_entry->prog_loc);
+                    j++;
+                }
+            }
+        }
+    }
+}
+
+#endif
