@@ -311,24 +311,45 @@ RE_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_fra
      *         |      |  +--|---...---+     +----5-> ...
      *         +------+     |         |
      *                      +---...---+                 */
+    /* Assert that there are children to compile.
+     * Currently, we disallow concats with zero children. */ 
     RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
-    if (frame->ast_child_ref != RE__AST_NONE) {
-        const re__ast* child = re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
-        if (child->prev_sibling_ref == RE__AST_NONE) {
+    if (!compile->reversed) {
+        if (frame->ast_child_ref == RE__AST_NONE) {
             /* Before first child */
             compile->should_push_child = 1;
-            compile->should_push_child_ref = frame->ast_child_ref;
+            compile->should_push_child_ref = ast->first_child_ref;
+            frame->ast_child_ref = ast->first_child_ref;
         } else {
-            /* Patch outgoing branches (1, 2, 3) */
-            re__compile_patches_patch(&compile->returned_frame.patches, prog, re__prog_size(prog));
-            /* There are children left to check */
-            compile->should_push_child = 1;
-            compile->should_push_child_ref = frame->ast_child_ref;
+            const re__ast* prev_child = re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
+            if (prev_child->next_sibling_ref != RE__AST_NONE) {
+                /* Patch outgoing branches (1, 2, 3) */
+                re__compile_patches_patch(&compile->returned_frame.patches, prog, re__prog_size(prog));
+                compile->should_push_child = 1;
+                compile->should_push_child_ref = prev_child->next_sibling_ref;
+                frame->ast_child_ref = prev_child->next_sibling_ref;
+            } else {
+                /* We are done */
+                re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+            }
         }
     } else {
-        /* After last child */
-        /* Collect outgoing branches (4, 5) */
-        re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+        if (frame->ast_child_ref == RE__AST_NONE) {
+            /* Before *last* child */
+            compile->should_push_child = 1;
+            compile->should_push_child_ref = ast->last_child_ref;
+            frame->ast_child_ref = ast->last_child_ref;
+        } else {
+            const re__ast* next_child = re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
+            if (next_child->prev_sibling_ref != RE__AST_NONE) {
+                re__compile_patches_patch(&compile->returned_frame.patches, prog, re__prog_size(prog));
+                compile->should_push_child = 1;
+                compile->should_push_child_ref = next_child->prev_sibling_ref;
+                frame->ast_child_ref = next_child->prev_sibling_ref;
+            } else {
+                re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+            }
+        }
     }
     return RE_ERROR_NONE; /* <- cool! */
 }
@@ -365,36 +386,41 @@ RE_INTERNAL re_error re__compile_do_alt(re__compile* compile, re__compile_frame*
      */
     re_error err = RE_ERROR_NONE;
     RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
-    if (frame->ast_child_ref != RE__AST_NONE) {
-        const re__ast* child = re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
-        if (child->prev_sibling_ref == RE__AST_NONE) {
-            /* Before first child */
-            /* Initialize split instruction */
-            re__prog_inst new_inst;
-            re__prog_inst_init_split(
-                &new_inst, 
-                re__prog_size(prog) + 1, /* Outgoing branch (1) */
-                RE__PROG_LOC_INVALID /* Will become outgoing branch (2) */
-            );
-            /* Add the Split instruction */
-            if ((err = re__prog_add(prog, new_inst))) {
-                return err;
-            }
-            compile->should_push_child = 1;
-            compile->should_push_child_ref = frame->ast_child_ref;
-        } else {
-            /* Before intermediate children and last child */
+    /* Unlike concats, we still go through alterations in the correct order. */
+    /* if (!compile->reversed || compile->reversed) { */
+    if (frame->ast_child_ref == RE__AST_NONE) {
+        /* Before *first* child */
+        /* Initialize split instruction */
+        re__prog_inst new_inst;
+        re__prog_inst_init_split(
+            &new_inst, 
+            re__prog_size(prog) + 1, /* Outgoing branch (1) */
+            RE__PROG_LOC_INVALID /* Will become outgoing branch (2) */
+        );
+        /* Add the Split instruction */
+        if ((err = re__prog_add(prog, new_inst))) {
+            return err;
+        }
+        compile->should_push_child = 1;
+        compile->should_push_child_ref = ast->first_child_ref;
+        frame->ast_child_ref = ast->first_child_ref;
+    } else {
+        const re__ast* prev_child = re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
+        if (prev_child->next_sibling_ref != RE__AST_NONE) {
+            /* Before intermediate children */
             /* Patch the secondary branch target of the old SPLIT
-             * instruction. Corresponds to outgoing branch (2). */
+                * instruction. Corresponds to outgoing branch (2). */
             /* top.seg.end points to the instruction after the old split 
-             * instruction, since we didn't set the endpoint before the 
-             * first child. */
+                * instruction, since we didn't set the endpoint before the 
+                * first child. */
             re__prog_loc old_split_loc = frame->end - 1;
             re__prog_inst* old_inst = re__prog_get(prog, old_split_loc);
+            const re__ast* child;
             /* Patch outgoing branch (2). */
             re__prog_inst_set_split_secondary(old_inst, re__prog_size(prog));
             /* Collect outgoing branches (5, 6, 7, 8). */
             re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
+            child = re__ast_root_get_const(compile->ast_root, prev_child->next_sibling_ref);
             if (child->next_sibling_ref != RE__AST_NONE) {
                 /* Before intermediate children and NOT last child */
                 re__prog_inst new_inst;
@@ -411,12 +437,13 @@ RE_INTERNAL re_error re__compile_do_alt(re__compile* compile, re__compile_frame*
                 }
             }
             compile->should_push_child = 1;
-            compile->should_push_child_ref = frame->ast_child_ref;
+            compile->should_push_child_ref = prev_child->next_sibling_ref;
+            frame->ast_child_ref = prev_child->next_sibling_ref;
+        } else {
+            /* After last child */
+            /* Collect outgoing branches (9, 10). */
+            re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
         }
-    } else {
-        /* After last child */
-        /* Collect outgoing branches (9, 10). */
-        re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
     }
     return err;
 }
@@ -428,12 +455,21 @@ RE_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile
     /*  {n}  min=n max=n+1 */ /* E repeated -> out */
     /* {n, } min=n max=INF */ /* E repeated, Spl -> spl to last and out */
     /* {n,m} min=n max=m+1 */ /* E repeated, E Spl E Spl E*/
+    /*   *   min=0 max=INF */
+    /*   +   min=1 max=INF */ /* E Spl -> 1 to 2, 2 to 1 and out */
+    /*   ?   min=0 max=1   */ /* Spl E -> 1 to 2 and out, 2 to out */
+    /*  {n}  min=n max=n+1 */ /* E repeated -> out */
+    /* {n, } min=n max=INF */ /* E repeated, Spl -> spl to last and out */
+    /* {n,m} min=n max=m+1 */ /* E repeated, E Spl E Spl E*/
     re_error err = RE_ERROR_NONE;
     re_int32 min = re__ast_get_quantifier_min(ast);
     re_int32 max = re__ast_get_quantifier_max(ast);
     re_int32 int_idx = frame->rep_idx;
     re__prog_loc this_start_pc = re__prog_size(prog);
     frame->rep_idx++;
+    RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
+    RE_ASSERT(ast->first_child_ref == ast->last_child_ref);
+    /* Quantifiers are the same when reversed */
     if (int_idx < min) {
         /* Generate child min times */
         if (int_idx > 0) {
@@ -442,6 +478,7 @@ RE_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile
         }
         compile->should_push_child = 1;
         compile->should_push_child_ref = ast->first_child_ref;
+        frame->ast_child_ref = ast->first_child_ref;
     } else { /* int_idx >= min */
         if (max == RE__AST_QUANTIFIER_INFINITY) {
             re__prog_inst new_spl;
@@ -462,6 +499,7 @@ RE_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile
                     }
                     compile->should_push_child = 1;
                     compile->should_push_child_ref = ast->first_child_ref;
+                    frame->ast_child_ref = ast->first_child_ref;
                 } else if (int_idx == 1) {
                     re__compile_patches_patch(&compile->returned_frame.patches, prog, frame->end - 1);
                 }
@@ -502,6 +540,7 @@ RE_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile
                 }
                 compile->should_push_child = 1;
                 compile->should_push_child_ref = ast->first_child_ref;
+                frame->ast_child_ref = ast->first_child_ref;
             } else {
                 re__compile_patches_merge(&frame->patches, prog, &compile->returned_frame.patches);
             }
@@ -516,24 +555,34 @@ RE_INTERNAL re_error re__compile_do_group(re__compile* compile, re__compile_fram
     re_uint32 group_idx;
     re__ast_group_flags group_flags = re__ast_get_group_flags(ast);
     RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
-    if (frame->ast_child_ref != RE__AST_NONE) {
+    RE_ASSERT(ast->first_child_ref == ast->last_child_ref);
+    if (frame->ast_child_ref == RE__AST_NONE) {
         /* Before child */
         if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
             group_idx = re__ast_get_group_idx(ast);
-            re__prog_inst_init_save(&new_inst, group_idx * 2);
+            if (!compile->reversed) {
+                re__prog_inst_init_save(&new_inst, group_idx * 2);
+            } else {
+                re__prog_inst_init_save(&new_inst, group_idx * 2 + 1);
+            }
             re__prog_inst_set_primary(&new_inst, re__prog_size(prog) + 1);
             if ((err = re__prog_add(prog, new_inst))) {
                 return err;
             }
         }
         compile->should_push_child = 1;
-        compile->should_push_child_ref = frame->ast_child_ref;
+        compile->should_push_child_ref = ast->first_child_ref;
+        frame->ast_child_ref = ast->first_child_ref;
     } else {
         /* After child */
         if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
             re__prog_loc save_pc = re__prog_size(prog);
             group_idx = re__ast_get_group_idx(ast);
-            re__prog_inst_init_save(&new_inst, (group_idx * 2) + 1);
+            if (!compile->reversed) {
+                re__prog_inst_init_save(&new_inst, group_idx * 2 + 1);
+            } else {
+                re__prog_inst_init_save(&new_inst, group_idx * 2);
+            }
             if ((err = re__prog_add(prog, new_inst))) {
                 return err;
             }
@@ -697,7 +746,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
     re__compile_patches_init(&initial_patches);
     root_node = re__ast_root_get_const(ast_root, ast_root->root_ref);
     /* Start first frame */
-    re__compile_frame_init(&initial_frame, ast_root->root_ref, root_node->first_child_ref, initial_patches, 0, 0);
+    re__compile_frame_init(&initial_frame, ast_root->root_ref, RE__AST_NONE, initial_patches, 0, 0);
     /* Push it */
     re__compile_frame_push(compile, initial_frame);
     /* While there are nodes left to compile... */
@@ -707,58 +756,50 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
         re__ast_type top_node_type = top_node->type;
         compile->should_push_child = 0;
         compile->should_push_child_ref = top_frame.ast_child_ref;
-        if (top_node_type == RE__AST_TYPE_RUNE) {
-            if ((err = re__compile_do_rune(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_STR) {
-            if ((err = re__compile_do_str(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_CHARCLASS) {
-            if ((err = re__compile_do_charclass(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_CONCAT) {
-            if ((err = re__compile_do_concat(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_ALT) {
-            if ((err = re__compile_do_alt(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_QUANTIFIER) {
-            if ((err = re__compile_do_quantifier(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_GROUP) {
-            if ((err = re__compile_do_group(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_ASSERT) {
-            if ((err = re__compile_do_assert(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_ANY_CHAR) {
-            if ((err = re__compile_do_any_char(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else if (top_node_type == RE__AST_TYPE_ANY_BYTE) {
-            if ((err = re__compile_do_any_byte(compile, &top_frame, top_node, prog))) {
-                return err;
-            }
-        } else {
-            RE__ASSERT_UNREACHED();
+        switch (top_node_type) {
+            case RE__AST_TYPE_RUNE:
+                err = re__compile_do_rune(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_STR:
+                err = re__compile_do_str(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_CHARCLASS:
+                err = re__compile_do_charclass(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_CONCAT:
+                err = re__compile_do_concat(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_ALT:
+                err = re__compile_do_alt(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_QUANTIFIER:
+                err = re__compile_do_quantifier(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_GROUP:
+                err = re__compile_do_group(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_ASSERT:
+                err = re__compile_do_assert(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_ANY_CHAR:
+                err = re__compile_do_any_char(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_ANY_BYTE:
+                err = re__compile_do_any_byte(compile, &top_frame, top_node, prog);
+                break;
+            default:
+                RE__ASSERT_UNREACHED();
+        }
+        if (err) {
+            goto error;
         }
         /* Set the end of the segment to the next instruction */
         top_frame.end = re__prog_size(prog);
         if (compile->should_push_child) {
             re__compile_frame up_frame;
             re__compile_patches up_patches;
-            const re__ast* up_node;
+
             RE_ASSERT(compile->should_push_child_ref != RE__AST_NONE);
-            up_node = re__ast_root_get_const(ast_root, compile->should_push_child_ref);
-            top_frame.ast_child_ref = up_node->next_sibling_ref;
             re__compile_frame_push(compile, top_frame);
             /* Prepare the child's patches */
             re__compile_patches_init(&up_patches);
@@ -766,7 +807,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
             re__compile_frame_init(
                 &up_frame,
                 compile->should_push_child_ref,
-                up_node->first_child_ref, /* Start at first child *of* child */
+                RE__AST_NONE,
                 up_patches,
                 top_frame.end,
                 top_frame.end

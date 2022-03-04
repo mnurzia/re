@@ -167,7 +167,7 @@ re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, 
                         re__byte_range intersection = re__byte_range_intersection(prev_sibling->byte_range, brs[i]);
                         re__byte_range rest;
                         rest.min = intersection.max + 1;
-                    rest.max = brs[i].max;
+                        rest.max = brs[i].max;
                         if ((err = re__compile_charclass_add_rune_range(char_comp, prev_sibling_ref, rrs[i], next_num_x_bits, next_num_y_bits))) {
                             return err;
                         } 
