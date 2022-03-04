@@ -201,7 +201,7 @@ int re__ast_root_to_sym(sym_build* parent, re__ast_root ast_root) {
     return SYM_OK;
 }
 
-int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 parent_ref, re_int32 prev_sibling_ref, re_int32* out_ast_ref, re_int32 depth) {
+int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 parent_ref, re_int32* out_ast_ref, re_int32 depth) {
     sym_walk walk;
     const char* type_str;
     mptest_size type_str_size;
@@ -314,13 +314,12 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         re__ast_init_any_char(&ast);
     } else if (type == RE__AST_TYPE_ANY_BYTE) {
         re__ast_init_any_byte(&ast);
+    } else {
+        RE__ASSERT_UNREACHED();
+        return SYM_INVALID;
     }
     {
-        if (prev_sibling_ref == RE__AST_NONE) {
-            re__ast_root_add_child(ast_root, parent_ref, ast, out_ast_ref);
-        } else {
-            re__ast_root_add_sibling(ast_root, prev_sibling_ref, ast, out_ast_ref);
-        }
+        re__ast_root_add_child(ast_root, parent_ref, ast, out_ast_ref);
     }
     if (type == RE__AST_TYPE_CONCAT || type == RE__AST_TYPE_ALT) {
         re_int32 child_ref = RE__AST_NONE;
@@ -328,14 +327,14 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, re_int32 p
         SYM_GET_EXPR(&walk, &children);
         while (SYM_MORE(&children)) {
             int err;
-            if ((err = re__ast_root_from_sym_r(&children, ast_root, *out_ast_ref, child_ref, &child_ref, depth + 1))) {
+            if ((err = re__ast_root_from_sym_r(&children, ast_root, *out_ast_ref, &child_ref, depth + 1))) {
                 return err;
             }
         }
     } else if (type == RE__AST_TYPE_GROUP || type == RE__AST_TYPE_QUANTIFIER) {
         int err;
         re_int32 dummy_ref;
-        if ((err = re__ast_root_from_sym_r(&walk, ast_root, *out_ast_ref, RE__AST_NONE, &dummy_ref, depth + 1))) {
+        if ((err = re__ast_root_from_sym_r(&walk, ast_root, *out_ast_ref, &dummy_ref, depth + 1))) {
             return err;
         }
     }
@@ -350,7 +349,7 @@ int re__ast_root_from_sym(sym_walk* parent, re__ast_root* ast_root) {
     re__ast_root_init(ast_root);
     while (SYM_MORE(&walk)) {
         re_int32 dummy_ref;
-        if ((err = re__ast_root_from_sym_r(&walk, ast_root, ast_root->root_ref, RE__AST_NONE, &dummy_ref, 1))) {
+        if ((err = re__ast_root_from_sym_r(&walk, ast_root, ast_root->root_ref, &dummy_ref, 1))) {
             return err;
         }
     }
@@ -557,11 +556,7 @@ TEST(t_ast_root_addget) {
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        if (prev_ref == RE__AST_NONE) {
-            re__ast_root_add_child(&ast_root, prev_ref, ast, &prev_ref);
-        } else {
-            re__ast_root_add_sibling(&ast_root, prev_ref, ast, &prev_ref);
-        }
+        re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref);
         refs[i] = prev_ref;
     }
     ast_root.depth_max = 1;
@@ -586,11 +581,7 @@ TEST(t_ast_root_remove) {
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        if (prev_ref == RE__AST_NONE) {
-            re__ast_root_add_child(&ast_root, prev_ref, ast, &prev_ref);
-        } else {
-            re__ast_root_add_sibling(&ast_root, prev_ref, ast, &prev_ref);
-        }
+        re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref);
         refs[i] = prev_ref;
     }
     for (i = l; i > 0; i--) {
@@ -613,11 +604,7 @@ TEST(t_ast_root_thrash) {
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        if (prev_ref == RE__AST_NONE) {
-            re__ast_root_add_child(&ast_root, prev_ref, ast, &prev_ref);
-        } else {
-            re__ast_root_add_sibling(&ast_root, prev_ref, ast, &prev_ref);
-        }
+        re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref);
         refs[i] = prev_ref;
     }
     /* shuffle refs */

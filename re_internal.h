@@ -182,12 +182,14 @@ typedef union re__ast_data {
 #define RE__AST_NONE -1
 
 struct re__ast {
-    re__ast_type type;
-    re_int32 first_child_ref;
-    re_int32 prev_sibling_ref;
     re_int32 next_sibling_ref;
+    re_int32 prev_sibling_ref;
+    re_int32 first_child_ref;
+    re_int32 last_child_ref;
+    re__ast_type type;
     re__ast_data _data;
 };
+/* 32 bytes on my M1 */
 
 RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
 RE_INTERNAL void re__ast_init_str(re__ast* ast, re_int32 str_ref);
@@ -219,6 +221,7 @@ typedef struct re__ast_root {
     re__ast_vec ast_vec;
     re_int32 last_empty_ref;
     re_int32 root_ref;
+    re_int32 root_last_child_ref;
     re__charclass_refs charclasses;
     re__str_refs strings;
     re__str_vec group_names;
@@ -232,7 +235,6 @@ RE_INTERNAL const re__ast* re__ast_root_get_const(const re__ast_root* ast_root, 
 RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
 RE_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, re_int32 ast_ref, re__ast replacement);
 RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref);
-RE_INTERNAL re_error re__ast_root_add_sibling(re__ast_root* ast_root, re_int32 prev_sibling_ref, re__ast ast, re_int32* out_ref);
 RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re__ast ast_outer, re_int32* out_ref);
 
 RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, re_int32* out_charclass_ref);

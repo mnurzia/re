@@ -137,14 +137,8 @@ RE_INTERNAL re__ast* re__parse_get_frame(re__parse* parse) {
 
 RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32* new_ast_ref) {
     re_error err = RE_ERROR_NONE;
-    if (re__parse_frame_is_empty(parse)) {
-        if ((err = re__ast_root_add_child(parse->ast_root, parse->ast_frame_root_ref, ast, new_ast_ref))) {
-            return err;
-        }
-    } else {
-        if ((err = re__ast_root_add_sibling(parse->ast_root, parse->ast_prev_child_ref, ast, new_ast_ref))) {
-            return err;
-        }
+    if ((err = re__ast_root_add_child(parse->ast_root, parse->ast_frame_root_ref, ast, new_ast_ref))) {
+        return err;
     }
     parse->ast_prev_child_ref = *new_ast_ref;
     parse->depth_max_prev = parse->depth;

@@ -2,9 +2,10 @@
 
 RE_INTERNAL void re__ast_init(re__ast* ast, re__ast_type type) {
     ast->type = type;
-    ast->first_child_ref = -1;
-    ast->prev_sibling_ref = -1;
-    ast->next_sibling_ref = -1;
+    ast->first_child_ref = RE__AST_NONE;
+    ast->last_child_ref = RE__AST_NONE;
+    ast->prev_sibling_ref = RE__AST_NONE;
+    ast->next_sibling_ref = RE__AST_NONE;
 }
 
 RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune) {
@@ -149,6 +150,7 @@ RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root) {
     re__ast_vec_init(&ast_root->ast_vec);
     ast_root->last_empty_ref = RE__AST_NONE;
     ast_root->root_ref = RE__AST_NONE;
+    ast_root->root_last_child_ref = RE__AST_NONE;
     ast_root->depth_max = 0;
     re__charclass_refs_init(&ast_root->charclasses);
     re__str_refs_init(&ast_root->strings);
@@ -208,6 +210,11 @@ RE_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, re_int32 ast_ref, 
     re__ast* loc = re__ast_root_get(ast_root, ast_ref);
     RE_ASSERT(loc->next_sibling_ref == RE__AST_NONE);
     RE_ASSERT(loc->first_child_ref == RE__AST_NONE);
+    RE_ASSERT(loc->last_child_ref == RE__AST_NONE);
+    replacement.next_sibling_ref = loc->next_sibling_ref;
+    replacement.first_child_ref = loc->first_child_ref;
+    replacement.prev_sibling_ref = loc->prev_sibling_ref;
+    replacement.last_child_ref = loc->last_child_ref;
     *loc = replacement;
 }
 
@@ -235,21 +242,40 @@ RE_INTERNAL re_error re__ast_root_new(re__ast_root* ast_root, re__ast ast, re_in
 
 RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref) {
     re_error err = RE_ERROR_NONE;
+    re_int32 prev_sibling_ref = RE__AST_NONE;
+    re__ast* prev_sibling;
+    re__ast* out;
     if ((err = re__ast_root_new(ast_root, ast, out_ref))) {
         return err;
     }
     if (parent_ref == RE__AST_NONE) {
-        /* We can only add one child to the root. */
-        RE_ASSERT(ast_root->root_ref == RE__AST_NONE);
-        /* If this is the first child, set root to it. */
-        ast_root->root_ref = *out_ref;
+        if (ast_root->root_ref == RE__AST_NONE) {
+            /* If this is the first child, set root to it. */
+            ast_root->root_ref = *out_ref;
+            ast_root->root_last_child_ref = *out_ref;
+        } else {
+            prev_sibling_ref = ast_root->root_last_child_ref;
+            ast_root->root_last_child_ref = *out_ref;
+        }
     } else {
         re__ast* parent = re__ast_root_get(ast_root, parent_ref);
-        parent->first_child_ref = *out_ref;
+        if (parent->first_child_ref == RE__AST_NONE) {
+            parent->first_child_ref = *out_ref;
+            parent->last_child_ref = *out_ref;
+        } else {
+            prev_sibling_ref = parent->last_child_ref;
+            parent->last_child_ref = *out_ref;
+        }
+    }
+    if (prev_sibling_ref != RE__AST_NONE) {
+        prev_sibling = re__ast_root_get(ast_root, prev_sibling_ref);
+        prev_sibling->next_sibling_ref = *out_ref;
+        out = re__ast_root_get(ast_root, *out_ref);
+        out->prev_sibling_ref = prev_sibling_ref;
     }
     return err;
 }
-
+/*
 RE_INTERNAL re_error re__ast_root_add_sibling(re__ast_root* ast_root, re_int32 prev_sibling_ref, re__ast ast, re_int32* out_ref) {
     re_error err = RE_ERROR_NONE;
     if ((err = re__ast_root_new(ast_root, ast, out_ref))) {
@@ -263,37 +289,52 @@ RE_INTERNAL re_error re__ast_root_add_sibling(re__ast_root* ast_root, re_int32 p
         out->prev_sibling_ref = prev_sibling_ref;
     }
     return err;
-}
+}*/
 
 RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re__ast ast_outer, re_int32* out_ref){
     re_error err = RE_ERROR_NONE;
-    re__ast *inner;
-    re__ast *outer;
+    re__ast* inner;
+    re__ast* outer;
+    re__ast* parent;
     if ((err = re__ast_root_new(ast_root, ast_outer, out_ref))) {
         return err;
     }
     /* If parent is root, then we *must* be wrapping root. */
-    if (parent_ref == RE__AST_NONE) {
+    /*if (parent_ref == RE__AST_NONE) {
         RE_ASSERT(inner_ref == ast_root->root_ref);
         ast_root->root_ref = *out_ref;
-    }
+    }*/
     inner = re__ast_root_get(ast_root, inner_ref);
     outer = re__ast_root_get(ast_root, *out_ref);
-    if (inner->prev_sibling_ref != RE__AST_NONE) {
+    if (parent_ref != RE__AST_NONE) {
+        parent = re__ast_root_get(ast_root, parent_ref);
+    }
+    if (inner->prev_sibling_ref == RE__AST_NONE) {
+        if (parent_ref == RE__AST_NONE) {
+            ast_root->root_ref = *out_ref;
+        } else {
+            parent->first_child_ref = *out_ref;
+        }
+    } else {
         re__ast* inner_prev_sibling = re__ast_root_get(ast_root, inner->prev_sibling_ref);
         inner_prev_sibling->next_sibling_ref = *out_ref;
         outer->prev_sibling_ref = inner->prev_sibling_ref;
-    } else {
-        if (parent_ref != RE__AST_NONE) {
-            re__ast* parent = re__ast_root_get(ast_root, parent_ref);
-            if (parent->first_child_ref == inner_ref) {
-                /* Parent used to point to inner as child */
-                parent->first_child_ref = *out_ref;
-            }
+    }
+    if (inner->next_sibling_ref == RE__AST_NONE) {
+        if (parent_ref == RE__AST_NONE) {
+            ast_root->root_last_child_ref = *out_ref;
+        } else {
+            parent->last_child_ref = *out_ref;
         }
+    } else {
+        re__ast* inner_next_sibling = re__ast_root_get(ast_root, inner->next_sibling_ref);
+        inner_next_sibling->prev_sibling_ref = *out_ref;
+        outer->next_sibling_ref = inner->next_sibling_ref;
     }
     inner->prev_sibling_ref = RE__AST_NONE;
+    inner->next_sibling_ref = RE__AST_NONE;
     outer->first_child_ref = inner_ref;
+    outer->last_child_ref = inner_ref;
     return err;
 }
 
