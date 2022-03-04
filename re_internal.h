@@ -18,7 +18,7 @@ re__byte_range re__byte_range_intersection(re__byte_range range, re__byte_range 
 re__byte_range re__byte_range_merge(re__byte_range range, re__byte_range other);
 
 /* POD type */
-/* Stores characters in the range [min, max] === [min, max+1) */
+/* Stores characters in the range [min, max] == [min, max+1) */
 typedef struct re__rune_range {
     re_rune min;
     re_rune max;
