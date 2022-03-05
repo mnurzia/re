@@ -33,8 +33,7 @@ class Project(pack_v4.Project):
             "re_parse.c",
             "re_prog.c",
             "re_re.c",
-            "re_range.c",
-            "re_debug.c"
+            "re_range.c"
         ]
         self.tests = [
             "test_ast.c",
