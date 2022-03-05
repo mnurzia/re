@@ -185,19 +185,19 @@ RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf) {
 		out_buf[0] = codep & 0x7F;
         return 1;
 	} else if (codep <= 0x07FF) {
-		out_buf[0] = ((codep >>  6) & 0x1F) | 0xC0;
-		out_buf[1] = ((codep >>  0) & 0x3F) | 0x80;
+		out_buf[0] = (re_uint8)(((codep >>  6) & 0x1F) | 0xC0);
+		out_buf[1] = (re_uint8)(((codep >>  0) & 0x3F) | 0x80);
         return 2;
 	} else if (codep <= 0xFFFF) {
-		out_buf[0] = ((codep >> 12) & 0x0F) | 0xE0;
-		out_buf[1] = ((codep >>  6) & 0x3F) | 0x80;
-		out_buf[2] = ((codep >>  0) & 0x3F) | 0x80;
+		out_buf[0] = (re_uint8)(((codep >> 12) & 0x0F) | 0xE0);
+		out_buf[1] = (re_uint8)(((codep >>  6) & 0x3F) | 0x80);
+		out_buf[2] = (re_uint8)(((codep >>  0) & 0x3F) | 0x80);
         return 3;
 	} else if (codep <= 0x10FFFF) {
-		out_buf[0] = ((codep >> 18) & 0x07) | 0xF0;
-		out_buf[1] = ((codep >> 12) & 0x3F) | 0x80;
-		out_buf[2] = ((codep >>  6) & 0x3F) | 0x80;
-		out_buf[3] = ((codep >>  0) & 0x3F) | 0x80;
+		out_buf[0] = (re_uint8)(((codep >> 18) & 0x07) | 0xF0);
+		out_buf[1] = (re_uint8)(((codep >> 12) & 0x3F) | 0x80);
+		out_buf[2] = (re_uint8)(((codep >>  6) & 0x3F) | 0x80);
+		out_buf[3] = (re_uint8)(((codep >>  0) & 0x3F) | 0x80);
         return 4;
 	} else {
         RE__ASSERT_UNREACHED();
@@ -724,7 +724,6 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
     re__compile_frame initial_frame;
     re__compile_patches initial_patches;
     re__prog_inst fail_inst;
-    const re__ast* root_node;
     /* Set ast_root */
     compile->ast_root = ast_root;
     /* Set reversed flag, more economical to set here */
@@ -744,7 +743,6 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
         goto error;
     }
     re__compile_patches_init(&initial_patches);
-    root_node = re__ast_root_get_const(ast_root, ast_root->root_ref);
     /* Start first frame */
     re__compile_frame_init(&initial_frame, ast_root->root_ref, RE__AST_NONE, initial_patches, 0, 0);
     /* Push it */

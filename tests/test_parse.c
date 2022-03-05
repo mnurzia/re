@@ -4,87 +4,87 @@
 #include "test_helpers.h"
 
 TEST(t_parse_empty) {
-    re re;
-    ASSERTm(!re_init(&re, ""),
+    re reg;
+    ASSERTm(!re_init(&reg, ""),
         "empty regex should compile");
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast)",
         "empty regex should return an empty ast"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_text_end) {
-    re re;
-    ASSERT(!re_init(&re, "$"));
+    re reg;
+    ASSERT(!re_init(&reg, "$"));
     ASSERT_SYMEQm(
         re__ast_root, 
-        re.data->ast_root, 
+        reg.data->ast_root, 
         "(ast"
         "   (assert (text_end)))",
         "$ should create a text_end ast"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_group) {
-    re re;
-    ASSERT(!re_init(&re, "(a)"));
+    re reg;
+    ASSERT(!re_init(&reg, "(a)"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (group () 0 (rune 'a')))",
         "group should create a group"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_group_unfinished) {
-    re re;
-    ASSERT_EQm(re_init(&re, "("), RE_ERROR_PARSE,
+    re reg;
+    ASSERT_EQm(re_init(&reg, "("), RE_ERROR_PARSE,
         "error for unfinished group");
-    re_destroy(&re);
-    ASSERT_EQm(re_init(&re, "(a"), RE_ERROR_PARSE,
+    re_destroy(&reg);
+    ASSERT_EQm(re_init(&reg, "(a"), RE_ERROR_PARSE,
         "error for unfinished group with contents");
-    re_destroy(&re);
-    ASSERT_EQm(re_init(&re, "(a("), RE_ERROR_PARSE,
+    re_destroy(&reg);
+    ASSERT_EQm(re_init(&reg, "(a("), RE_ERROR_PARSE,
         "error for unfinished nested group");
-    re_destroy(&re);
-    ASSERT_EQm(re_init(&re, "(a(b(())("), RE_ERROR_PARSE,
+    re_destroy(&reg);
+    ASSERT_EQm(re_init(&reg, "(a(b(())("), RE_ERROR_PARSE,
         "error for unfinished complex nested group");
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_group_unmatched) {
-    re re;
-    ASSERT_EQm(re_init(&re, ")"), RE_ERROR_PARSE,
+    re reg;
+    ASSERT_EQm(re_init(&reg, ")"), RE_ERROR_PARSE,
         "error for unmatched )");
-    re_destroy(&re);
-    ASSERT_EQm(re_init(&re, "a)"), RE_ERROR_PARSE,
+    re_destroy(&reg);
+    ASSERT_EQm(re_init(&reg, "a)"), RE_ERROR_PARSE,
         "error for unmatched ) after contents");
-    re_destroy(&re);
-    ASSERT_EQm(re_init(&re, "())"), RE_ERROR_PARSE,
+    re_destroy(&reg);
+    ASSERT_EQm(re_init(&reg, "())"), RE_ERROR_PARSE,
         "error for unmatched ) after group");
-    re_destroy(&re);
-    ASSERT_EQm(re_init(&re, "(aa((()a))))"), RE_ERROR_PARSE,
+    re_destroy(&reg);
+    ASSERT_EQm(re_init(&reg, "(aa((()a))))"), RE_ERROR_PARSE,
         "error for unmatched ) after complex nested groups");
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_groups) {
-    re re;
-    ASSERT(!re_init(&re, "(a)(b)"));
+    re reg;
+    ASSERT(!re_init(&reg, "(a)(b)"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "    (concat"
         "        ("
@@ -92,31 +92,44 @@ TEST(t_parse_groups) {
         "            (group () 1 (rune 'b'))))",
         "two adjacent groups should create a concat with two groups"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "(a)(b)(c)"));
+    ASSERT_SYMEQm(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast"
+        "    (concat"
+        "        ("
+        "            (group () 0 (rune 'a'))"
+        "            (group () 1 (rune 'b'))"
+        "            (group () 2 (rune 'c'))))",
+        "three adjacent groups should create a concat with three groups"
+    );
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_group_balance) {
-    re__str reg;
+    re__str regs;
     int balance = 0;
     int stack = 0;
     int iters = 0;
-    re__str_init(&reg);
+    re__str_init(&regs);
     while (iters < 100) {
         int choice = RAND_PARAM(16);
         if (choice < 5) {
-            re__str_cat_n(&reg, "(", 1);
+            re__str_cat_n(&regs, "(", 1);
             stack++;
         } else if (choice < 10) {
-            re__str_cat_n(&reg, ")", 1);
+            re__str_cat_n(&regs, ")", 1);
             if (stack == 0) {
                 balance = -1;
             } else {
                 stack--;
             }
         } else if (choice < 15) {
-            re_char ch = RAND_PARAM(26) + 'A';
-            re__str_cat_n(&reg, &ch, 1);    
+            re_char ch = (re_char)RAND_PARAM(26) + 'A';
+            re__str_cat_n(&regs, &ch, 1);    
         } else {
             break;
         }
@@ -128,8 +141,8 @@ TEST(t_parse_group_balance) {
         }
     }
     {
-        re re;
-        int res = re_init(&re, re__str_get_data(&reg));
+        re reg;
+        int res = re_init(&reg, re__str_get_data(&regs));
         if (balance != 0) {
             ASSERT_EQm(res, RE_ERROR_PARSE,
                 "error for arbitrary unbalanced group");
@@ -137,333 +150,333 @@ TEST(t_parse_group_balance) {
             ASSERT_EQm(res, 0,
                 "error for arbitrary balanced group");
         }
-        re_destroy(&re);
+        re_destroy(&reg);
     }
-    re__str_destroy(&reg);
+    re__str_destroy(&regs);
     PASS();
 }
 
 TEST(t_parse_group_named) {
-    re re;
-    ASSERT(!re_init(&re, "(?<name>a)"));
+    re reg;
+    ASSERT(!re_init(&reg, "(?<name>a)"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "  (group (named) 0 name"
         "    (rune 'a')))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_star) {
-    re re;
-    ASSERT(!re_init(&re, "a*"));
+    re reg;
+    ASSERT(!re_init(&reg, "a*"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (quantifier 0 inf greedy"
         "       (rune 'a')))",
         "* operator should wrap previous nodes with quantifier"
     );
-    re_destroy(&re);
-    ASSERT(!re_init(&re, "a*?"));
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "a*?"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (quantifier 0 inf nongreedy"
         "       (rune 'a')))",
         "*? operator should non-greedily wrap previous nodes with quantifier"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_question) {
-    re re;
-    ASSERT(!re_init(&re, "a?"));
+    re reg;
+    ASSERT(!re_init(&reg, "a?"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (quantifier 0 2 greedy"
         "       (rune 'a')))"
     );
-    re_destroy(&re);
-    ASSERT(!re_init(&re, "a??"));
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "a??"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (quantifier 0 2 nongreedy"
         "       (rune 'a')))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_plus) {
-    re re;
-    ASSERT(!re_init(&re, "a+"));
+    re reg;
+    ASSERT(!re_init(&reg, "a+"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (quantifier 1 inf greedy"
         "       (rune 'a')))"
     );
-    re_destroy(&re);
-    ASSERT(!re_init(&re, "a+?"));
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "a+?"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (quantifier 1 inf nongreedy"
         "       (rune 'a')))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_any_char) {
-    re re;
-    ASSERT(!re_init(&re, "."));
+    re reg;
+    ASSERT(!re_init(&reg, "."));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (any_char))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_charclass_one) {
-    re re;
-    ASSERT(!re_init(&re, "[a]"));
+    re reg;
+    ASSERT(!re_init(&reg, "[a]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (charclass ((rune_range 'a' 'a'))))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_charclass_lbracket) {
-    re re;
-    ASSERT(!re_init(&re, "[[]"));
+    re reg;
+    ASSERT(!re_init(&reg, "[[]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (charclass ((rune_range '[' '['))))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_charclass_rbracket) {
-    re re;
-    ASSERT(!re_init(&re, "[]]"));
+    re reg;
+    ASSERT(!re_init(&reg, "[]]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (charclass ((rune_range ']' ']'))))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_charclass_hyphen) {
-    re re;
-    ASSERT(!re_init(&re, "[-]"));
+    re reg;
+    ASSERT(!re_init(&reg, "[-]"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (charclass ((rune_range '-' '-'))))",
         "charclass with only hyphen should just include a hyphen rune"
     );
-    re_destroy(&re);
-    ASSERT(!re_init(&re, "[a-]"));
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "[a-]"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (charclass ("
         "       (rune_range '-' '-')"
         "       (rune_range 'a' 'a'))))",
         "charclass ending with hyphen should include a hyphen rune"
     );
-    re_destroy(&re);
-    ASSERT(!re_init(&re, "[a-z-]"));
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "[a-z-]"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (charclass ("
         "       (rune_range '-' '-')"
         "       (rune_range 'a' 'z'))))",
         "charclass ending with hyphen should include a hyphen rune"
     );
-    re_destroy(&re);
-    ASSERT(!re_init(&re, "[a-z]"));
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "[a-z]"));
     ASSERT_SYMEQm(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast"
         "   (charclass ("
         "       (rune_range 'a' 'z')))",
         "charclass with middle hyphen should include a rune range"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_charclass_unfinished) {
-    re re;
+    re reg;
     /* RE__PARSE_STATE_CHARCLASS_INITIAL */
-    ASSERT_EQm(re_init(&re, "["), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "["), RE_ERROR_PARSE,
         "error if charclass is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_BRACKET */
-    ASSERT_EQm(re_init(&re, "[["), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[["), RE_ERROR_PARSE,
         "error if charclass with open bracket is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
-    ASSERT_EQm(re_init(&re, "[]"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[]"), RE_ERROR_PARSE,
         "error if charclass with close bracket is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_CARET */
-    ASSERT_EQm(re_init(&re, "[^"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[^"), RE_ERROR_PARSE,
         "error if charclass with caret is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_ESCAPE */
-    ASSERT_EQm(re_init(&re, "[\\"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[\\"), RE_ERROR_PARSE,
         "error if charclass with escape is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_ESCAPE */
-    ASSERT_EQm(re_init(&re, "[^\\"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[^\\"), RE_ERROR_PARSE,
         "error if charclass with caret and escape is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
-    ASSERT_EQm(re_init(&re, "[\\a"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[\\a"), RE_ERROR_PARSE,
         "error if charclass with escape char is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
-    ASSERT_EQm(re_init(&re, "[^\\a"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[^\\a"), RE_ERROR_PARSE,
         "error if charclass with caret and escape is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
-    ASSERT_EQm(re_init(&re, "[a"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[a"), RE_ERROR_PARSE,
         "error if charclass with letter is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_HI */
-    ASSERT_EQm(re_init(&re, "[a-"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[a-"), RE_ERROR_PARSE,
         "error if charclass with unfinished range is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_LO */
-    ASSERT_EQm(re_init(&re, "[a-z"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[a-z"), RE_ERROR_PARSE,
         "error if charclass with range is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_LO */
-    ASSERT_EQm(re_init(&re, "[ab-z"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[ab-z"), RE_ERROR_PARSE,
         "error if charclass with letter and range is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_AFTER_LO */
-    ASSERT_EQm(re_init(&re, "[a-yz"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[a-yz"), RE_ERROR_PARSE,
         "error if charclass with range and letter is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_LO */
-    ASSERT_EQm(re_init(&re, "[^ab-z"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[^ab-z"), RE_ERROR_PARSE,
         "error if negated charclass with letter and range is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_LO */
-    ASSERT_EQm(re_init(&re, "[^a-yz"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[^a-yz"), RE_ERROR_PARSE,
         "error if negated charclass with range and letter is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_LO */
-    ASSERT_EQm(re_init(&re, "[[:alnum:]"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[:alnum:]"), RE_ERROR_PARSE,
         "error if charclass with named charclass is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL */
-    ASSERT_EQm(re_init(&re, "[[:"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[:"), RE_ERROR_PARSE,
         "error if empty named charclass is missing :]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED */
-    ASSERT_EQm(re_init(&re, "[[:^"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[:^"), RE_ERROR_PARSE,
         "error if named inverted charclass is missing :]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_NAMED */
-    ASSERT_EQm(re_init(&re, "[[:aa"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[:aa"), RE_ERROR_PARSE,
         "error if named charclass is missing :]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_NAMED */
-    ASSERT_EQm(re_init(&re, "[[:aa:"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[:aa:"), RE_ERROR_PARSE,
         "error if named charclass is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_NAMED */
-    ASSERT_EQm(re_init(&re, "[[::"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[::"), RE_ERROR_PARSE,
         "error if named charclass is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_NAMED */
-    ASSERT_EQm(re_init(&re, "[[::]"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[::]"), RE_ERROR_PARSE,
         "error if named charclass is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED */
-    ASSERT_EQm(re_init(&re, "[[:^aa:"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[:^aa:"), RE_ERROR_PARSE,
         "error if named charclass is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     /* RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED */
-    ASSERT_EQm(re_init(&re, "[[:^aa"), RE_ERROR_PARSE,
+    ASSERT_EQm(re_init(&reg, "[[:^aa"), RE_ERROR_PARSE,
         "error if named inverted charclass is missing ]");
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_charclass_inverted) {
-    re re;
-    ASSERT(!re_init(&re, "[^a]"));
+    re reg;
+    ASSERT(!re_init(&reg, "[^a]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast "
         "    (charclass ((rune_range 0 96) (rune_range 98 0x10FFFF))))"
     );
-    re_destroy(&re);
-    ASSERT(!re_init(&re, "[^a-z]"));
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "[^a-z]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast "
         "    (charclass ((rune_range 0 96) (rune_range 123 0x10FFFF))))"
     );
-    re_destroy(&re);
-    ASSERT(!re_init(&re, "[^a-zA-Z]"));
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "[^a-zA-Z]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast "
         "    (charclass ((rune_range 0 64)"
         "                (rune_range 91 96)"
         "                (rune_range 123 0x10FFFF))))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_charclass_named) {
-    re re;
-    ASSERT(!re_init(&re, "[[:alnum:]]"));
+    re reg;
+    ASSERT(!re_init(&reg, "[[:alnum:]]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast "
         "  (charclass "
         "    ("
@@ -471,16 +484,16 @@ TEST(t_parse_charclass_named) {
         "      (rune_range 65 90)"
         "      (rune_range 97 122)))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_charclass_named_inverted) {
-    re re;
-    ASSERT(!re_init(&re, "[[:^alnum:]]"));
+    re reg;
+    ASSERT(!re_init(&reg, "[[:^alnum:]]"));
     ASSERT_SYMEQ(
         re__ast_root,
-        re.data->ast_root,
+        reg.data->ast_root,
         "(ast "
         "  (charclass "
         "    ("
@@ -489,12 +502,12 @@ TEST(t_parse_charclass_named_inverted) {
         "      (rune_range 91 96)"
         "      (rune_range 123 0x10FFFF))"
     );
-    re_destroy(&re);
+    re_destroy(&reg);
     PASS();
 }
 
 TEST(t_parse_opt_fuse_rune_rune) {
-    re re;
+    re reg;
     re_rune first = re_rune_rand();
     re_rune second = re_rune_rand();
     re__str in_str;
@@ -504,26 +517,26 @@ TEST(t_parse_opt_fuse_rune_rune) {
     utf8_bytes_ptr += re__compile_gen_utf8(second, utf8_bytes + utf8_bytes_ptr);
     utf8_bytes[utf8_bytes_ptr] = '\0';
     re__str_init_n(&in_str, (re_char*)utf8_bytes, (re_size)utf8_bytes_ptr);
-    ASSERT(!re_init(&re, re__str_get_data(&in_str)));
+    ASSERT(!re_init(&reg, re__str_get_data(&in_str)));
     {
         re__ast* ast = re__ast_root_get(
-            &re.data->ast_root,
-            re.data->ast_root.root_ref
+            &reg.data->ast_root,
+            reg.data->ast_root.root_ref
         );
         re__str_view a, b;
         ASSERT(ast->type == RE__AST_TYPE_STR);
-        a = re__ast_root_get_str_view(&re.data->ast_root, ast->_data.str_ref);
+        a = re__ast_root_get_str_view(&reg.data->ast_root, ast->_data.str_ref);
         re__str_view_init(&b, &in_str);
         ASSERT(re__str_view_cmp(&a, &b) == 0);
     }
-    re_destroy(&re);
+    re_destroy(&reg);
     re__str_destroy(&in_str);
     PASS();
 }
 
 TEST(t_parse_opt_fuse_str_rune) {
-    re re;
-    int n = RAND_PARAM(25) + 2;
+    re reg;
+    int n = (int)RAND_PARAM(25) + 2;
     int i;
     re__str in_str;
     re__str_init(&in_str);
@@ -534,19 +547,19 @@ TEST(t_parse_opt_fuse_str_rune) {
         utf8_bytes_ptr += re__compile_gen_utf8(r, utf8_bytes + utf8_bytes_ptr);
         re__str_cat_n(&in_str, (re_char*)utf8_bytes, (re_size)utf8_bytes_ptr);
     }
-    ASSERT(!re_init(&re, re__str_get_data(&in_str)));
+    ASSERT(!re_init(&reg, re__str_get_data(&in_str)));
     {
         re__ast* ast = re__ast_root_get(
-            &re.data->ast_root,
-            re.data->ast_root.root_ref
+            &reg.data->ast_root,
+            reg.data->ast_root.root_ref
         );
         re__str_view a, b;
         ASSERT(ast->type == RE__AST_TYPE_STR);
-        a = re__ast_root_get_str_view(&re.data->ast_root, ast->_data.str_ref);
+        a = re__ast_root_get_str_view(&reg.data->ast_root, ast->_data.str_ref);
         re__str_view_init(&b, &in_str);
         ASSERT(re__str_view_cmp(&a, &b) == 0);
     }
-    re_destroy(&re);
+    re_destroy(&reg);
     re__str_destroy(&in_str);
     PASS();
 }

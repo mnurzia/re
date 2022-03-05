@@ -134,7 +134,7 @@ int re__prog_from_sym(sym_walk* parent, re__prog* prog) {
 
 TEST(t_prog_inst_init_byte) {
     re__prog_inst inst;
-    re_uint8 byte = RAND_PARAM(0xFF);
+    re_uint8 byte = (re_uint8)RAND_PARAM(0xFF);
     re__prog_inst_init_byte(&inst, byte);
     ASSERT_EQ(re__prog_inst_get_type(&inst), RE__PROG_INST_TYPE_BYTE);
     ASSERT_EQ(re__prog_inst_get_byte(&inst), byte);
@@ -153,8 +153,8 @@ TEST(t_prog_inst_init_byte_range) {
 
 TEST(t_prog_inst_init_split) {
     re__prog_inst inst;
-    re__prog_loc primary = RAND_PARAM(RE__PROG_SIZE_MAX);
-    re__prog_loc secondary = RAND_PARAM(RE__PROG_SIZE_MAX);
+    re__prog_loc primary = (re__prog_loc)RAND_PARAM(RE__PROG_SIZE_MAX);
+    re__prog_loc secondary = (re__prog_loc)RAND_PARAM(RE__PROG_SIZE_MAX);
     re__prog_inst_init_split(&inst, primary, secondary);
     ASSERT_EQ(re__prog_inst_get_type(&inst), RE__PROG_INST_TYPE_SPLIT);
     ASSERT_EQ(re__prog_inst_get_primary(&inst), primary);
@@ -164,7 +164,7 @@ TEST(t_prog_inst_init_split) {
 
 TEST(t_prog_inst_init_match) {
     re__prog_inst inst;
-    re_uint32 match_idx = RAND_PARAM(RE__PROG_SIZE_MAX);
+    re_uint32 match_idx = (re_uint32)RAND_PARAM(RE__PROG_SIZE_MAX);
     re__prog_inst_init_match(&inst, match_idx);
     ASSERT_EQ(re__prog_inst_get_type(&inst), RE__PROG_INST_TYPE_MATCH);
     ASSERT_EQ(re__prog_inst_get_match_idx(&inst), match_idx);
@@ -180,7 +180,7 @@ TEST(t_prog_inst_init_fail) {
 
 TEST(t_prog_inst_init_assert) {
     re__prog_inst inst;
-    re_uint32 assert_ctx = RAND_PARAM(RE__AST_ASSERT_TYPE_MAX);
+    re_uint32 assert_ctx = (re_uint32)RAND_PARAM(RE__AST_ASSERT_TYPE_MAX);
     re__prog_inst_init_assert(&inst, assert_ctx);
     ASSERT_EQ(re__prog_inst_get_type(&inst), RE__PROG_INST_TYPE_ASSERT);
     ASSERT_EQ(re__prog_inst_get_assert_ctx(&inst), assert_ctx);
@@ -189,7 +189,7 @@ TEST(t_prog_inst_init_assert) {
 
 TEST(t_prog_inst_init_save) {
     re__prog_inst inst;
-    re_uint32 save_idx = RAND_PARAM(RE__PROG_SIZE_MAX);
+    re_uint32 save_idx = (re_uint32)RAND_PARAM(RE__PROG_SIZE_MAX);
     re__prog_inst_init_save(&inst, save_idx);
     ASSERT_EQ(re__prog_inst_get_type(&inst), RE__PROG_INST_TYPE_SAVE);
     ASSERT_EQ(re__prog_inst_get_save_idx(&inst), save_idx);

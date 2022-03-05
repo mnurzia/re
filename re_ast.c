@@ -369,7 +369,6 @@ RE_INTERNAL re_error re__ast_root_add_group(re__ast_root* ast_root, re__str_view
 
 RE_INTERNAL re__str_view re__ast_root_get_group(re__ast_root* ast_root, re_uint32 group_number) {
     re__str_view view;
-    RE_ASSERT(group_number >= 0);
     re__str_view_init(&view, re__str_vec_getref(&ast_root->group_names, (re_size)group_number));
     return view;
 }
@@ -495,7 +494,7 @@ RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_r
             case RE__AST_TYPE_CHARCLASS: {
                 const re__charclass* charclass;
                 printf("CLASS:\n");
-                re__charclass_refs_getcref(&ast_root->charclasses, ast->_data.charclass_ref);
+                charclass = re__charclass_refs_getcref(&ast_root->charclasses, ast->_data.charclass_ref);
                 re__charclass_dump(charclass, (re_size)(lvl+1));
                 break;
             }

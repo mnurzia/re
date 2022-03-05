@@ -10,7 +10,7 @@
 #include "test_prog.h"
 #include "test_range.h"
 
-int main() {
+int main(void) {
     printf("\x1b[3J");
     MPTEST_MAIN_BEGIN();
     MPTEST_ENABLE_LEAK_CHECKING();
@@ -25,4 +25,5 @@ int main() {
     RUN_SUITE(s_parse);
     RUN_SUITE(s_prog_inst);
     MPTEST_MAIN_END();
+    return 0;
 }

@@ -685,7 +685,7 @@ TEST(t_charclass_destroy) {
     re__charclass_init(&cc);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
-        rr.min = RAND_PARAM(0x10FFFF);
+        rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((re_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
         re__charclass_push(&cc, rr);
     }
@@ -700,7 +700,7 @@ TEST(t_charclass_push) {
     re__charclass_init(&cc);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
-        rr.min = RAND_PARAM(0x10FFFF);
+        rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((re_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
         re__charclass_push(&cc, rr);
         ASSERT(re__rune_range_equals(re__charclass_get_ranges(&cc)[i], rr));
@@ -717,7 +717,7 @@ TEST(t_charclass_get_num_ranges) {
     ASSERT_EQ(re__charclass_get_num_ranges(&cc), 0);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
-        rr.min = RAND_PARAM(0x10FFFF);
+        rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((re_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
         re__charclass_push(&cc, rr);
     }
@@ -735,7 +735,7 @@ TEST(t_charclass_equals) {
     re__charclass_init(&mt);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
-        rr.min = RAND_PARAM(0x10FFFF);
+        rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((re_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
         re__charclass_push(&cc, rr);
         re__charclass_push(&ot, rr);
@@ -767,7 +767,7 @@ TEST(t_charclass_builder_begin) {
     ASSERT(builder.highest == -1);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
-        rr.min = RAND_PARAM(0x10FFFF);
+        rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((re_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
         re__charclass_builder_insert_range(&builder, rr);
     }
@@ -795,7 +795,7 @@ TEST(t_charclass_builder_insert_range) {
     re__charclass_builder_init(&builder);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
-        rr.min = RAND_PARAM(0x10FFFF);
+        rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((re_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
         re__charclass_builder_insert_range(&builder, rr);
     }

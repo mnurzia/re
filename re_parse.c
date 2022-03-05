@@ -491,7 +491,7 @@ RE_INTERNAL re_error re__parse_radix_consume_oct(re__parse* parse, re_rune ch) {
     }
     RE_ASSERT(RE__PARSE_IS_OCT_DIGIT(ch));
     parse->radix_num *= 8;
-    parse->radix_num += ((re_uint32)ch) - '0';
+    parse->radix_num += ch - '0';
     parse->radix_digits++;
     if (parse->radix_num >= RE__PARSE_OCT_NUM_MAX) {
         return re__parse_error(parse, "octal literal exceeds maximum value of \\777");

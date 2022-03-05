@@ -358,7 +358,7 @@ int re__ast_root_from_sym(sym_walk* parent, re__ast_root* ast_root) {
 
 TEST(t_ast_init_rune) {
     re__ast ast;
-    re_rune r = RAND_PARAM(RE_RUNE_MAX);
+    re_rune r = (re_rune)RAND_PARAM(RE_RUNE_MAX);
     re__ast_init_rune(&ast, r);
     ASSERT_EQ(ast.type, RE__AST_TYPE_RUNE);
     ASSERT_EQ(re__ast_get_rune(&ast), r);
@@ -367,7 +367,7 @@ TEST(t_ast_init_rune) {
 }
 
 TEST(t_ast_init_str) {
-    re_int32 ref_n = RAND_PARAM(600);
+    re_int32 ref_n = (re_int32)RAND_PARAM(600);
     re__ast ast;
     re__ast_init_str(&ast, ref_n);
     ASSERT_EQ(ast.type, RE__AST_TYPE_STR);
@@ -377,7 +377,7 @@ TEST(t_ast_init_str) {
 }
 
 TEST(t_ast_init_class) {
-    re_int32 ref_n = RAND_PARAM(600);
+    re_int32 ref_n = (re_int32)RAND_PARAM(600);
     re__ast ast;
     re__ast_init_charclass(&ast, ref_n);
     ASSERT_EQ(ast.type, RE__AST_TYPE_CHARCLASS);
@@ -405,7 +405,7 @@ TEST(t_ast_init_alt) {
 TEST(t_ast_init_quantifier) {
     re__ast ast;
     re_int32 min, max;
-    min = RAND_PARAM(1000);
+    min = (re_int32)RAND_PARAM(1000);
     max = min + (mptest_int32)RAND_PARAM(1000 - (mptest_rand)min);
     re__ast_init_quantifier(&ast, min, max);
     ASSERT_EQ(ast.type, RE__AST_TYPE_QUANTIFIER);
@@ -439,7 +439,7 @@ TEST(t_ast_init_group_named) {
 
 TEST(t_ast_init_assert) {
     re__ast ast;
-    re__ast_assert_type atype = RAND_PARAM(RE__AST_ASSERT_TYPE_MAX);
+    re__ast_assert_type atype = (re__ast_assert_type)RAND_PARAM(RE__AST_ASSERT_TYPE_MAX);
     re__ast_init_assert(&ast, atype);
     ASSERT_EQ(ast.type, RE__AST_TYPE_ASSERT);
     re__ast_destroy(&ast);
@@ -493,7 +493,7 @@ TEST(t_ast_quantifier_greediness) {
 TEST(t_ast_quantifier_minmax) {
     re__ast ast;
     re_int32 min, max;
-    min = RAND_PARAM(1000);
+    min = (re_int32)RAND_PARAM(1000);
     max = min + (mptest_int32)RAND_PARAM(1000 - (mptest_rand)min);
     re__ast_init_quantifier(&ast, min, max);
     ASSERT_EQ(re__ast_get_quantifier_min(&ast), min);
@@ -504,7 +504,7 @@ TEST(t_ast_quantifier_minmax) {
 
 TEST(t_ast_get_rune) {
     re__ast ast;
-    re_rune r = RAND_PARAM(RE_RUNE_MAX);
+    re_rune r = (re_rune)RAND_PARAM(RE_RUNE_MAX);
     re__ast_init_rune(&ast, r);
     ASSERT_EQ(re__ast_get_rune(&ast), r);
     re__ast_destroy(&ast);
@@ -548,7 +548,7 @@ TEST(t_ast_root_init) {
 
 TEST(t_ast_root_addget) {
     re__ast_root ast_root;
-    re_int32 l = RAND_PARAM(600);
+    re_int32 l = (re_int32)RAND_PARAM(600);
     re_int32 i;
     re_int32* refs = RE_MALLOC(sizeof(re_int32) * (re_size)l);
     re_int32 prev_ref = RE__AST_NONE;
@@ -573,7 +573,7 @@ TEST(t_ast_root_addget) {
 
 TEST(t_ast_root_remove) {
     re__ast_root ast_root;
-    re_int32 l = RAND_PARAM(600);
+    re_int32 l = (re_int32)RAND_PARAM(600);
     re_int32 i;
     re_int32* refs = RE_MALLOC(sizeof(re_int32) * (re_size)l);
     re_int32 prev_ref = RE__AST_NONE;
@@ -596,7 +596,7 @@ TEST(t_ast_root_remove) {
 
 TEST(t_ast_root_thrash) {
     re__ast_root ast_root;
-    re_int32 l = RAND_PARAM(600);
+    re_int32 l = (re_int32)RAND_PARAM(600);
     re_int32 i;
     re_int32* refs = RE_MALLOC(sizeof(re_int32) * (re_size)l);
     re_int32 prev_ref = RE__AST_NONE;
