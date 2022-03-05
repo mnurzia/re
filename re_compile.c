@@ -294,7 +294,7 @@ RE_INTERNAL re_error re__compile_do_charclass(re__compile* compile, re__compile_
     return re__compile_charclass_gen(
         &compile->char_comp, 
         charclass,
-        prog, &frame->patches);
+        prog, &frame->patches, 0);
 }
 
 RE_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {

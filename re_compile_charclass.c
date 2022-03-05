@@ -18,24 +18,33 @@ void re__compile_charclass_tree_init(re__compile_charclass_tree* tree, re__byte_
     tree->byte_range = byte_range;
     tree->sibling_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
     tree->child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
-    tree->hash = 0;
+    tree->aux = 0;
 }
 
 /* Get a pointer to a node in the tree, given its index. */
-RE_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compile_charclass* char_comp, re_int32 tree_ref) {
+RE_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compile_charclass* char_comp, re_uint32 tree_ref) {
     RE_ASSERT(tree_ref != RE__COMPILE_CHARCLASS_TREE_NONE);
-    RE_ASSERT(tree_ref < (re_int32)re__compile_charclass_tree_vec_size(&char_comp->tree));
+    RE_ASSERT(tree_ref < (re_uint32)re__compile_charclass_tree_vec_size(&char_comp->tree));
     return re__compile_charclass_tree_vec_getref(&char_comp->tree, (re_size)tree_ref);
 }
 
-re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_int32 parent_ref, re__byte_range byte_range, re_int32* out_new_node_ref) {
+re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_uint32 parent_ref, re__byte_range byte_range, re_uint32* out_new_node_ref, int use_reverse_tree) {
     re_error err = RE_ERROR_NONE;
     re__compile_charclass_tree new_node;
-    re_int32 prev_sibling_ref;
-    *out_new_node_ref = (re_int32)re__compile_charclass_tree_vec_size(&char_comp->tree);
+    re_uint32 prev_sibling_ref;
+    *out_new_node_ref = (re_uint32)re__compile_charclass_tree_vec_size(&char_comp->tree);
     if (parent_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
         /* adding to root */
-        if (char_comp->root_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
+        re_uint32* root_ref;
+        re_uint32* root_last_child_ref;
+        if (!use_reverse_tree) {
+            root_ref = &char_comp->root_ref;
+            root_last_child_ref = &char_comp->root_last_child_ref;
+        } else {
+            root_ref = &char_comp->rev_root_ref;
+            root_last_child_ref = &char_comp->rev_root_last_child_ref;
+        }
+        if (*root_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
             /* root hasn't been found yet */
             /* Insert a dummy node as node 0 */
             re__byte_range zero_range;
@@ -43,8 +52,8 @@ re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_int
             zero_range.max = 0;
             /* account for the dummy node */
             *out_new_node_ref += 1;
-            char_comp->root_ref = *out_new_node_ref;
-            char_comp->root_last_child_ref = *out_new_node_ref;
+            *root_ref = *out_new_node_ref;
+            *root_last_child_ref = *out_new_node_ref;
             /* create and push later, good practice for avoiding use-after-free */
             re__compile_charclass_tree_init(&new_node, zero_range);
             if ((err = re__compile_charclass_tree_vec_push(&char_comp->tree, new_node))) {
@@ -53,8 +62,8 @@ re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_int
             prev_sibling_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
         } else {
             /* root has been found, append to last child */
-            prev_sibling_ref = char_comp->root_last_child_ref;
-            char_comp->root_last_child_ref = *out_new_node_ref;
+            prev_sibling_ref = *root_last_child_ref;
+            *root_last_child_ref = *out_new_node_ref;
         }
     } else {
         re__compile_charclass_tree* parent;
@@ -70,11 +79,11 @@ re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_int
     return err;
 }
 
-re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, re_int32 parent_ref, re__rune_range rune_range, re_int32 num_x_bits, re_int32 num_y_bits) {
+re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, re_uint32 parent_ref, re__rune_range rune_range, re_uint32 num_x_bits, re_uint32 num_y_bits) {
     re_rune x_mask = (1 << num_x_bits) - 1;
     re_rune byte_mask = 0xFF;
     re_rune u_mask = (0xFE << num_y_bits) & byte_mask;
-    re_int32 child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
+    re_uint32 child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
     re_rune y_min = rune_range.min >> num_x_bits;
     re_rune y_max = rune_range.max >> num_x_bits;
     re_uint8 byte_min = (re_uint8)((y_min & byte_mask) | u_mask);
@@ -86,7 +95,7 @@ re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, 
         re__byte_range br;
         br.min = byte_min;
         br.max = byte_max;
-        if ((err = re__compile_charclass_new_node(char_comp, parent_ref, br, &child_ref))) {
+        if ((err = re__compile_charclass_new_node(char_comp, parent_ref, br, &child_ref, 0))) {
             return err;
         }
     } else {
@@ -98,8 +107,8 @@ re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, 
         /* Number of sub_trees (extents of 'brs' and 'rrs') */
         int num_sub_trees = 0;
         /* The next y_bits and x_bits for sub-ranges */
-        re_int32 next_num_x_bits = num_x_bits - 6;
-        re_int32 next_num_y_bits = 6;
+        re_uint32 next_num_x_bits = num_x_bits - 6;
+        re_uint32 next_num_y_bits = 6;
         if (y_min == y_max || (x_min == 0 && x_max == x_mask)) {
             /* Range can be split into either a single byte followed by a range,
              * _or_ one range followed by another maximal range */
@@ -153,7 +162,7 @@ re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, 
             for (i = 0; i < num_sub_trees; i++) {
                 /* First check if the last child intersects and compute the
                  * intersection. */
-                re_int32 prev_sibling_ref;
+                re_uint32 prev_sibling_ref;
                 if (parent_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
                     prev_sibling_ref = char_comp->root_last_child_ref;
                 } else {
@@ -171,14 +180,14 @@ re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, 
                         if ((err = re__compile_charclass_add_rune_range(char_comp, prev_sibling_ref, rrs[i], next_num_x_bits, next_num_y_bits))) {
                             return err;
                         } 
-                        if ((err = re__compile_charclass_new_node(char_comp, parent_ref, rest, &child_ref))) {
+                        if ((err = re__compile_charclass_new_node(char_comp, parent_ref, rest, &child_ref, 0))) {
                             return err;
                         }
                         if ((err = re__compile_charclass_add_rune_range(char_comp, child_ref, rrs[i], next_num_x_bits, next_num_y_bits))) {
                             return err;
                         } 
                     } else {
-                        if ((err = re__compile_charclass_new_node(char_comp, parent_ref, brs[i], &child_ref))) {
+                        if ((err = re__compile_charclass_new_node(char_comp, parent_ref, brs[i], &child_ref, 0))) {
                         return err;
                         }
                         if ((err = re__compile_charclass_add_rune_range(char_comp, child_ref, rrs[i], next_num_x_bits, next_num_y_bits))) {
@@ -186,7 +195,7 @@ re_error re__compile_charclass_add_rune_range(re__compile_charclass* char_comp, 
                         } 
                     }
                 } else {
-                    if ((err = re__compile_charclass_new_node(char_comp, parent_ref, brs[i], &child_ref))) {
+                    if ((err = re__compile_charclass_new_node(char_comp, parent_ref, brs[i], &child_ref, 0))) {
                         return err;
                     }
                     if ((err = re__compile_charclass_add_rune_range(char_comp, child_ref, rrs[i], next_num_x_bits, next_num_y_bits))) {
@@ -204,8 +213,8 @@ int re__compile_charclass_tree_equals(
     re__compile_charclass* char_comp,
     re__compile_charclass_tree* a,
     re__compile_charclass_tree* b) {
-    re_int32 a_child_ref = a->child_ref;
-    re_int32 b_child_ref = b->child_ref;
+    re_uint32 a_child_ref = a->child_ref;
+    re_uint32 b_child_ref = b->child_ref;
     /* While child references aren't none, check their equality. */
     while (a_child_ref != RE__COMPILE_CHARCLASS_TREE_NONE && b_child_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
         re__compile_charclass_tree* a_child = re__compile_charclass_tree_get(char_comp, a_child_ref);
@@ -236,11 +245,11 @@ void re__compile_charclass_merge_one(re__compile_charclass_tree* child, re__comp
     child->byte_range = re__byte_range_merge(child->byte_range, sibling->byte_range);
 }
 
-void re__compile_charclass_hash_tree(re__compile_charclass* char_comp, re_int32 parent_ref) {
+void re__compile_charclass_hash_tree(re__compile_charclass* char_comp, re_uint32 parent_ref) {
     re__compile_charclass_tree* child;
     re__compile_charclass_tree* sibling;
     re__compile_charclass_tree* parent;
-    re_int32 child_ref, sibling_ref, next_child_ref;
+    re_uint32 child_ref, sibling_ref, next_child_ref;
     if (parent_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
         /* this is root */
         child_ref = char_comp->root_last_child_ref;
@@ -264,7 +273,7 @@ void re__compile_charclass_hash_tree(re__compile_charclass* char_comp, re_int32 
                     if (child->child_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
                         re__compile_charclass_tree* child_child = re__compile_charclass_tree_get(char_comp, child->child_ref);
                         re__compile_charclass_tree* sibling_child = re__compile_charclass_tree_get(char_comp, sibling->child_ref);
-                        if (child_child->hash == sibling_child->hash) {
+                        if (child_child->aux == sibling_child->aux) {
                             if (re__compile_charclass_tree_equals(char_comp, child_child, sibling_child)) {
                                 /* Siblings have identical children and can be merged */
                                 re__compile_charclass_merge_one(child, sibling);
@@ -277,26 +286,26 @@ void re__compile_charclass_hash_tree(re__compile_charclass* char_comp, re_int32 
         {
             re__compile_charclass_hash_temp hash_obj;
             /* C89 does not guarantee struct zero-padding. This will throw off our
-            * hash function if uninitialized properly. We explicitly zero out the
-            * memory for this reason. */
+             * hash function if uninitialized properly. We explicitly zero out the
+             * memory for this reason. */
             re__zero_mem(sizeof(re__compile_charclass_hash_temp), &hash_obj);
             hash_obj.byte_range = child->byte_range;
             /* Register hashes for next sibling and first child. */
             if (child->sibling_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
                 /* I know nothing about cryptography. Whether or not this is an
-                * actually good value is unknown. */
+                 * actually good value is unknown. */
                 hash_obj.next_hash = 0x0F0F0F0F;
             } else {
-                hash_obj.next_hash = sibling->hash;
+                hash_obj.next_hash = sibling->aux;
             }
             if (child->child_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
                 hash_obj.down_hash = 0x0F0F0F0F;
             } else {
                 re__compile_charclass_tree* child_child = re__compile_charclass_tree_get(char_comp, child->child_ref);
-                hash_obj.down_hash = child_child->hash;
+                hash_obj.down_hash = child_child->aux;
             }
             /* Murmurhash seemed good... */
-            child->hash = re__murmurhash3_32((const re_uint8*)&hash_obj, sizeof(hash_obj));
+            child->aux = re__murmurhash3_32((const re_uint8*)&hash_obj, sizeof(hash_obj));
         }
         sibling_ref = child_ref;
         sibling = child;
@@ -309,9 +318,9 @@ void re__compile_charclass_hash_tree(re__compile_charclass* char_comp, re_int32 
 
 re_error re__compile_charclass_split_rune_range(re__compile_charclass* char_comp, re__rune_range range) {
     re_error err = RE_ERROR_NONE;
-    static const re_int32 y_bits[4] = {7, 5, 4, 3};
-    static const re_int32 x_bits[4] = {0, 6, 12, 18};
-    re_int32 byte_length;
+    static const re_uint32 y_bits[4] = {7, 5, 4, 3};
+    static const re_uint32 x_bits[4] = {0, 6, 12, 18};
+    re_uint32 byte_length;
     re_rune min_value = 0;
     for (byte_length = 0; byte_length < 4; byte_length++) {
         re_rune max_value = (1 << (y_bits[byte_length] + x_bits[byte_length])) - 1;
@@ -329,7 +338,7 @@ re_error re__compile_charclass_split_rune_range(re__compile_charclass* char_comp
     return err;
 }
 
-void re__compile_charclass_hash_entry_init(re__compile_charclass_hash_entry* hash_entry, re_int32 sparse_index, re_int32 root_ref, re__prog_loc prog_loc) {
+void re__compile_charclass_hash_entry_init(re__compile_charclass_hash_entry* hash_entry, re_int32 sparse_index, re_uint32 root_ref, re__prog_loc prog_loc) {
     hash_entry->sparse_index = sparse_index;
     hash_entry->root_ref = root_ref;
     hash_entry->prog_loc = prog_loc;
@@ -345,17 +354,17 @@ void re__compile_charclass_cache_clear(re__compile_charclass* char_comp) {
 
 /* Get a program location from the cache, if its given tree is in the cache. */
 /* Returns RE__PROG_LOC_INVALID if not in the cache. */
-re__prog_loc re__compile_charclass_cache_get(re__compile_charclass* char_comp, re_int32 root_ref) {
+re__prog_loc re__compile_charclass_cache_get(re__compile_charclass* char_comp, re_uint32 root_ref) {
     re__compile_charclass_tree* root;
     /* Index into the sparse array based off of root's hash */
     re_int32 sparse_index;
     /* Final index in the dense array, if the tree is found in the cache */
     re_int32 dense_index;
-    if (root_ref == RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE) {
+    if (root_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
         return RE__PROG_LOC_INVALID;
     }
     root = re__compile_charclass_tree_get(char_comp, root_ref);
-    sparse_index = root->hash % RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE;
+    sparse_index = root->aux % RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE;
     dense_index = RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE;
     if (char_comp->cache_sparse == RE_NULL) {
         /* Cache is empty a.t.m., just return */
@@ -372,7 +381,7 @@ re__prog_loc re__compile_charclass_cache_get(re__compile_charclass* char_comp, r
         if (hash_entry_prev->sparse_index == sparse_index) {
             while (1) {
                 re__compile_charclass_tree* root_cache = re__compile_charclass_tree_vec_getref(&char_comp->tree, (re_size)hash_entry_prev->root_ref);
-                if (root_cache->hash == root->hash) {
+                if (root_cache->aux == root->aux) {
                     if (re__compile_charclass_tree_equals(char_comp, root_cache, root)) {
                         /* If both hashes and then their trees are equal, we
                          * have already compiled this tree and can return its
@@ -400,11 +409,11 @@ re__prog_loc re__compile_charclass_cache_get(re__compile_charclass* char_comp, r
     }
 }
 /* Add a program location to the cache, after it has been compiled. */
-re_error re__compile_charclass_cache_add(re__compile_charclass* char_comp, re_int32 root_ref, re__prog_loc prog_loc) {
+re_error re__compile_charclass_cache_add(re__compile_charclass* char_comp, re_uint32 root_ref, re__prog_loc prog_loc) {
     re_error err = RE_ERROR_NONE;
     re__compile_charclass_tree* root = re__compile_charclass_tree_get(char_comp, root_ref);
     /* These variables have the same meaning as they do in cache_get. */
-    re_int32 sparse_index = root->hash % RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE;
+    re_int32 sparse_index = root->aux % RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE;
     re_int32 dense_index = RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE;
     re__compile_charclass_hash_entry* hash_entry_prev = RE_NULL;
     int requires_link;
@@ -422,7 +431,7 @@ re_error re__compile_charclass_cache_add(re__compile_charclass* char_comp, re_in
         if (hash_entry_prev->sparse_index == sparse_index) {
             while (1) {
                 re__compile_charclass_tree* root_cache = re__compile_charclass_tree_get(char_comp, hash_entry_prev->root_ref);
-                if (root_cache->hash == root->hash) {
+                if (root_cache->aux == root->aux) {
                     if (re__compile_charclass_tree_equals(char_comp, root_cache, root)) {
                         /* We found the item in the cache? This should never
                          * happen. To ensure optimality, we should only ever add
@@ -479,15 +488,12 @@ re_error re__compile_charclass_cache_add(re__compile_charclass* char_comp, re_in
 
 /* Generate the program for a particular tree. */
 /* root should not be in the cache. */
-re_error re__compile_charclass_generate_prog(re__compile_charclass* char_comp, re__prog* prog, re_int32 node_ref, re__prog_loc* out_pc, re__compile_patches* patches) {
+re_error re__compile_charclass_generate_prog(re__compile_charclass* char_comp, re__prog* prog, re_uint32 node_ref, re__prog_loc* out_pc, re__compile_patches* patches) {
     /* Starting program location for this root. */
     re__prog_loc start_pc = re__prog_size(prog);
     /* Keeps track of the previous split location, if there is one. */
     re__prog_loc split_from = RE__PROG_LOC_INVALID;
     re_error err = RE_ERROR_NONE;
-    if (node_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
-        node_ref = char_comp->root_ref;
-    }
     while (node_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
         re__compile_charclass_tree* node;
         /* Program counter in the cache, if it was found */
@@ -568,8 +574,60 @@ re_error re__compile_charclass_generate_prog(re__compile_charclass* char_comp, r
     return RE_ERROR_NONE;
 }
 
+/* Clear the aux field on all nodes in the tree. */
+void re__compile_charclass_clear_aux(re__compile_charclass* char_comp, re_uint32 parent_ref) {
+    re_uint32 child_ref;
+    if (parent_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
+        child_ref = char_comp->root_ref;
+    } else {
+        re__compile_charclass_tree* parent = re__compile_charclass_tree_get(char_comp, parent_ref);
+        child_ref = parent->child_ref;
+    }
+    while (child_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
+        re__compile_charclass_tree* child = re__compile_charclass_tree_get(char_comp, child_ref);
+        child->aux = RE__COMPILE_CHARCLASS_TREE_NONE;
+        re__compile_charclass_clear_aux(char_comp, child_ref);
+        child_ref = child->sibling_ref;
+    }
+}
+
+re_error re__compile_charclass_transpose(re__compile_charclass* char_comp, re_uint32 parent_ref) {
+    re_uint32 child_ref;
+    re_error err = RE_ERROR_NONE;
+    if (parent_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
+        child_ref = char_comp->root_ref;
+    } else {
+        re__compile_charclass_tree* parent = re__compile_charclass_tree_get(char_comp, parent_ref);
+        child_ref = parent->child_ref;
+    }
+    while (child_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
+        re__compile_charclass_tree* child = re__compile_charclass_tree_get(char_comp, child_ref);
+        re_uint32 new_ref;
+        if (child->child_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
+            /* terminal, add to reverse root */
+            if ((err = re__compile_charclass_new_node(char_comp, RE__COMPILE_CHARCLASS_TREE_NONE, child->byte_range, &new_ref, 1))) {
+                return err;
+            }
+            child->aux = new_ref;
+        } else {
+            re__compile_charclass_tree* child_child;
+            if ((err = re__compile_charclass_transpose(char_comp, child_ref))) {
+                return err;
+            }
+            /* ALERT!!! child may have changed!!! */
+            child = re__compile_charclass_tree_get(char_comp, child_ref);
+            child_child = re__compile_charclass_tree_get(char_comp, child->child_ref);
+            if ((err = re__compile_charclass_new_node(char_comp, child_child->aux, child->byte_range, &new_ref, 1))) {
+                return err;
+            }
+            child->aux = new_ref;
+        }
+    }
+    return err;
+}
+
 /* Compile a single character class. */
-re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out) {
+re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out, int also_make_reverse) {
     re_error err = RE_ERROR_NONE;
     re_size i;
     const re__rune_range* ranges = re__charclass_get_ranges(charclass);
@@ -589,8 +647,17 @@ re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__c
         /* Hash and merge the tree */
         re__compile_charclass_hash_tree(char_comp, RE__COMPILE_CHARCLASS_TREE_NONE);
         /* Generate the tree's program */
-        if ((err = re__compile_charclass_generate_prog(char_comp, prog, RE__COMPILE_CHARCLASS_TREE_NONE, &out_pc, patches_out))) {
+        if ((err = re__compile_charclass_generate_prog(char_comp, prog, char_comp->root_ref, &out_pc, patches_out))) {
             return err;
+        }
+        if (also_make_reverse) {
+            re__compile_charclass_clear_aux(char_comp, RE__COMPILE_CHARCLASS_TREE_NONE);
+            if ((err = re__compile_charclass_transpose(char_comp, RE__COMPILE_CHARCLASS_TREE_NONE))) {
+                return err;
+            }
+            if ((err = re__compile_charclass_generate_prog(char_comp, prog, char_comp->rev_root_ref, &out_pc, patches_out))) {
+                return err;
+            }
         }
         /* Done!!! all that effort for just a few instructions. */
     }
@@ -602,6 +669,8 @@ void re__compile_charclass_init(re__compile_charclass* char_comp) {
     char_comp->root_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
     char_comp->root_last_child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
     char_comp->cache_sparse = RE_NULL;
+    char_comp->rev_root_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
+    char_comp->rev_root_last_child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
     re__compile_charclass_hash_entry_vec_init(&char_comp->cache_dense);
 }
 
@@ -613,11 +682,12 @@ void re__compile_charclass_destroy(re__compile_charclass* char_comp) {
     re__compile_charclass_tree_vec_destroy(&char_comp->tree);
 }
 
+
 #if RE_DEBUG
 
-void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_idx, re_int32 indent) {
+void re__compile_charclass_dump(re__compile_charclass* char_comp, re_uint32 tree_idx, re_int32 indent) {
     re_int32 i;
-    re_int32 node = tree_idx;
+    re_uint32 node = tree_idx;
     if (indent == 0) {
         printf("Charclass Compiler %p:\n", (void*)char_comp);
     }
@@ -632,7 +702,7 @@ void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_
             for (i = 0; i < indent + 1; i++) {
                 printf("  ");
             }
-            printf("%04X | [%02X-%02X] hash=%08X\n", node, tree->byte_range.min, tree->byte_range.max, tree->hash);
+            printf("%04X | [%02X-%02X] hash=%08X\n", node, tree->byte_range.min, tree->byte_range.max, tree->aux);
             re__compile_charclass_dump(char_comp, tree->child_ref, indent+1);
             node = tree->sibling_ref;
         }

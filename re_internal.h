@@ -589,15 +589,21 @@ typedef struct re__compile_charclass_tree {
     /* Range of bytes to match */
     re__byte_range byte_range;
     /* Reference to next sibling */
-    re_int32 sibling_ref;
+    re_uint32 sibling_ref;
     /* Reference to first child */
-    re_int32 child_ref;
-    /* Hash of this tree, used for caching */
-    re_uint32 hash;
+    re_uint32 child_ref;
+    /* Either:
+     * - The hash of this tree, used for caching
+     * - A reference to this node's complement in the reverse tree
+     * If the tree has not had its forward program generated, then aux is a
+     * hash, otherwise, the reverse program is being generated, and aux
+     * references the complement node. */
+    /* This could be fixed with a union, I plan on doing this sometime soon. */
+    re_uint32 aux;
 } re__compile_charclass_tree;
 /* 16 bytes, nominally, (16 on my M1 Max) */
 
-re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_int32 parent_ref, re__byte_range byte_range, re_int32* out_new_node_ref);
+re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_uint32 parent_ref, re__byte_range byte_range, re_uint32* out_new_node_ref, int use_reverse_tree);
 
 #define RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE -1
 
@@ -615,7 +621,7 @@ typedef struct re__compile_charclass_hash_entry {
     /* Index in sparse array */
     re_int32 sparse_index;
     /* Reference to tree root */
-    re_int32 root_ref;
+    re_uint32 root_ref;
     /* Compiled instruction location in the program */
     re__prog_loc prog_loc;
     /* Next hash_entry that hashes to the same value, 
@@ -623,7 +629,7 @@ typedef struct re__compile_charclass_hash_entry {
     re_int32 next;
 } re__compile_charclass_hash_entry;
 
-RE_INTERNAL void re__compile_charclass_hash_entry_init(re__compile_charclass_hash_entry* hash_entry, re_int32 sparse_index, re_int32 tree_ref, re__prog_loc prog_loc);
+RE_INTERNAL void re__compile_charclass_hash_entry_init(re__compile_charclass_hash_entry* hash_entry, re_int32 sparse_index, re_uint32 tree_ref, re__prog_loc prog_loc);
 
 RE_VEC_DECL(re__compile_charclass_hash_entry);
 RE_VEC_DECL(re__compile_charclass_tree);
@@ -636,9 +642,13 @@ struct re__compile_charclass {
      * represents an index in this vector. */
     re__compile_charclass_tree_vec tree;
     /* Reference to root node. */
-    re_int32 root_ref;
+    re_uint32 root_ref;
     /* Reference to last child of root node. */
-    re_int32 root_last_child_ref;
+    re_uint32 root_last_child_ref;
+    /* Reference to root node of reverse tree. */
+    re_uint32 rev_root_ref;
+    /* Reference to last child of reverse root node. */
+    re_uint32 rev_root_last_child_ref;
     /* Sparse tree cache. Each element in this array points to a corresponding
      * position in 'cache_dense'. Lookup is performed by moduloing a tree's hash
      * with the sparse cache size. Since cache hits are relatively rare, this
@@ -651,12 +661,12 @@ struct re__compile_charclass {
 
 void re__compile_charclass_init(re__compile_charclass* char_comp);
 void re__compile_charclass_destroy(re__compile_charclass* char_comp);
-re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out);
+re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out, int also_make_reverse);
 re_error re__compile_charclass_split_rune_range(re__compile_charclass* char_comp, re__rune_range range);
-RE_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compile_charclass* char_comp, re_int32 tree_ref);
+RE_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compile_charclass* char_comp, re_uint32 tree_ref);
 
 #if RE_DEBUG
-void re__compile_charclass_dump(re__compile_charclass* char_comp, re_int32 tree_idx, re_int32 indent);
+void re__compile_charclass_dump(re__compile_charclass* char_comp, re_uint32 tree_idx, re_int32 indent);
 #endif
 
 /* Stack frame for the compiler. */
@@ -681,7 +691,8 @@ typedef struct re__compile_frame {
 typedef struct re__compile {
     /* Stack frames list. This is not a frame_vec because we already have the
      * maximum stack depth (stored in ast_root). frames is a static worst-case
-     * allocation. Generally pretty speedy. */
+     * allocation. Generally pretty speedy. I took a cue from that online regex
+     * bible for this one. */
     /* "In retrospect, I think the tree form and the Walker might have been a 
      *  mistake ... if the RPN form recorded the maximum stack depth used in the 
      *  expression, a traversal would allocate a stack of exactly that size and 
