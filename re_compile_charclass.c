@@ -611,8 +611,11 @@ re_error re__compile_charclass_transpose(re__compile_charclass* char_comp, re_ui
             child->aux = new_ref;
         } else {
             re__compile_charclass_tree* child_child;
-            if ((err = re__compile_charclass_transpose(char_comp, child_ref))) {
-                return err;
+            child_child = re__compile_charclass_tree_get(char_comp, child->child_ref);
+            if (child_child->aux == RE__COMPILE_CHARCLASS_TREE_NONE) {
+                if ((err = re__compile_charclass_transpose(char_comp, child_ref))) {
+                    return err;
+                }
             }
             /* ALERT!!! child may have changed!!! */
             child = re__compile_charclass_tree_get(char_comp, child_ref);
@@ -627,7 +630,7 @@ re_error re__compile_charclass_transpose(re__compile_charclass* char_comp, re_ui
 }
 
 /* Compile a single character class. */
-re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out, int also_make_reverse) {
+re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out, int reversed) {
     re_error err = RE_ERROR_NONE;
     re_size i;
     const re__rune_range* ranges = re__charclass_get_ranges(charclass);
@@ -647,10 +650,11 @@ re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__c
         /* Hash and merge the tree */
         re__compile_charclass_hash_tree(char_comp, RE__COMPILE_CHARCLASS_TREE_NONE);
         /* Generate the tree's program */
-        if ((err = re__compile_charclass_generate_prog(char_comp, prog, char_comp->root_ref, &out_pc, patches_out))) {
-            return err;
-        }
-        if (also_make_reverse) {
+        if (!reversed) {
+            if ((err = re__compile_charclass_generate_prog(char_comp, prog, char_comp->root_ref, &out_pc, patches_out))) {
+                return err;
+            }
+        } else {
             re__compile_charclass_clear_aux(char_comp, RE__COMPILE_CHARCLASS_TREE_NONE);
             if ((err = re__compile_charclass_transpose(char_comp, RE__COMPILE_CHARCLASS_TREE_NONE))) {
                 return err;
