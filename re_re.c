@@ -46,6 +46,7 @@ re_error re_init(re* reg, const char* regex) {
     re__parse_init(&reg->data->parse, reg);
     re__ast_root_init(&reg->data->ast_root);
     re__prog_init(&reg->data->program);
+    re__prog_init(&reg->data->program_reverse);
     re__compile_init(&reg->data->compile);
     if ((err = re__parse_str(&reg->data->parse, &regex_view))) {
         return err;
@@ -56,6 +57,7 @@ re_error re_init(re* reg, const char* regex) {
 void re_destroy(re* reg) {
     re__compile_destroy(&reg->data->compile);
     re__prog_destroy(&reg->data->program);
+    re__prog_destroy(&reg->data->program_reverse);
     re__ast_root_destroy(&reg->data->ast_root);
     re__parse_destroy(&reg->data->parse);
     re__error_destroy(reg);
@@ -69,6 +71,10 @@ const char* re_get_error(re* reg, re_size* error_len) {
     return (const char*)re__str_view_get_data(&reg->data->error_string_view);
 }
 
+re_uint32 re_get_max_groups(re* reg) {
+    return re__ast_root_get_num_groups(&reg->data->ast_root);
+}
+
 /*    | Match?  | Bounds? | Subs?
  * ---+---------+---------+-------
  * ^$ | DFA-F   | DFA-F   | NFA-F
@@ -79,20 +85,35 @@ const char* re_get_error(re* reg, re_size* error_len) {
 
 re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_span* out) {
     re_error err = RE_ERROR_NONE;
-    re__exec exec;
+    re__exec_nfa exec_nfa;
     re__str_view string_view;
-    RE__UNUSED(anchor_type);
-    RE__UNUSED(groups_type);
+    re_uint32 nfa_num_groups;
+    if (groups_type < RE_MATCH_GROUPS_NONE) {
+        return RE_ERROR_INVALID;
+    }
+    nfa_num_groups = (re_uint32)(groups_type + 1);
+    if (nfa_num_groups > re__ast_root_get_num_groups(&reg->data->ast_root) + 1) {
+        return RE_ERROR_INVALID;
+    }
     if (!re__prog_size(&reg->data->program)) {
         if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program, 0))) {
             return err;
         }
     }
-    re__exec_init(&exec);
+    if (!re__prog_size(&reg->data->program_reverse)) {
+        if (anchor_type == RE_MATCH_ANCHOR_END || anchor_type == RE_MATCH_UNANCHORED) {
+            if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program_reverse, 1))) {
+                return err;
+            }
+        }
+    }
+    re__exec_nfa_init(&exec_nfa);
     re__str_view_init_n(&string_view, string, string_size);
-    if ((err = re__exec_nfa(&exec, &reg->data->program, re__ast_root_get_num_groups(&reg->data->ast_root), string_view, out))) {
+    nfa_num_groups = (re_uint32)(groups_type + 1);
+    if ((err = re__exec_nfa_do(&exec_nfa, &reg->data->program, anchor_type, nfa_num_groups, string_view, out))) {
+        re__exec_nfa_destroy(&exec_nfa);
         return err;
     }
-    re__exec_destroy(&exec);
+    re__exec_nfa_destroy(&exec_nfa);
     return err;
 }
