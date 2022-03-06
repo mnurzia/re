@@ -33,6 +33,7 @@ int re__prog_inst_to_sym(sym_build* parent, re__prog_inst prog_inst) {
     if (inst_type == RE__PROG_INST_TYPE_BYTE ||
         inst_type == RE__PROG_INST_TYPE_BYTE_RANGE ||
         inst_type == RE__PROG_INST_TYPE_SPLIT ||
+        inst_type == RE__PROG_INST_TYPE_MATCH ||
         inst_type == RE__PROG_INST_TYPE_SAVE ||
         inst_type == RE__PROG_INST_TYPE_ASSERT) {
         SYM_PUT_NUM(&build, (re_int32)re__prog_inst_get_primary(&prog_inst));
@@ -93,6 +94,7 @@ int re__prog_inst_from_sym(sym_walk* parent, re__prog_inst* prog_inst) {
      if (inst_type == RE__PROG_INST_TYPE_BYTE ||
         inst_type == RE__PROG_INST_TYPE_BYTE_RANGE ||
         inst_type == RE__PROG_INST_TYPE_SPLIT ||
+        inst_type == RE__PROG_INST_TYPE_MATCH ||
         inst_type == RE__PROG_INST_TYPE_SAVE ||
         inst_type == RE__PROG_INST_TYPE_ASSERT) {
         re_int32 primary;

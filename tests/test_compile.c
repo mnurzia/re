@@ -24,7 +24,7 @@ TEST(t_compile_rune_ascii) {
         "(prog"
         "  (fail)"
         "  (byte 'a' 2)"
-        "  (match 0))"
+        "  (match 0 0))"
     );
     re__compile_destroy(&compile);
     re__prog_destroy(&prog);
@@ -51,7 +51,7 @@ TEST(t_compile_rune_ascii_reversed) {
         "(prog"
         "  (fail)"
         "  (byte 'a' 2)"
-        "  (match 0))"
+        "  (match 0 0))"
     );
     re__compile_destroy(&compile);
     re__prog_destroy(&prog);
@@ -117,7 +117,7 @@ TEST(t_compile_str) {
         "  (byte 'e' 3)"
         "  (byte 's' 4)"
         "  (byte 't' 5)"
-        "  (match 0))"
+        "  (match 0 0))"
     );
     re__compile_destroy(&compile);
     re__prog_destroy(&prog);
@@ -186,7 +186,7 @@ TEST(t_compile_concat) {
         "    (fail)"
         "    (byte 'a' 2)"
         "    (byte 'b' 3)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -214,7 +214,7 @@ TEST(t_compile_alt) {
         "    (split 2 3)"
         "    (byte 'a' 4)"
         "    (byte 'b' 4)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -245,7 +245,7 @@ TEST(t_compile_alts) {
         "    (split 4 5)"
         "    (byte 'b' 6)"
         "    (byte 'c' 6)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -270,7 +270,7 @@ TEST(t_compile_star) {
         "    (fail)"
         "    (split 2 3)"
         "    (byte 'a' 1)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -295,7 +295,7 @@ TEST(t_compile_star_nongreedy) {
         "    (fail)"
         "    (split 3 2)"
         "    (byte 'a' 1)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -320,7 +320,7 @@ TEST(t_compile_question) {
         "    (fail)"
         "    (split 2 3)"
         "    (byte 'a' 3)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -345,7 +345,7 @@ TEST(t_compile_question_nongreedy) {
         "    (fail)"
         "    (split 3 2)"
         "    (byte 'a' 3)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -370,7 +370,7 @@ TEST(t_compile_plus) {
         "    (fail)"
         "    (byte 'a' 2)"
         "    (split 1 3)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -395,7 +395,7 @@ TEST(t_compile_plus_nongreedy) {
         "    (fail)"
         "    (byte 'a' 2)"
         "    (split 3 1)"
-        "    (match 0)", &prog);
+        "    (match 0 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -422,7 +422,7 @@ TEST(t_compile_quantifier_nomax) {
         "    (byte 'a' 3)"
         "    (byte 'a' 4)"
         "    (split 3 5)"
-        "    (match 0))", &prog);
+        "    (match 0 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -449,7 +449,7 @@ TEST(t_compile_quantifier_nomax_nongreedy) {
         "    (byte 'a' 3)"
         "    (byte 'a' 4)"
         "    (split 5 3)"
-        "    (match 0))", &prog);
+        "    (match 0 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -479,7 +479,7 @@ TEST(t_compile_quantifier_minmax) {
         "    (byte 'a' 6)"
         "    (split 7 8)"
         "    (byte 'a' 8)"
-        "    (match 0))", &prog);
+        "    (match 0 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -509,7 +509,7 @@ TEST(t_compile_quantifier_minmax_nongreedy) {
         "    (byte 'a' 6)"
         "    (split 8 7)"
         "    (byte 'a' 8)"
-        "    (match 0))", &prog);
+        "    (match 0 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -535,7 +535,7 @@ TEST(t_compile_group) {
         "    (save 0 2)"
         "    (byte 'a' 3)"
         "    (save 1 4)"
-        "    (match 0))", &prog);
+        "    (match 0 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -559,7 +559,7 @@ TEST(t_compile_group_nonmatching) {
         "(prog"
         "    (fail)"
         "    (byte 'a' 2)"
-        "    (match 0))", &prog);
+        "    (match 0 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -582,7 +582,7 @@ TEST(t_compile_assert) {
         "(prog"
         "    (fail)"
         "    (assert (text_start text_end word word_not) 2)"
-        "    (match 0))", &prog);
+        "    (match 0 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
