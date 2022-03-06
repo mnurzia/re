@@ -87,7 +87,7 @@ RE_INTERNAL int re__str_grow(re__str* str, re_size new_size) {
             re_char* new_data = (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
             re_size i;
             if (new_data == RE_NULL) {
-                return 1;
+                return -1;
             }
             /* Copy data from old string */
             for (i = 0; i < old_size; i++) {
@@ -114,7 +114,7 @@ RE_INTERNAL int re__str_grow(re__str* str, re_size new_size) {
                         str->_data, sizeof(re_char) * (new_alloc + 1));
             }
             if (new_data == RE_NULL) {
-                return 1;
+                return -1;
             }
             str->_data = new_data;
             str->_alloc = new_alloc;
@@ -372,8 +372,10 @@ RE_INTERNAL re_uint32 re__murmurhash3_32(const re_uint8* data, re_size data_len)
     switch (data_len & 3) {
         case 3:
             k1 ^= ((re_uint32)(tail[2])) << 16;
+            /* fall through */
         case 2:
             k1 ^= ((re_uint32)(tail[1])) << 8;
+            /* fall through */
         case 1:
             k1 ^= tail[0];
             k1 *= c1;

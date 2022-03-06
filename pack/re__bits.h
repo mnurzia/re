@@ -92,13 +92,13 @@
                 vec->_alloc = 1; \
                 vec->_data = (T*)RE_MALLOC(sizeof(T) * vec->_alloc); \
                 if (vec->_data == RE_NULL) { \
-                    return 1; \
+                    return -1; \
                 } \
             } else { \
                 vec->_alloc *= 2; \
                 vec->_data = (T*)RE_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
                 if (vec->_data == RE_NULL) { \
-                    return 1; \
+                    return -1; \
                 } \
             } \
         } \
@@ -115,7 +115,7 @@
                 vec->_data = (T*)RE_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
             } \
             if (vec->_data == RE_NULL) { \
-                return 1; \
+                return -1; \
             } \
         } \
     } while (0)
@@ -130,7 +130,7 @@
                 vec->_data = (T*)RE_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
             } \
             if (vec->_data == RE_NULL) { \
-                return 1; \
+                return -1; \
             } \
         } \
     } while (0)
