@@ -20,6 +20,10 @@ RE_INTERNAL void re__exec_save_set_slots_per_thrd(re__exec_save* save, re_uint32
     save->slots_per_thrd = slots_per_thrd + 1;
 }
 
+RE_INTERNAL re_uint32 re__exec_save_get_slots_per_thrd(re__exec_save* save) {
+    return save->slots_per_thrd - 1;
+}
+
 RE_INTERNAL void re__exec_save_destroy(re__exec_save* save) {
     re_size_vec_destroy(&save->slots);
 }
@@ -124,6 +128,7 @@ RE_INTERNAL void re__exec_thrd_set_init(re__exec_thrd_set* set) {
     set->n = 0;
     set->dense = RE_NULL;
     set->sparse = RE_NULL;
+    set->match = 0;
 }
 
 RE_INTERNAL void re__exec_thrd_set_destroy(re__exec_thrd_set* set) {
@@ -160,6 +165,7 @@ RE_INTERNAL void re__exec_thrd_set_add(re__exec_thrd_set* set, re__exec_thrd thr
 
 RE_INTERNAL void re__exec_thrd_set_clear(re__exec_thrd_set* set) {
     set->n = 0;
+    set->match = 0;
 }
 
 RE_INTERNAL int re__exec_thrd_set_ismemb(re__exec_thrd_set* set, re__exec_thrd thrd) {
@@ -170,7 +176,7 @@ RE_INTERNAL int re__exec_thrd_set_ismemb(re__exec_thrd_set* set, re__exec_thrd t
 
 #if RE_DEBUG
 
-RE_INTERNAL void re__exec_thrd_set_dump(const re__exec_thrd_set* set, const re__exec* exec, int with_save) {
+RE_INTERNAL void re__exec_thrd_set_dump(const re__exec_thrd_set* set, const re__exec_nfa* exec, int with_save) {
     printf("n: %u\n", set->n);
     printf("s: %u\n", set->size);
     printf("memb:\n");
@@ -210,7 +216,7 @@ RE_VEC_IMPL_FUNC(re__exec_thrd, pop)
 RE_VEC_IMPL_FUNC(re__exec_thrd, clear)
 RE_VEC_IMPL_FUNC(re__exec_thrd, size)
 
-RE_INTERNAL void re__exec_init(re__exec* exec) {
+RE_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec) {
     re__exec_thrd_set_init(&exec->set_a);
     re__exec_thrd_set_init(&exec->set_b);
     re__exec_thrd_set_init(&exec->set_c);
@@ -218,7 +224,7 @@ RE_INTERNAL void re__exec_init(re__exec* exec) {
     re__exec_save_init(&exec->save_slots);
 }
 
-RE_INTERNAL void re__exec_destroy(re__exec* exec) {
+RE_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec) {
     re__exec_save_destroy(&exec->save_slots);
     re__exec_thrd_vec_destroy(&exec->thrd_stk);
     re__exec_thrd_set_destroy(&exec->set_c);
@@ -226,7 +232,7 @@ RE_INTERNAL void re__exec_destroy(re__exec* exec) {
     re__exec_thrd_set_destroy(&exec->set_a);
 }
 
-RE_INTERNAL re_error re__exec_follow(re__exec* exec, re__prog* prog, re__exec_thrd thrd, re__ast_assert_type assert_context, re_size pos) {
+RE_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__prog* prog, re__exec_thrd thrd, re__ast_assert_type assert_context, re_size pos) {
     re_error err = RE_ERROR_NONE;
     re__exec_thrd_vec_clear(&exec->thrd_stk);
     re__exec_thrd_set_clear(&exec->set_c);
@@ -272,12 +278,17 @@ RE_INTERNAL re_error re__exec_follow(re__exec* exec, re__prog* prog, re__exec_th
                 return err;
             }
         } else if (inst_type == RE__PROG_INST_TYPE_MATCH) {
+            re_uint32 match_idx = re__prog_inst_get_match_idx(inst);
+            exec->set_b.match = match_idx;
             re__exec_thrd_set_add(&exec->set_b, top);
         } else if (inst_type == RE__PROG_INST_TYPE_SAVE) {
             re__exec_thrd primary_thrd;
+            re_uint32 save_idx = re__prog_inst_get_save_idx(inst);
             re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(inst), top.save_slot);
-            if ((err = re__exec_save_do_save(&exec->save_slots, &primary_thrd.save_slot, re__prog_inst_get_save_idx(inst), pos))) {
-                return err;
+            if (save_idx < re__exec_save_get_slots_per_thrd(&exec->save_slots)) {
+                if ((err = re__exec_save_do_save(&exec->save_slots, &primary_thrd.save_slot, re__prog_inst_get_save_idx(inst), pos))) {
+                    return err;
+                }
             }
             if ((err = re__exec_thrd_vec_push(&exec->thrd_stk, primary_thrd))) {
                 return err;
@@ -299,13 +310,13 @@ RE_INTERNAL re_error re__exec_follow(re__exec* exec, re__prog* prog, re__exec_th
     return err;
 }
 
-RE_INTERNAL void re__exec_swap(re__exec* exec) {
+RE_INTERNAL void re__exec_nfa_swap(re__exec_nfa* exec) {
     re__exec_thrd_set temp = exec->set_a;
     exec->set_a = exec->set_b;
     exec->set_b = temp;
 }
 
-RE_INTERNAL re__ast_assert_type re__exec_next_assert_ctx(re_size pos, re_size len) {
+RE_INTERNAL re__ast_assert_type re__exec_nfa_next_assert_ctx(re_size pos, re_size len) {
     re__ast_assert_type out = 0;
     if (pos == 0) {
         out |= RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_START;
@@ -316,7 +327,7 @@ RE_INTERNAL re__ast_assert_type re__exec_next_assert_ctx(re_size pos, re_size le
     return out;
 }
 
-RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view, re_span* out) {
+RE_INTERNAL re_error re__exec_nfa_do(re__exec_nfa* exec, re__prog* prog, re_match_anchor_type anchor_type, re_uint32 num_groups, re__str_view str_view, re_span* out) {
     re_error err = RE_ERROR_NONE;
     re__prog_loc set_size = re__prog_size(prog);
     re__ast_assert_type assert_ctx;
@@ -334,16 +345,16 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
         return err;
     }
     pos = 0;
-    assert_ctx = re__exec_next_assert_ctx(pos, len);
+    assert_ctx = re__exec_nfa_next_assert_ctx(pos, len);
     re__exec_thrd_init(&thrd, 1, RE__EXEC_SAVE_REF_NONE);
     if ((err = re__exec_follow(exec, prog, thrd, assert_ctx, 0))) {
         return err;
     }
     re__exec_thrd_set_clear(&exec->set_a);
-    re__exec_swap(exec);
+    re__exec_nfa_swap(exec);
     for (; pos < len; pos++) {
         re_char ch = str[pos];
-        assert_ctx = re__exec_next_assert_ctx(pos + 1, len);
+        assert_ctx = re__exec_nfa_next_assert_ctx(pos + 1, len);
         if (exec->set_a.n == 0) {
             /* no more threads */
             break;
@@ -373,30 +384,34 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
                     re__exec_save_dec_refs(&exec->save_slots, cur_thrd.save_slot);
                 }
             } else if (cur_inst_type == RE__PROG_INST_TYPE_MATCH) {
-                /* nothin */
+                /* do nothing */
             } else {
                 RE__ASSERT_UNREACHED();
             }
         }
+        if (exec->set_b.match) {
+            if (anchor_type == RE_MATCH_ANCHOR_BOTH || anchor_type == RE_MATCH_ANCHOR_END) {
+                /* found a match */
+                break;
+            }
+        }
         re__exec_thrd_set_clear(&exec->set_a);
-        re__exec_swap(exec);
+        re__exec_nfa_swap(exec);
     }
-    assert_ctx = RE__AST_ASSERT_TYPE_TEXT_END | RE__AST_ASSERT_TYPE_TEXT_END;
-    /*if ((err = re__exec_follow(exec, prog, thrd, assert_ctx, 0))) {
-        return err;
-    }
-    re__exec_thrd_set_clear(&exec->set_a);
-    re__exec_swap(exec);*/
-    /* extract matches from the top thread */
+    /* check if there are any threads left */
     if (exec->set_a.n) {
+        /* extract matches from the top thread */
         re__exec_thrd top_thrd = exec->set_a.dense[0];
+        /* check if the top thread has save slots */
         if (top_thrd.save_slot != RE__EXEC_SAVE_REF_NONE) {
             re_size* slots = re__exec_save_get_slots(&exec->save_slots, top_thrd.save_slot);
             re_span out_span;
             re_size i;
+            /* Set first span (match boundaries) */
             out_span.begin = 0;
-            out_span.end = len;
+            out_span.end = pos;
             *(out++) = out_span;
+            /* Write all othe groups */
             for (i = 0; i < num_groups; i++) {
                 out_span.begin = slots[i*2];
                 out_span.end = slots[i*2 + 1];
@@ -404,7 +419,8 @@ RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_
             }
             return RE_MATCH;
         } else {
-            return RE_NOMATCH;
+            ASSERT(num_groups == 0);
+            return RE_MATCH;
         }
     } else {
         return RE_NOMATCH;

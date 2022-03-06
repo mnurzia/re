@@ -752,6 +752,8 @@ typedef struct re__exec_thrd_set {
     re__prog_loc n;
     /* Allocation size of 'dense' (sparse is a single worst case alloc) */
     re__prog_loc size;
+    /* 0 if this does not contain a match instruction, 1+ otherwise */
+    re_uint32 match;
 } re__exec_thrd_set;
 
 RE_VEC_DECL(re_size);
@@ -775,24 +777,38 @@ RE_INTERNAL re_error re__exec_save_get_new(re__exec_save* save, re_int32* slots_
 RE_INTERNAL re_error re__exec_save_do_save(re__exec_save* save, re_int32* slots_inout_ref, re_uint32 slot_number, re_size data);
 
 /* Execution context. */
-typedef struct re__exec {
+typedef struct re__exec_nfa {
     re__exec_thrd_set set_a;
     re__exec_thrd_set set_b;
     re__exec_thrd_set set_c;
     re__exec_thrd_vec thrd_stk;
     re__exec_save save_slots;
-} re__exec;
+} re__exec_nfa;
 
-RE_INTERNAL void re__exec_init(re__exec* exec);
-RE_INTERNAL void re__exec_destroy(re__exec* exec);
+RE_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec);
+RE_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
 
-RE_INTERNAL re_error re__exec_nfa(re__exec* exec, re__prog* prog, re_uint32 num_groups, re__str_view str_view, re_span* out);
+RE_INTERNAL re_error re__exec_nfa_do(re__exec_nfa* exec, re__prog* prog, re_match_anchor_type anchor_type, re_uint32 num_groups, re__str_view str_view, re_span* out);
+RE_INTERNAL re_error re__exec_dfa_do(re__exec_nfa* exec, re__prog* prog, re__str_view str_view, re_uint32* out_end, re_uint32* out_match);
+
+/* DFA state. */
+typedef struct re__exec_dfa_state {
+    re_uint32 next[256];
+} re__exec_dfa_state;
+
+RE_VEC_DECL(re__exec_dfa_state);
+RE_VEC_DECL(re_uint32);
+
+typedef struct re__exec_dfa {
+    re__exec_dfa_state_vec states;
+} re__exec_dfa;
 
 /* Internal data structure */
 struct re_data {
     re__parse parse;
     re__ast_root ast_root;
     re__prog program;
+    re__prog program_reverse;
     re__compile compile;
     /* Note: error_string_view always points to either a static const char* that
      * is a compile-time constant or a dynamically-allocated const char* inside

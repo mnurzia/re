@@ -29,7 +29,7 @@ class Project(pack_v4.Project):
             "re_charclass.c",
             "re_compile.c",
             "re_compile_charclass.c",
-            "re_exec.c",
+            "re_exec_nfa.c",
             "re_parse.c",
             "re_prog.c",
             "re_re.c",
