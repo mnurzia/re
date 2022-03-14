@@ -64,10 +64,10 @@ TEST(t_compile_rune_unicode) {
     re__prog prog, prog_actual;
     re__compile compile;
     re__ast ast;
-    re_int32 ast_ref;
+    mn_int32 ast_ref;
     re_rune rune = re_rune_rand();
-    re_uint8 chars[16];
-    re_uint32 chars_len = (re_uint32)re__compile_gen_utf8(rune, chars);
+    mn_uint8 chars[16];
+    mn_uint32 chars_len = (mn_uint32)re__compile_gen_utf8(rune, chars);
     re__prog_loc i;
     re__prog_inst inst;
     re__ast_init_rune(&ast, rune);
@@ -130,20 +130,20 @@ TEST(t_compile_str_thrash) {
     re__prog prog, prog_actual;
     re__compile compile;
     re__ast ast;
-    re_int32 ast_ref;
-    re_int32 str_ref;
-    re__str in_str, copy_str;
+    mn_int32 ast_ref;
+    mn_int32 str_ref;
+    mn__str in_str, copy_str;
     re__prog_loc i;
     re__prog_inst inst;
-    re_size j, num_runes = RAND_PARAM(600);
-    re__str_init(&in_str);
+    mn_size j, num_runes = RAND_PARAM(600);
+    mn__str_init(&in_str);
     for (j = 0; j < num_runes; j++) {
-        re_uint8 chars[16];
+        mn_uint8 chars[16];
         re_rune rune = re_rune_rand();
-        re_uint32 chars_len = (re_uint32)re__compile_gen_utf8(rune, chars);
-        re__str_cat_n(&in_str, (re_char*)chars, chars_len);
+        mn_uint32 chars_len = (mn_uint32)re__compile_gen_utf8(rune, chars);
+        mn__str_cat_n(&in_str, (mn_char*)chars, chars_len);
     }
-    re__str_init_copy(&copy_str, &in_str);
+    mn__str_init_copy(&copy_str, &in_str);
     re__ast_root_init(&ast_root);
     re__ast_root_add_str(&ast_root, copy_str, &str_ref);
     re__ast_init_str(&ast, str_ref);
@@ -154,8 +154,8 @@ TEST(t_compile_str_thrash) {
     re__compile_init(&compile);
     re__prog_inst_init_fail(&inst);
     re__prog_add(&prog, inst);
-    for (i = 0; i < (re__prog_loc)re__str_size(&in_str); i++) {
-        re__prog_inst_init_byte(&inst, (re_uint8)re__str_get_data(&in_str)[i]);
+    for (i = 0; i < (re__prog_loc)mn__str_size(&in_str); i++) {
+        re__prog_inst_init_byte(&inst, (mn_uint8)mn__str_get_data(&in_str)[i]);
         re__prog_inst_set_primary(&inst, 2 + i);
         re__prog_add(&prog, inst);
     }
@@ -167,7 +167,7 @@ TEST(t_compile_str_thrash) {
     re__prog_destroy(&prog_actual);
     re__compile_destroy(&compile);
     re__ast_root_destroy(&ast_root);
-    re__str_destroy(&in_str);
+    mn__str_destroy(&in_str);
     PASS();
 }
 

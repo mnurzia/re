@@ -110,26 +110,26 @@ TEST(t_parse_groups) {
 }
 
 TEST(t_parse_group_balance) {
-    re__str regs;
+    mn__str regs;
     int balance = 0;
     int stack = 0;
     int iters = 0;
-    re__str_init(&regs);
+    mn__str_init(&regs);
     while (iters < 100) {
         int choice = RAND_PARAM(16);
         if (choice < 5) {
-            re__str_cat_n(&regs, "(", 1);
+            mn__str_cat_n(&regs, "(", 1);
             stack++;
         } else if (choice < 10) {
-            re__str_cat_n(&regs, ")", 1);
+            mn__str_cat_n(&regs, ")", 1);
             if (stack == 0) {
                 balance = -1;
             } else {
                 stack--;
             }
         } else if (choice < 15) {
-            re_char ch = (re_char)RAND_PARAM(26) + 'A';
-            re__str_cat_n(&regs, &ch, 1);    
+            mn_char ch = (mn_char)RAND_PARAM(26) + 'A';
+            mn__str_cat_n(&regs, &ch, 1);    
         } else {
             break;
         }
@@ -142,7 +142,7 @@ TEST(t_parse_group_balance) {
     }
     {
         re reg;
-        int res = re_init(&reg, re__str_get_data(&regs));
+        int res = re_init(&reg, mn__str_get_data(&regs));
         if (balance != 0) {
             ASSERT_EQm(res, RE_ERROR_PARSE,
                 "error for arbitrary unbalanced group");
@@ -152,7 +152,7 @@ TEST(t_parse_group_balance) {
         }
         re_destroy(&reg);
     }
-    re__str_destroy(&regs);
+    mn__str_destroy(&regs);
     PASS();
 }
 
@@ -510,27 +510,27 @@ TEST(t_parse_opt_fuse_rune_rune) {
     re reg;
     re_rune first = re_rune_rand();
     re_rune second = re_rune_rand();
-    re__str in_str;
-    re_uint8 utf8_bytes[32];
+    mn__str in_str;
+    mn_uint8 utf8_bytes[32];
     int utf8_bytes_ptr = 0;
     utf8_bytes_ptr += re__compile_gen_utf8(first, utf8_bytes + utf8_bytes_ptr);
     utf8_bytes_ptr += re__compile_gen_utf8(second, utf8_bytes + utf8_bytes_ptr);
     utf8_bytes[utf8_bytes_ptr] = '\0';
-    re__str_init_n(&in_str, (re_char*)utf8_bytes, (re_size)utf8_bytes_ptr);
-    ASSERT(!re_init(&reg, re__str_get_data(&in_str)));
+    mn__str_init_n(&in_str, (mn_char*)utf8_bytes, (mn_size)utf8_bytes_ptr);
+    ASSERT(!re_init(&reg, mn__str_get_data(&in_str)));
     {
         re__ast* ast = re__ast_root_get(
             &reg.data->ast_root,
             reg.data->ast_root.root_ref
         );
-        re__str_view a, b;
+        mn__str_view a, b;
         ASSERT(ast->type == RE__AST_TYPE_STR);
         a = re__ast_root_get_str_view(&reg.data->ast_root, ast->_data.str_ref);
-        re__str_view_init(&b, &in_str);
-        ASSERT(re__str_view_cmp(&a, &b) == 0);
+        mn__str_view_init(&b, &in_str);
+        ASSERT(mn__str_view_cmp(&a, &b) == 0);
     }
     re_destroy(&reg);
-    re__str_destroy(&in_str);
+    mn__str_destroy(&in_str);
     PASS();
 }
 
@@ -538,29 +538,29 @@ TEST(t_parse_opt_fuse_str_rune) {
     re reg;
     int n = (int)RAND_PARAM(25) + 2;
     int i;
-    re__str in_str;
-    re__str_init(&in_str);
+    mn__str in_str;
+    mn__str_init(&in_str);
     for (i = 0; i < n; i++) {
-        re_uint8 utf8_bytes[32];
+        mn_uint8 utf8_bytes[32];
         int utf8_bytes_ptr = 0;
         re_rune r = re_rune_rand();
         utf8_bytes_ptr += re__compile_gen_utf8(r, utf8_bytes + utf8_bytes_ptr);
-        re__str_cat_n(&in_str, (re_char*)utf8_bytes, (re_size)utf8_bytes_ptr);
+        mn__str_cat_n(&in_str, (mn_char*)utf8_bytes, (mn_size)utf8_bytes_ptr);
     }
-    ASSERT(!re_init(&reg, re__str_get_data(&in_str)));
+    ASSERT(!re_init(&reg, mn__str_get_data(&in_str)));
     {
         re__ast* ast = re__ast_root_get(
             &reg.data->ast_root,
             reg.data->ast_root.root_ref
         );
-        re__str_view a, b;
+        mn__str_view a, b;
         ASSERT(ast->type == RE__AST_TYPE_STR);
         a = re__ast_root_get_str_view(&reg.data->ast_root, ast->_data.str_ref);
-        re__str_view_init(&b, &in_str);
-        ASSERT(re__str_view_cmp(&a, &b) == 0);
+        mn__str_view_init(&b, &in_str);
+        ASSERT(mn__str_view_cmp(&a, &b) == 0);
     }
     re_destroy(&reg);
-    re__str_destroy(&in_str);
+    mn__str_destroy(&in_str);
     PASS();
 }
 

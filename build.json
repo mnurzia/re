@@ -1,0 +1,55 @@
+{
+    "desc": "Regular expression matching engine",
+    "requires": [
+        "algorithm/hash/murmur3",
+        "container/arena",
+        "container/str_view",
+        "container/str",
+        "container/vec",
+        "hooks/assert",
+        "hooks/malloc",
+        "hooks/memset",
+        "math/max",
+        "math/min",
+        "types/char",
+        "types/fixed/int32",
+        "types/fixed/uint32",
+        "types/fixed/uint8",
+        "types/size",
+        "util/cstd",
+        "util/debug",
+        "util/exports",
+        "util/preproc/stringify",
+        "util/unreached",
+        "util/unused"
+    ],
+    "files": {
+        "api": [ "re_api.h" ],
+        "internal": [ "re_internal.h" ],
+        "impl": [
+            "re_ast.c",
+            "re_charclass.c",
+            "re_compile_charclass.c",
+            "re_compile.c",
+            "re_exec_dfa.c",
+            "re_exec_nfa.c",
+            "re_parse.c",
+            "re_prog.c",
+            "re_range.c",
+            "re_re.c"
+        ],
+        "tests_impl": [
+            "tests/test_ast.c",
+            "tests/test_charclass.c",
+            "tests/test_compile.c",
+            "tests/test_compile_charclass.c",
+            "tests/test_exec.c",
+            "tests/test_helpers.c",
+            "tests/test_main.c",
+            "tests/test_parse.c",
+            "tests/test_prog.c",
+            "tests/test_range.c"
+        ]
+    },
+    "version": "0.1.0"
+}

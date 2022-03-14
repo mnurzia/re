@@ -2,13 +2,13 @@
 #define RE_INTERNAL_H
 
 #include "re_api.h"
-#include "pack/re_common.h"
+#include "_cpack/internal.h"
 
 /* POD type */
 /* Holds a byte range [min, max] */
 typedef struct re__byte_range {
-    re_uint8 min;
-    re_uint8 max;
+    mn_uint8 min;
+    mn_uint8 max;
 } re__byte_range;
 
 int re__byte_range_equals(re__byte_range range, re__byte_range other);
@@ -24,7 +24,7 @@ typedef struct re__rune_range {
     re_rune max;
 } re__rune_range;
 
-RE_VEC_DECL(re__rune_range);
+MN__VEC_DECL(re__rune_range);
 
 int re__rune_range_equals(re__rune_range range, re__rune_range other);
 int re__rune_range_intersects(re__rune_range range, re__rune_range clip);
@@ -56,19 +56,19 @@ typedef enum re__charclass_ascii_type {
     RE__CHARCLASS_ASCII_TYPE_MAX
 } re__charclass_ascii_type;
 
-RE_INTERNAL void re__charclass_init(re__charclass* charclass);
-RE_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re__charclass_ascii_type type, int inverted);
-RE_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, re__str_view name, int inverted);
-RE_INTERNAL void re__charclass_destroy(re__charclass* charclass);
-RE_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range range);
-RE_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass);
-RE_INTERNAL re_size re__charclass_get_num_ranges(const re__charclass* charclass);
-RE_INTERNAL int re__charclass_equals(const re__charclass* charclass, const re__charclass* other);
+MN_INTERNAL void re__charclass_init(re__charclass* charclass);
+MN_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re__charclass_ascii_type type, int inverted);
+MN_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, mn__str_view name, int inverted);
+MN_INTERNAL void re__charclass_destroy(re__charclass* charclass);
+MN_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range range);
+MN_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass);
+MN_INTERNAL mn_size re__charclass_get_num_ranges(const re__charclass* charclass);
+MN_INTERNAL int re__charclass_equals(const re__charclass* charclass, const re__charclass* other);
 
-#if RE_DEBUG
+#if MN_DEBUG
 
-RE_INTERNAL void re__charclass_dump(const re__charclass* charclass, re_size lvl);
-RE_INTERNAL int re__charclass_verify(const re__charclass* charclass);
+MN_INTERNAL void re__charclass_dump(const re__charclass* charclass, mn_size lvl);
+MN_INTERNAL int re__charclass_verify(const re__charclass* charclass);
 
 #endif
 
@@ -79,13 +79,13 @@ typedef struct re__charclass_builder {
     re_rune highest;
 } re__charclass_builder;
 
-RE_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder);
-RE_INTERNAL void re__charclass_builder_destroy(re__charclass_builder* builder);
-RE_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder);
-RE_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder);
-RE_INTERNAL re_error re__charclass_builder_insert_range(re__charclass_builder* builder, re__rune_range range);
-RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* builder, re__charclass* charclass);
-RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass);
+MN_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder);
+MN_INTERNAL void re__charclass_builder_destroy(re__charclass_builder* builder);
+MN_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder);
+MN_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder);
+MN_INTERNAL re_error re__charclass_builder_insert_range(re__charclass_builder* builder, re__rune_range range);
+MN_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* builder, re__charclass* charclass);
+MN_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass);
 
 typedef struct re__ast re__ast; 
 
@@ -118,7 +118,7 @@ typedef enum re__ast_type {
     RE__AST_TYPE_MAX
 } re__ast_type;
 
-RE_VEC_DECL(re__ast);
+MN__VEC_DECL(re__ast);
 
 #define RE__AST_QUANTIFIER_MAX 2000
 #define RE__AST_QUANTIFIER_INFINITY RE__AST_QUANTIFIER_MAX+2
@@ -127,9 +127,9 @@ RE_VEC_DECL(re__ast);
 /* Range: [min, max) */
 typedef struct re__ast_quantifier_info {
     /* Minimum amount. */
-    re_int32 min;
+    mn_int32 min;
     /* Maximum amount. -1 for infinity. */
-    re_int32 max;
+    mn_int32 max;
     /* Whether or not to prefer fewer matches. */
     int greediness;
 } re__ast_quantifier_info;
@@ -160,7 +160,7 @@ typedef enum re__ast_group_flags {
 /* Group info */
 typedef struct re__ast_group_info {
     re__ast_group_flags flags;
-    re_uint32 group_idx;
+    mn_uint32 group_idx;
 } re__ast_group_info;
 
 /* Holds AST node data depending on the node type. */
@@ -168,9 +168,9 @@ typedef union re__ast_data {
     /* RE__AST_TYPE_RUNE: holds a single character */
     re_rune rune;
     /* RE__AST_TYPE_STRING: holds a reference to a string. */
-    re_int32 str_ref;
+    mn_int32 str_ref;
     /* RE__AST_TYPE_CLASS: holds a reference to a character class. */
-    re_int32 charclass_ref;
+    mn_int32 charclass_ref;
     /* RE__AST_TYPE_GROUP: holds the group's index and flags */
     re__ast_group_info group_info;
     /* RE__AST_TYPE_QUANTIFIER: minimum/maximum/greediness */
@@ -182,76 +182,76 @@ typedef union re__ast_data {
 #define RE__AST_NONE -1
 
 struct re__ast {
-    re_int32 next_sibling_ref;
-    re_int32 prev_sibling_ref;
-    re_int32 first_child_ref;
-    re_int32 last_child_ref;
+    mn_int32 next_sibling_ref;
+    mn_int32 prev_sibling_ref;
+    mn_int32 first_child_ref;
+    mn_int32 last_child_ref;
     re__ast_type type;
     re__ast_data _data;
 };
 /* 32 bytes on my M1 */
 
-RE_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
-RE_INTERNAL void re__ast_init_str(re__ast* ast, re_int32 str_ref);
-RE_INTERNAL void re__ast_init_charclass(re__ast* ast, re_int32 charclass_ref);
-RE_INTERNAL void re__ast_init_concat(re__ast* ast);
-RE_INTERNAL void re__ast_init_alt(re__ast* ast);
-RE_INTERNAL void re__ast_init_quantifier(re__ast* ast, re_int32 min, re_int32 max);
-RE_INTERNAL void re__ast_init_group(re__ast* ast, re_uint32 group_idx, re__ast_group_flags flags);
-RE_INTERNAL void re__ast_init_assert(re__ast* ast, re__ast_assert_type assert_type);
-RE_INTERNAL void re__ast_init_any_char(re__ast* ast);
-RE_INTERNAL void re__ast_init_any_byte(re__ast* ast);
-RE_INTERNAL void re__ast_destroy(re__ast* ast);
-RE_INTERNAL int re__ast_get_quantifier_greediness(const re__ast* ast);
-RE_INTERNAL void re__ast_set_quantifier_greediness(re__ast* ast, int is_greedy);
-RE_INTERNAL re_int32 re__ast_get_quantifier_min(const re__ast* ast);
-RE_INTERNAL re_int32 re__ast_get_quantifier_max(const re__ast* ast);
-RE_INTERNAL re_rune re__ast_get_rune(const re__ast* ast);
-RE_INTERNAL re__ast_group_flags re__ast_get_group_flags(const re__ast* ast);
-RE_INTERNAL re_uint32 re__ast_get_group_idx(const re__ast* ast);
-RE_INTERNAL re__ast_assert_type re__ast_get_assert_type(const re__ast* ast);
-RE_INTERNAL re_int32 re__ast_get_str_ref(const re__ast* ast);
+MN_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
+MN_INTERNAL void re__ast_init_str(re__ast* ast, mn_int32 str_ref);
+MN_INTERNAL void re__ast_init_charclass(re__ast* ast, mn_int32 charclass_ref);
+MN_INTERNAL void re__ast_init_concat(re__ast* ast);
+MN_INTERNAL void re__ast_init_alt(re__ast* ast);
+MN_INTERNAL void re__ast_init_quantifier(re__ast* ast, mn_int32 min, mn_int32 max);
+MN_INTERNAL void re__ast_init_group(re__ast* ast, mn_uint32 group_idx, re__ast_group_flags flags);
+MN_INTERNAL void re__ast_init_assert(re__ast* ast, re__ast_assert_type assert_type);
+MN_INTERNAL void re__ast_init_any_char(re__ast* ast);
+MN_INTERNAL void re__ast_init_any_byte(re__ast* ast);
+MN_INTERNAL void re__ast_destroy(re__ast* ast);
+MN_INTERNAL int re__ast_get_quantifier_greediness(const re__ast* ast);
+MN_INTERNAL void re__ast_set_quantifier_greediness(re__ast* ast, int is_greedy);
+MN_INTERNAL mn_int32 re__ast_get_quantifier_min(const re__ast* ast);
+MN_INTERNAL mn_int32 re__ast_get_quantifier_max(const re__ast* ast);
+MN_INTERNAL re_rune re__ast_get_rune(const re__ast* ast);
+MN_INTERNAL re__ast_group_flags re__ast_get_group_flags(const re__ast* ast);
+MN_INTERNAL mn_uint32 re__ast_get_group_idx(const re__ast* ast);
+MN_INTERNAL re__ast_assert_type re__ast_get_assert_type(const re__ast* ast);
+MN_INTERNAL mn_int32 re__ast_get_str_ref(const re__ast* ast);
 
-RE_REFS_DECL(re__charclass);
-RE_REFS_DECL(re__str);
+MN__ARENA_DECL(re__charclass);
+MN__ARENA_DECL(mn__str);
 
-RE_VEC_DECL(re__str);
+MN__VEC_DECL(mn__str);
 
 typedef struct re__ast_root {
     re__ast_vec ast_vec;
-    re_int32 last_empty_ref;
-    re_int32 root_ref;
-    re_int32 root_last_child_ref;
-    re__charclass_refs charclasses;
-    re__str_refs strings;
-    re__str_vec group_names;
-    re_int32 depth_max;
+    mn_int32 last_empty_ref;
+    mn_int32 root_ref;
+    mn_int32 root_last_child_ref;
+    re__charclass_arena charclasses;
+    mn__str_arena strings;
+    mn__str_vec group_names;
+    mn_int32 depth_max;
 } re__ast_root;
 
-RE_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
-RE_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root);
-RE_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, re_int32 ast_ref);
-RE_INTERNAL const re__ast* re__ast_root_get_const(const re__ast_root* ast_root, re_int32 ast_ref);
-RE_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, re_int32 ast_ref);
-RE_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, re_int32 ast_ref, re__ast replacement);
-RE_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, re_int32 parent_ref, re__ast ast, re_int32* out_ref);
-RE_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, re_int32 parent_ref, re_int32 inner_ref, re__ast ast_outer, re_int32* out_ref);
+MN_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
+MN_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root);
+MN_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, mn_int32 ast_ref);
+MN_INTERNAL const re__ast* re__ast_root_get_const(const re__ast_root* ast_root, mn_int32 ast_ref);
+MN_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, mn_int32 ast_ref);
+MN_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, mn_int32 ast_ref, re__ast replacement);
+MN_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, mn_int32 parent_ref, re__ast ast, mn_int32* out_ref);
+MN_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, mn_int32 parent_ref, mn_int32 inner_ref, re__ast ast_outer, mn_int32* out_ref);
 
-RE_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, re_int32* out_charclass_ref);
-RE_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, re_int32 charclass_ref); 
+MN_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, mn_int32* out_charclass_ref);
+MN_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, mn_int32 charclass_ref); 
 
-RE_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, re__str str, re_int32* out_ref);
-RE_INTERNAL re__str* re__ast_root_get_str(re__ast_root* ast_root, re_int32 str_ref);
-RE_INTERNAL re__str_view re__ast_root_get_str_view(const re__ast_root* ast_root, re_int32 str_ref);
+MN_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, mn__str str, mn_int32* out_ref);
+MN_INTERNAL mn__str* re__ast_root_get_str(re__ast_root* ast_root, mn_int32 str_ref);
+MN_INTERNAL mn__str_view re__ast_root_get_str_view(const re__ast_root* ast_root, mn_int32 str_ref);
 
-RE_INTERNAL re_error re__ast_root_add_group(re__ast_root* ast_root, re__str_view group_name);
-RE_INTERNAL re__str_view re__ast_root_get_group(re__ast_root* ast_root, re_uint32 group_number);
-RE_INTERNAL re_uint32 re__ast_root_get_num_groups(re__ast_root* ast_root);
+MN_INTERNAL re_error re__ast_root_add_group(re__ast_root* ast_root, mn__str_view group_name);
+MN_INTERNAL mn__str_view re__ast_root_get_group(re__ast_root* ast_root, mn_uint32 group_number);
+MN_INTERNAL mn_uint32 re__ast_root_get_num_groups(re__ast_root* ast_root);
 
-#if RE_DEBUG
+#if MN_DEBUG
 
-RE_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, re_int32 root_ref, re_int32 lvl);
-RE_INTERNAL int re__ast_root_verify(re__ast_root* ast_root);
+MN_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, mn_int32 root_ref, mn_int32 lvl);
+MN_INTERNAL int re__ast_root_verify(re__ast_root* ast_root);
 
 #endif
 
@@ -290,43 +290,43 @@ typedef enum re__parse_state {
 } re__parse_state;
 
 typedef struct re__parse_frame {
-    re_int32 ast_frame_root_ref;
-    re_int32 ast_prev_child_ref;
+    mn_int32 ast_frame_root_ref;
+    mn_int32 ast_prev_child_ref;
     re__parse_state ret_state;
     re__ast_group_flags group_flags;
-    re_int32 depth;
-    re_int32 depth_max;
+    mn_int32 depth;
+    mn_int32 depth_max;
 } re__parse_frame;
 
-RE_VEC_DECL(re__parse_frame);
+MN__VEC_DECL(re__parse_frame);
 
 typedef struct re__parse {
     re* re;
     re__ast_root* ast_root;
     re__parse_frame_vec frames;
-    re_int32 ast_frame_root_ref;
-    re_int32 ast_prev_child_ref;
+    mn_int32 ast_frame_root_ref;
+    mn_int32 ast_prev_child_ref;
     re__parse_state state;
-    re_int32 radix_num;
+    mn_int32 radix_num;
     int radix_digits;
     re__charclass_builder charclass_builder;
     int defer;
     re__ast_group_flags group_flags_new;
     re__ast_group_flags group_flags;
-    const re_char* str_begin;
-    const re_char* str_end;
-    re_int32 counting_first_num;
+    const mn_char* str_begin;
+    const mn_char* str_end;
+    mn_int32 counting_first_num;
     re_rune charclass_lo_rune;
-    re_int32 depth;
-    re_int32 depth_max;
-    re_int32 depth_max_prev;
+    mn_int32 depth;
+    mn_int32 depth_max;
+    mn_int32 depth_max_prev;
 } re__parse;
 
-RE_INTERNAL void re__parse_init(re__parse* parse, re* re);
-RE_INTERNAL void re__parse_destroy(re__parse* parse);
-RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex);
+MN_INTERNAL void re__parse_init(re__parse* parse, re* re);
+MN_INTERNAL void re__parse_destroy(re__parse* parse);
+MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex);
 
-typedef re_uint32 re__prog_loc;
+typedef mn_uint32 re__prog_loc;
 
 /* Invalid program location (used for debugging) */
 #define RE__PROG_LOC_INVALID 0
@@ -442,17 +442,17 @@ typedef enum re__prog_inst_type {
 /* Opcode-specific data */
 typedef union re__prog_inst_data {
     /* RE__PROG_INST_TYPE_BYTE: a single byte */
-    re_uint8 _byte;
+    mn_uint8 _byte;
     /* RE__PROG_INST_TYPE_BYTE_RANGE: a range of bytes */
     re__byte_range _range;
     /* RE__PROG_INST_TYPE_SPLIT: secondary branch target */
     re__prog_loc _secondary;
     /* RE__PROG_INST_TYPE_MATCH: match index */
-    re_uint32 _match_idx;
+    mn_uint32 _match_idx;
     /* RE__PROG_INST_TYPE_ASSERT: assert context set */
-    re_uint32 _assert_context;
+    mn_uint32 _assert_context;
     /* RE__PROG_INST_TYPE_SAVE: save index */
-    re_uint32 _save_idx;
+    mn_uint32 _save_idx;
 } re__prog_inst_data;
 
 /* Program instruction structure */
@@ -465,28 +465,28 @@ typedef struct re__prog_inst {
     re__prog_inst_data _inst_data;
 } re__prog_inst;
 
-RE_VEC_DECL(re__prog_inst);
+MN__VEC_DECL(re__prog_inst);
 
-RE_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, re_uint8 byte);
-RE_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re__byte_range br);
-RE_INTERNAL void re__prog_inst_init_split(re__prog_inst* inst, re__prog_loc primary, re__prog_loc secondary);
-RE_INTERNAL void re__prog_inst_init_match(re__prog_inst* inst, re_uint32 match_idx);
-RE_INTERNAL void re__prog_inst_init_fail(re__prog_inst* inst);
-RE_INTERNAL void re__prog_inst_init_assert(re__prog_inst* inst, re_uint32 assert_context);
-RE_INTERNAL void re__prog_inst_init_save(re__prog_inst* inst, re_uint32 save_idx);
-RE_INTERNAL re__prog_loc re__prog_inst_get_primary(re__prog_inst* inst);
-RE_INTERNAL void re__prog_inst_set_primary(re__prog_inst* inst, re__prog_loc loc);
-RE_INTERNAL re_uint8 re__prog_inst_get_byte(re__prog_inst* inst);
-RE_INTERNAL re_uint8 re__prog_inst_get_byte_min(re__prog_inst* inst);
-RE_INTERNAL re_uint8 re__prog_inst_get_byte_max(re__prog_inst* inst);
-RE_INTERNAL re__prog_loc re__prog_inst_get_split_secondary(re__prog_inst* inst);
-RE_INTERNAL void re__prog_inst_set_split_secondary(re__prog_inst* inst, re__prog_loc loc);
-RE_INTERNAL re__prog_inst_type re__prog_inst_get_type(re__prog_inst* inst);
-RE_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(re__prog_inst* inst);
-RE_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(re__prog_inst* inst);
-RE_INTERNAL re_uint32 re__prog_inst_get_match_idx(re__prog_inst* inst);
-RE_INTERNAL re_uint32 re__prog_inst_get_save_idx(re__prog_inst* inst);
-RE_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b);
+MN_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, mn_uint8 byte);
+MN_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re__byte_range br);
+MN_INTERNAL void re__prog_inst_init_split(re__prog_inst* inst, re__prog_loc primary, re__prog_loc secondary);
+MN_INTERNAL void re__prog_inst_init_match(re__prog_inst* inst, mn_uint32 match_idx);
+MN_INTERNAL void re__prog_inst_init_fail(re__prog_inst* inst);
+MN_INTERNAL void re__prog_inst_init_assert(re__prog_inst* inst, mn_uint32 assert_context);
+MN_INTERNAL void re__prog_inst_init_save(re__prog_inst* inst, mn_uint32 save_idx);
+MN_INTERNAL re__prog_loc re__prog_inst_get_primary(const re__prog_inst* inst);
+MN_INTERNAL void re__prog_inst_set_primary(re__prog_inst* inst, re__prog_loc loc);
+MN_INTERNAL mn_uint8 re__prog_inst_get_byte(const re__prog_inst* inst);
+MN_INTERNAL mn_uint8 re__prog_inst_get_byte_min(const re__prog_inst* inst);
+MN_INTERNAL mn_uint8 re__prog_inst_get_byte_max(const re__prog_inst* inst);
+MN_INTERNAL re__prog_loc re__prog_inst_get_split_secondary(const re__prog_inst* inst);
+MN_INTERNAL void re__prog_inst_set_split_secondary(re__prog_inst* inst, re__prog_loc loc);
+MN_INTERNAL re__prog_inst_type re__prog_inst_get_type(const re__prog_inst* inst);
+MN_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(const re__prog_inst* inst);
+MN_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(const re__prog_inst* inst);
+MN_INTERNAL mn_uint32 re__prog_inst_get_match_idx(const re__prog_inst* inst);
+MN_INTERNAL mn_uint32 re__prog_inst_get_save_idx(const re__prog_inst* inst);
+MN_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b);
 
 #define RE__ERROR_PROGMAX (RE_ERROR_COMPILE | (1 << 8))
 #define RE__PROG_SIZE_MAX 100000
@@ -496,12 +496,13 @@ typedef struct re__prog {
     re__prog_inst_vec _instructions;
 } re__prog;
 
-RE_INTERNAL re_error re__prog_init(re__prog* prog);
-RE_INTERNAL void re__prog_destroy(re__prog* prog);
-RE_INTERNAL re__prog_loc re__prog_size(re__prog* prog);
-RE_INTERNAL re__prog_inst* re__prog_get(re__prog* prog, re__prog_loc loc);
-RE_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst);
-RE_INTERNAL int re__prog_equals(re__prog* a, re__prog* b);
+MN_INTERNAL re_error re__prog_init(re__prog* prog);
+MN_INTERNAL void re__prog_destroy(re__prog* prog);
+MN_INTERNAL re__prog_loc re__prog_size(const re__prog* prog);
+MN_INTERNAL re__prog_inst* re__prog_get(re__prog* prog, re__prog_loc loc);
+MN_INTERNAL const re__prog_inst* re__prog_cget(const re__prog* prog, re__prog_loc loc);
+MN_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst);
+MN_INTERNAL int re__prog_equals(re__prog* a, re__prog* b);
 
 /* A list of program patches -- locations in the program that need to point to
  * later instructions */
@@ -515,12 +516,12 @@ typedef struct re__compile_patches {
     re__prog_loc last_inst;
 } re__compile_patches;
 
-RE_INTERNAL void re__compile_patches_init(re__compile_patches* patches);
-RE_INTERNAL void re__compile_patches_append(re__compile_patches* patches, re__prog* prog, re__prog_loc to, int secondary);
+MN_INTERNAL void re__compile_patches_init(re__compile_patches* patches);
+MN_INTERNAL void re__compile_patches_append(re__compile_patches* patches, re__prog* prog, re__prog_loc to, int secondary);
 
 #if RE_DEBUG
 
-RE_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog* prog);
+MN_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog* prog);
 
 #endif
 
@@ -589,9 +590,9 @@ typedef struct re__compile_charclass_tree {
     /* Range of bytes to match */
     re__byte_range byte_range;
     /* Reference to next sibling */
-    re_uint32 sibling_ref;
+    mn_uint32 sibling_ref;
     /* Reference to first child */
-    re_uint32 child_ref;
+    mn_uint32 child_ref;
     /* Either:
      * - The hash of this tree, used for caching
      * - A reference to this node's complement in the reverse tree
@@ -599,11 +600,11 @@ typedef struct re__compile_charclass_tree {
      * hash, otherwise, the reverse program is being generated, and aux
      * references the complement node. */
     /* This could be fixed with a union, I plan on doing this sometime soon. */
-    re_uint32 aux;
+    mn_uint32 aux;
 } re__compile_charclass_tree;
 /* 16 bytes, nominally, (16 on my M1 Max) */
 
-re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_uint32 parent_ref, re__byte_range byte_range, re_uint32* out_new_node_ref, int use_reverse_tree);
+re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, mn_uint32 parent_ref, re__byte_range byte_range, mn_uint32* out_new_node_ref, int use_reverse_tree);
 
 #define RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE -1
 
@@ -619,20 +620,20 @@ re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, re_uin
  * link them together using the 'next' member, forming a mini-linked list. */
 typedef struct re__compile_charclass_hash_entry {
     /* Index in sparse array */
-    re_int32 sparse_index;
+    mn_int32 sparse_index;
     /* Reference to tree root */
-    re_uint32 root_ref;
+    mn_uint32 root_ref;
     /* Compiled instruction location in the program */
     re__prog_loc prog_loc;
     /* Next hash_entry that hashes to the same value, 
      * RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE otherwise. */
-    re_int32 next;
+    mn_int32 next;
 } re__compile_charclass_hash_entry;
 
-RE_INTERNAL void re__compile_charclass_hash_entry_init(re__compile_charclass_hash_entry* hash_entry, re_int32 sparse_index, re_uint32 tree_ref, re__prog_loc prog_loc);
+MN_INTERNAL void re__compile_charclass_hash_entry_init(re__compile_charclass_hash_entry* hash_entry, mn_int32 sparse_index, mn_uint32 tree_ref, re__prog_loc prog_loc);
 
-RE_VEC_DECL(re__compile_charclass_hash_entry);
-RE_VEC_DECL(re__compile_charclass_tree);
+MN__VEC_DECL(re__compile_charclass_hash_entry);
+MN__VEC_DECL(re__compile_charclass_tree);
 
 #define RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE 1024
 
@@ -642,18 +643,18 @@ struct re__compile_charclass {
      * represents an index in this vector. */
     re__compile_charclass_tree_vec tree;
     /* Reference to root node. */
-    re_uint32 root_ref;
+    mn_uint32 root_ref;
     /* Reference to last child of root node. */
-    re_uint32 root_last_child_ref;
+    mn_uint32 root_last_child_ref;
     /* Reference to root node of reverse tree. */
-    re_uint32 rev_root_ref;
+    mn_uint32 rev_root_ref;
     /* Reference to last child of reverse root node. */
-    re_uint32 rev_root_last_child_ref;
+    mn_uint32 rev_root_last_child_ref;
     /* Sparse tree cache. Each element in this array points to a corresponding
      * position in 'cache_dense'. Lookup is performed by moduloing a tree's hash
      * with the sparse cache size. Since cache hits are relatively rare, this
      * allows pretty inexpensive lookup. */
-    re_int32* cache_sparse;
+    mn_int32* cache_sparse;
     /* Dense tree cache. Entries with duplicate hashes are linked using their
      * 'next' member. */
     re__compile_charclass_hash_entry_vec cache_dense;
@@ -663,20 +664,20 @@ void re__compile_charclass_init(re__compile_charclass* char_comp);
 void re__compile_charclass_destroy(re__compile_charclass* char_comp);
 re_error re__compile_charclass_gen(re__compile_charclass* char_comp, const re__charclass* charclass, re__prog* prog, re__compile_patches* patches_out, int also_make_reverse);
 re_error re__compile_charclass_split_rune_range(re__compile_charclass* char_comp, re__rune_range range);
-RE_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compile_charclass* char_comp, re_uint32 tree_ref);
+MN_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compile_charclass* char_comp, mn_uint32 tree_ref);
 
 #if RE_DEBUG
-void re__compile_charclass_dump(re__compile_charclass* char_comp, re_uint32 tree_idx, re_int32 indent);
+void re__compile_charclass_dump(re__compile_charclass* char_comp, mn_uint32 tree_idx, mn_int32 indent);
 #endif
 
 /* Stack frame for the compiler. */
 typedef struct re__compile_frame {
     /* Base AST node being compiled. Represents the current node that is being
      * examined at any given point. */
-    re_int32 ast_base_ref;
+    mn_int32 ast_base_ref;
     /* Next child node of ast_base_ref that will be compiled. Will be AST_NONE
      * if the last child has already been processed. */
-    re_int32 ast_child_ref;
+    mn_int32 ast_child_ref;
     /* Running set of patches for this AST node. */
     re__compile_patches patches;
     /* Start and end PCs of this frame */
@@ -684,7 +685,7 @@ typedef struct re__compile_frame {
     re__prog_loc end;
     /* For repetitions: the number of times the node's child has been generated
      * already */
-    re_int32 rep_idx;
+    mn_int32 rep_idx;
 } re__compile_frame;
 
 /* Compiler internal structure. */
@@ -700,9 +701,9 @@ typedef struct re__compile {
      *    -rsc */
     re__compile_frame* frames;
     /* Size of frames (equal to ast_root->max_depth) */
-    re_int32 frames_size;
+    mn_int32 frames_size;
     /* Current location in frames (the stack pointer) */
-    re_int32 frame_ptr;
+    mn_int32 frame_ptr;
     /* Charclass compiler object to be used to compile all charclasses, it's
      * better to store it here in case there are multiple character classes in
      * the regex */
@@ -716,7 +717,7 @@ typedef struct re__compile {
     /* Reference to the child that should get pushed. After the child is done
      * processing, the parent's frame->ast_child_ref will point to the next
      * sibling of should_push_child_ref. */
-    re_int32 should_push_child_ref;
+    mn_int32 should_push_child_ref;
     /* Returned (popped) frame from child compilation. Contains child boundaries
      * and, more importantly, child patches. */ 
     re__compile_frame returned_frame;
@@ -724,10 +725,10 @@ typedef struct re__compile {
     int reversed;
 } re__compile;
 
-RE_INTERNAL void re__compile_init(re__compile* compile);
-RE_INTERNAL void re__compile_destroy(re__compile* compile);
-RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog, int reversed);
-RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf);
+MN_INTERNAL void re__compile_init(re__compile* compile);
+MN_INTERNAL void re__compile_destroy(re__compile* compile);
+MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog, int reversed);
+MN_INTERNAL int re__compile_gen_utf8(re_rune codep, mn_uint8* out_buf);
 
 /* Execution thread. */
 typedef struct re__exec_thrd {
@@ -735,10 +736,10 @@ typedef struct re__exec_thrd {
     re__prog_loc loc;
     /* Slot to save match boundaries to. May be -1 if this thread hasn't found
      * anything yet. */
-    re_int32 save_slot;
+    mn_int32 save_slot;
 } re__exec_thrd;
 
-RE_VEC_DECL(re__exec_thrd);
+MN__VEC_DECL(re__exec_thrd);
 
 /* Sparse set of threads. */
 typedef struct re__exec_thrd_set {
@@ -753,31 +754,34 @@ typedef struct re__exec_thrd_set {
     /* Allocation size of 'dense' (sparse is a single worst case alloc) */
     re__prog_loc size;
     /* 0 if this does not contain a match instruction, 1+ otherwise */
-    re_uint32 match;
+    mn_uint32 match;
 } re__exec_thrd_set;
 
-RE_VEC_DECL(re_size);
+MN__VEC_DECL(mn_size);
 
 /* Save state manager for exec. */
 typedef struct re__exec_save {
-    re_size_vec slots;
-    re_int32 last_empty_ref;
-    re_uint32 slots_per_thrd;
+    mn_size_vec slots;
+    mn_int32 last_empty_ref;
+    mn_uint32 slots_per_thrd;
 } re__exec_save;
 
-RE_INTERNAL void re__exec_save_init(re__exec_save* save);
-RE_INTERNAL void re__exec_save_set_slots_per_thrd(re__exec_save* save, re_uint32 slots_per_thrd);
-RE_INTERNAL void re__exec_save_destroy(re__exec_save* save);
-RE_INTERNAL const re_size* re__exec_save_get_slots_const(const re__exec_save* save, re_int32 slots_ref);
-RE_INTERNAL re_size* re__exec_save_get_slots(re__exec_save* save, re_int32 slots_ref);
-RE_INTERNAL void re__exec_save_inc_refs(re__exec_save* save, re_int32 slots_ref);
-RE_INTERNAL void re__exec_save_dec_refs(re__exec_save* save, re_int32 slots_ref);
-RE_INTERNAL re_size re__exec_save_get_refs(const re__exec_save* save, re_int32 slots_ref);
-RE_INTERNAL re_error re__exec_save_get_new(re__exec_save* save, re_int32* slots_out_ref);
-RE_INTERNAL re_error re__exec_save_do_save(re__exec_save* save, re_int32* slots_inout_ref, re_uint32 slot_number, re_size data);
+MN_INTERNAL void re__exec_save_init(re__exec_save* save);
+MN_INTERNAL void re__exec_save_set_slots_per_thrd(re__exec_save* save, mn_uint32 slots_per_thrd);
+MN_INTERNAL void re__exec_save_destroy(re__exec_save* save);
+MN_INTERNAL const mn_size* re__exec_save_get_slots_const(const re__exec_save* save, mn_int32 slots_ref);
+MN_INTERNAL mn_size* re__exec_save_get_slots(re__exec_save* save, mn_int32 slots_ref);
+MN_INTERNAL void re__exec_save_inc_refs(re__exec_save* save, mn_int32 slots_ref);
+MN_INTERNAL void re__exec_save_dec_refs(re__exec_save* save, mn_int32 slots_ref);
+MN_INTERNAL mn_size re__exec_save_get_refs(const re__exec_save* save, mn_int32 slots_ref);
+MN_INTERNAL re_error re__exec_save_get_new(re__exec_save* save, mn_int32* slots_out_ref);
+MN_INTERNAL re_error re__exec_save_do_save(re__exec_save* save, mn_int32* slots_inout_ref, mn_uint32 slot_number, mn_size data);
 
 /* Execution context. */
 typedef struct re__exec_nfa {
+    const re__prog* prog;
+    re_match_anchor_type anchor_type;
+    mn_uint32 num_groups;
     re__exec_thrd_set set_a;
     re__exec_thrd_set set_b;
     re__exec_thrd_set set_c;
@@ -785,23 +789,44 @@ typedef struct re__exec_nfa {
     re__exec_save save_slots;
 } re__exec_nfa;
 
-RE_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec);
-RE_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
+MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, const re__prog* prog, re_match_anchor_type anchor_type, mn_uint32 num_groups);
+MN_INTERNAL const re__exec_thrd* re__exec_nfa_get_thrds(re__exec_nfa* exec, re__prog_loc* out_thrds_size);
+MN_INTERNAL void re__exec_nfa_set_thrds(re__exec_nfa* exec, const re__prog_loc* in_thrds, re__prog_loc in_thrds_size);
+MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type assert_ctx, re__prog_loc start_loc);
+MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_char ch, mn_size pos, re__ast_assert_type assert_ctx);
+MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out);
+MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
 
-RE_INTERNAL re_error re__exec_nfa_do(re__exec_nfa* exec, re__prog* prog, re_match_anchor_type anchor_type, re_uint32 num_groups, re__str_view str_view, re_span* out);
-RE_INTERNAL re_error re__exec_dfa_do(re__exec_nfa* exec, re__prog* prog, re__str_view str_view, re_uint32* out_end, re_uint32* out_match);
+MN_INTERNAL re_error re__exec_nfa_do(re__exec_nfa* exec, re__prog* prog, re_match_anchor_type anchor_type, mn_uint32 num_groups, mn__str_view str_view, re_span* out);
+MN_INTERNAL re_error re__exec_dfa_do(re__exec_nfa* exec, re__prog* prog, mn__str_view str_view, mn_uint32* out_end, mn_uint32* out_match);
+
+MN__VEC_DECL(re__prog_loc);
 
 /* DFA state. */
 typedef struct re__exec_dfa_state {
-    re_uint32 next[256];
+    mn_uint32 next[256];
+    mn_uint32 match_idx;
+    mn_uint32 thrd_locs_begin;
+    mn_uint32 thrd_locs_end;
 } re__exec_dfa_state;
 
-RE_VEC_DECL(re__exec_dfa_state);
-RE_VEC_DECL(re_uint32);
+MN__VEC_DECL(re__exec_dfa_state);
+
+typedef struct re__exec_dfa_hash_entry {
+    mn_uint32 hash;
+    mn_uint32 state_ref;
+} re__exec_dfa_hash_entry;
+
+MN__VEC_DECL(re__exec_dfa_hash_entry);
 
 typedef struct re__exec_dfa {
     re__exec_dfa_state_vec states;
+    re__prog_loc_vec thrd_locs;
+    re__exec_dfa_hash_entry_vec hash_map;
 } re__exec_dfa;
+
+MN_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec);
+MN_INTERNAL void re__exec_dfa_destroy(re__exec_dfa* exec);
 
 /* Internal data structure */
 struct re_data {
@@ -814,14 +839,14 @@ struct re_data {
      * is a compile-time constant or a dynamically-allocated const char* inside
      * of error_string. Either way, in OOM situations, we will not allocate more
      * memory to store an error string and default to a constant. */  
-    re__str error_string;
-    re__str_view error_string_view;
+    mn__str error_string;
+    mn__str_view error_string_view;
 };
 
-RE_INTERNAL void re__set_error_str(re* re, const re__str* error_str);
-RE_INTERNAL void re__set_error_generic(re* re, re_error err);
+MN_INTERNAL void re__set_error_str(re* re, const mn__str* error_str);
+MN_INTERNAL void re__set_error_generic(re* re, re_error err);
 
-/*RE_INTERNAL re_error re__compile(re* re);*/
-RE_INTERNAL void re__prog_debug_dump(re__prog* prog);
+/*MN_INTERNAL re_error re__compile(re* re);*/
+MN_INTERNAL void re__prog_debug_dump(re__prog* prog);
 
 #endif

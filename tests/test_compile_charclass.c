@@ -1,6 +1,6 @@
 #include "test_compile_charclass.h"
 
-int re__compile_charclass_to_sym_r(sym_build* parent, re__compile_charclass* cc, re_uint32 tree_ref) {
+int re__compile_charclass_to_sym_r(sym_build* parent, re__compile_charclass* cc, mn_uint32 tree_ref) {
     sym_build build;
     while (tree_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
         const re__compile_charclass_tree* tree = re__compile_charclass_tree_get(cc, tree_ref);
@@ -22,18 +22,18 @@ int re__compile_charclass_to_sym(sym_build* parent, re__compile_charclass cc) {
     return re__compile_charclass_to_sym_r(&build, &cc, cc.root_last_child_ref);
 }
 
-int re__compile_charclass_from_sym_r(sym_walk* parent, re__compile_charclass* cc, re_uint32 root_ref) {
+int re__compile_charclass_from_sym_r(sym_walk* parent, re__compile_charclass* cc, mn_uint32 root_ref) {
     if (SYM_PEEK_EXPR(parent)) {
         sym_walk walk;
-        re_int32 min, max;
+        mn_int32 min, max;
         re__byte_range br;
-        re_uint32 this_ref;
+        mn_uint32 this_ref;
         int err;
         SYM_GET_EXPR(parent, &walk);
         SYM_GET_NUM(&walk, &min);
         SYM_GET_NUM(&walk, &max);
-        br.min = (re_uint8)min;
-        br.max = (re_uint8)max;
+        br.min = (mn_uint8)min;
+        br.max = (mn_uint8)max;
         re__compile_charclass_new_node(cc, root_ref, br, &this_ref, 0);
         while (SYM_MORE(&walk)) {
             err = re__compile_charclass_from_sym_r(&walk, cc, this_ref);

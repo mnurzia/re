@@ -10,22 +10,22 @@ int re__byte_range_to_sym(mptest_sym_build* parent, re__byte_range br) {
 }
 
 int re__byte_range_from_sym(mptest_sym_walk* parent, re__byte_range* br) {
-    re_int32 min;
-    re_int32 max;
+    mn_int32 min;
+    mn_int32 max;
     mptest_sym_walk walk;
     SYM_GET_EXPR(parent, &walk);
     SYM_CHECK_TYPE(&walk, "byte_range");
     SYM_GET_NUM(&walk, &min);
     SYM_GET_NUM(&walk, &max);
-    br->min = (re_uint8)min;
-    br->max = (re_uint8)max;
+    br->min = (mn_uint8)min;
+    br->max = (mn_uint8)max;
     return SYM_OK;
 }
 
 re__byte_range re__byte_range_random(void) {
     re__byte_range br; 
-    br.min = (re_uint8)RAND_PARAM(0xFF);
-    br.max = (re_uint8)RAND_PARAM((0xFF - br.min)) + br.min;
+    br.min = (mn_uint8)RAND_PARAM(0xFF);
+    br.max = (mn_uint8)RAND_PARAM((0xFF - br.min)) + br.min;
     return br;
 }
 
@@ -107,8 +107,8 @@ int re__rune_range_from_sym(mptest_sym_walk* parent, re__rune_range* rr) {
 
 re__rune_range re__rune_range_random(void) {
     re__rune_range br; 
-    br.min = (re_int32)RAND_PARAM(0x10FFFF);
-    br.max = (re_int32)RAND_PARAM((0x10FFFF - (mptest_rand)br.min)) + br.min;
+    br.min = (mn_int32)RAND_PARAM(0x10FFFF);
+    br.max = (mn_int32)RAND_PARAM((0x10FFFF - (mptest_rand)br.min)) + br.min;
     return br;
 }
 

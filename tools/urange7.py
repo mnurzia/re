@@ -426,7 +426,8 @@ def dump_prog_graph(prog):
     dot.render(filename="graph", format="png", cleanup=True)
 
 tree = BRangeTree(BRange(0x00, 0xFF))
-split_range(tree, RRange(0x00, 0x10FFFF))
+split_range(tree, RRange(0x00, 0x700))
+split_range(tree, RRange(0x702, 0x800))
 tree.hash_all()
 dump_tree(tree)
 tree.merge_all()

@@ -1,13 +1,13 @@
 #include "re_internal.h"
 
-RE_VEC_IMPL_FUNC(re__parse_frame, init)
-RE_VEC_IMPL_FUNC(re__parse_frame, destroy)
-RE_VEC_IMPL_FUNC(re__parse_frame, push)
-RE_VEC_IMPL_FUNC(re__parse_frame, pop)
-RE_VEC_IMPL_FUNC(re__parse_frame, peek)
-RE_VEC_IMPL_FUNC(re__parse_frame, size)
+MN__VEC_IMPL_FUNC(re__parse_frame, init)
+MN__VEC_IMPL_FUNC(re__parse_frame, destroy)
+MN__VEC_IMPL_FUNC(re__parse_frame, push)
+MN__VEC_IMPL_FUNC(re__parse_frame, pop)
+MN__VEC_IMPL_FUNC(re__parse_frame, peek)
+MN__VEC_IMPL_FUNC(re__parse_frame, size)
 
-RE_INTERNAL void re__parse_init(re__parse* parse, re* reg) {
+MN_INTERNAL void re__parse_init(re__parse* parse, re* reg) {
     parse->re = reg;
     re__parse_frame_vec_init(&parse->frames);
     re__charclass_builder_init(&parse->charclass_builder);
@@ -28,48 +28,48 @@ RE_INTERNAL void re__parse_init(re__parse* parse, re* reg) {
     parse->ast_root = &reg->data->ast_root;
 }
 
-RE_INTERNAL void re__parse_destroy(re__parse* parse) {
+MN_INTERNAL void re__parse_destroy(re__parse* parse) {
     re__charclass_builder_destroy(&parse->charclass_builder);
     re__parse_frame_vec_destroy(&parse->frames);
 }
 
 /* Convenience function to set the error to a literal string. */
-RE_INTERNAL re_error re__parse_error(re__parse* parse, const char* err_chars) {
-    re__str err_str;
-    re_error err = re__str_init_s(&err_str, (const re_char*)err_chars);
+MN_INTERNAL re_error re__parse_error(re__parse* parse, const char* err_chars) {
+    mn__str err_str;
+    re_error err = mn__str_init_s(&err_str, (const mn_char*)err_chars);
     if (err) {
         return err;
     }
     re__set_error_str(parse->re, &err_str);
-    re__str_destroy(&err_str);
+    mn__str_destroy(&err_str);
     return RE_ERROR_PARSE;
 }
 
 /* Formats a "invalid escape sequence" message */
-RE_INTERNAL re_error re__parse_error_invalid_escape(re__parse* parse, re_rune esc) {
+MN_INTERNAL re_error re__parse_error_invalid_escape(re__parse* parse, re_rune esc) {
     /* Build error message */
     re_error err = RE_ERROR_NONE;
-    re__str err_str;
-    re_char esc_ch[2];
-    esc_ch[0] = (re_char)esc;
+    mn__str err_str;
+    mn_char esc_ch[2];
+    esc_ch[0] = (mn_char)esc;
     esc_ch[1] = '\'';
-    if ((err = re__str_init_s(&err_str, (const re_char*)"invalid escape sequence '\\"))) {
+    if ((err = mn__str_init_s(&err_str, (const mn_char*)"invalid escape sequence '\\"))) {
         goto destroy_err_str;
     }
-    if ((err = re__str_cat_n(&err_str, esc_ch, 2))) {
+    if ((err = mn__str_cat_n(&err_str, esc_ch, 2))) {
         goto destroy_err_str;
     }
 
     re__set_error_str(parse->re, &err_str);
 destroy_err_str:
-    re__str_destroy(&err_str);
+    mn__str_destroy(&err_str);
     return RE_ERROR_PARSE;
 }
 
 #define RE__PARSE_UTF8_ACCEPT 0
 #define RE__PARSE_UTF8_REJECT 12
 
-static const re_uint8 re__parse_utf8_tt[] = {
+static const mn_uint8 re__parse_utf8_tt[] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -86,8 +86,8 @@ static const re_uint8 re__parse_utf8_tt[] = {
   12,36,12,12,12,12,12,12,12,12,12,12, 
 };
 
-RE_INTERNAL re_uint32 re__parse_utf8_decode(re_uint32* state, re_uint32* codep, re_uint32 byte) {
-  re_uint32 type = re__parse_utf8_tt[byte];
+MN_INTERNAL mn_uint32 re__parse_utf8_decode(mn_uint32* state, mn_uint32* codep, mn_uint32 byte) {
+  mn_uint32 type = re__parse_utf8_tt[byte];
 
   *codep = (*state != 0) ?
     (byte & 0x3fu) | (*codep << 6) :
@@ -97,9 +97,9 @@ RE_INTERNAL re_uint32 re__parse_utf8_decode(re_uint32* state, re_uint32* codep, 
   return *state;
 }
 
-RE_INTERNAL re_error re__parse_next_char(re__parse* parse, const re_char** current_loc, const re_char* end_loc, re_rune* ch) {
-    re_uint32 codep = 0;
-    re_uint32 state = 0;
+MN_INTERNAL re_error re__parse_next_char(re__parse* parse, const mn_char** current_loc, const mn_char* end_loc, re_rune* ch) {
+    mn_uint32 codep = 0;
+    mn_uint32 state = 0;
     while (1) {
         if (*current_loc == end_loc) {
             if (state == RE__PARSE_UTF8_REJECT) {
@@ -111,7 +111,7 @@ RE_INTERNAL re_error re__parse_next_char(re__parse* parse, const re_char** curre
                 return RE_ERROR_NONE;
             }
         } else {
-            re_uint8 in_byte = (re_uint8)**current_loc;
+            mn_uint8 in_byte = (mn_uint8)**current_loc;
             if (!re__parse_utf8_decode(&state, &codep, in_byte)) {
                 (*current_loc)++;
                 *ch = (re_rune)codep;
@@ -127,15 +127,15 @@ RE_INTERNAL re_error re__parse_next_char(re__parse* parse, const re_char** curre
     return RE_ERROR_NONE;
 }
 
-RE_INTERNAL int re__parse_frame_is_empty(re__parse* parse) {
+MN_INTERNAL int re__parse_frame_is_empty(re__parse* parse) {
     return parse->ast_prev_child_ref == RE__AST_NONE;
 }
 
-RE_INTERNAL re__ast* re__parse_get_frame(re__parse* parse) {
+MN_INTERNAL re__ast* re__parse_get_frame(re__parse* parse) {
     return re__ast_root_get(parse->ast_root, parse->ast_frame_root_ref);
 }
 
-RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32* new_ast_ref) {
+MN_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, mn_int32* new_ast_ref) {
     re_error err = RE_ERROR_NONE;
     if ((err = re__ast_root_add_child(parse->ast_root, parse->ast_frame_root_ref, ast, new_ast_ref))) {
         return err;
@@ -147,23 +147,23 @@ RE_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast, re_int32
 
 /* Insert a node right before the previous child, making the previous child the
  * new node's parent. */
-RE_INTERNAL re_error re__parse_link_wrap_node(re__parse* parse, re__ast outer, re_int32* new_outer) {
+MN_INTERNAL re_error re__parse_link_wrap_node(re__parse* parse, re__ast outer, mn_int32* new_outer) {
     re_error err = RE_ERROR_NONE;
     if ((err = re__ast_root_add_wrap(parse->ast_root, parse->ast_frame_root_ref, parse->ast_prev_child_ref, outer, new_outer))) {
         return err;
     }
     parse->depth_max_prev += 1;
-    parse->depth_max = RE__MAX(parse->depth_max_prev, parse->depth_max);
+    parse->depth_max = MN__MAX(parse->depth_max_prev, parse->depth_max);
     parse->ast_prev_child_ref = *new_outer;
     return err;
 }
 
-RE_INTERNAL re_error re__parse_wrap_node(re__parse* parse, re__ast outer) {
-    re_int32 dummy;
+MN_INTERNAL re_error re__parse_wrap_node(re__parse* parse, re__ast outer) {
+    mn_int32 dummy;
     return re__parse_link_wrap_node(parse, outer, &dummy);
 }
 
-RE_INTERNAL re_error re__parse_frame_push(re__parse* parse) {
+MN_INTERNAL re_error re__parse_frame_push(re__parse* parse) {
     re__parse_frame op;
     op.ast_frame_root_ref = parse->ast_frame_root_ref;
     op.ast_prev_child_ref = parse->ast_prev_child_ref;
@@ -174,9 +174,9 @@ RE_INTERNAL re_error re__parse_frame_push(re__parse* parse) {
     return re__parse_frame_vec_push(&parse->frames, op);
 }
 
-RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
+MN_INTERNAL void re__parse_frame_pop(re__parse* parse) {
     re__parse_frame op;
-    RE_ASSERT(re__parse_frame_vec_size(&parse->frames) > 0);
+    MN_ASSERT(re__parse_frame_vec_size(&parse->frames) > 0);
     op = re__parse_frame_vec_pop(&parse->frames);
     parse->ast_frame_root_ref = op.ast_frame_root_ref;
     parse->ast_prev_child_ref = op.ast_prev_child_ref;
@@ -184,14 +184,14 @@ RE_INTERNAL void re__parse_frame_pop(re__parse* parse) {
     parse->group_flags = op.group_flags;
     parse->depth_max_prev = parse->depth_max;
     parse->depth = op.depth;
-    parse->depth_max = RE__MAX(op.depth_max, parse->depth_max);
+    parse->depth_max = MN__MAX(op.depth_max, parse->depth_max);
 }
 
-RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, int* did_fuse) {
+MN_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, int* did_fuse) {
     re__ast* prev;
     re__ast_type t_prev, t_next;
     re_error err = RE_ERROR_NONE;
-    RE_ASSERT(parse->ast_prev_child_ref != RE__AST_NONE);
+    MN_ASSERT(parse->ast_prev_child_ref != RE__AST_NONE);
     prev = re__ast_root_get(parse->ast_root, parse->ast_prev_child_ref);
     t_prev = prev->type;
     t_next = next->type;
@@ -199,18 +199,18 @@ RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, 
     if (t_prev == RE__AST_TYPE_RUNE) {
         if (t_next == RE__AST_TYPE_RUNE) {
             /* Opportunity to fuse two runes into a string */
-            re__str new_str;
+            mn__str new_str;
             re__ast new_ast;
-            re_char rune_bytes[16]; /* 16 oughta be good */
-            re_int32 new_str_ref;
+            mn_char rune_bytes[16]; /* 16 oughta be good */
+            mn_int32 new_str_ref;
             int rune_bytes_ptr = 0;
-            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(prev), (re_uint8*)rune_bytes + rune_bytes_ptr);
-            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (re_uint8*)rune_bytes + rune_bytes_ptr);
-            if ((err = re__str_init_n(&new_str, rune_bytes, (re_size)rune_bytes_ptr))) {
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(prev), (mn_uint8*)rune_bytes + rune_bytes_ptr);
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (mn_uint8*)rune_bytes + rune_bytes_ptr);
+            if ((err = mn__str_init_n(&new_str, rune_bytes, (mn_size)rune_bytes_ptr))) {
                 return err;
             }
             if ((err = re__ast_root_add_str(parse->ast_root, new_str, &new_str_ref))) {
-                re__str_destroy(&new_str);
+                mn__str_destroy(&new_str);
                 return err;
             }
             re__ast_init_str(&new_ast, new_str_ref);
@@ -221,14 +221,14 @@ RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, 
     } else if (t_prev == RE__AST_TYPE_STR) {
         if (t_next == RE__AST_TYPE_RUNE) {
             /* Opportunity to add a rune to a string */
-            re__str* old_str;
-            re_char rune_bytes[16];
-            re_int32 old_str_ref;
+            mn__str* old_str;
+            mn_char rune_bytes[16];
+            mn_int32 old_str_ref;
             int rune_bytes_ptr = 0;
-            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (re_uint8*)rune_bytes + rune_bytes_ptr);
+            rune_bytes_ptr += re__compile_gen_utf8(re__ast_get_rune(next), (mn_uint8*)rune_bytes + rune_bytes_ptr);
             old_str_ref = re__ast_get_str_ref(prev);
             old_str = re__ast_root_get_str(parse->ast_root, old_str_ref);
-            if ((err = re__str_cat_n(old_str, rune_bytes, (re_size)rune_bytes_ptr))) {
+            if ((err = mn__str_cat_n(old_str, rune_bytes, (mn_size)rune_bytes_ptr))) {
                 return err;
             }
             re__ast_destroy(next);
@@ -245,7 +245,7 @@ RE_INTERNAL re_error re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, 
  * 
  * To maintain these, when we have to add a second child to an alt/group node, 
  * we convert it into a concatenation of the first and second children. */
-RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, re_int32* new_ast_ref) {
+MN_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, mn_int32* new_ast_ref) {
     re__ast_type frame_type = RE__AST_TYPE_NONE;
     re_error err = RE_ERROR_NONE;
     /* Firstly, attempt an optimization by fusing the nodes, if possible. */
@@ -273,8 +273,8 @@ RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, 
             /* Push node, fallthrough */
         } else {
             re__ast new_concat;
-            re_int32 old_inner;
-            re_int32 new_outer;
+            mn_int32 old_inner;
+            mn_int32 new_outer;
             /* Push the current frame */
             if ((err = re__parse_frame_push(parse))) {
                 return err;
@@ -297,7 +297,7 @@ RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, 
         /* Push node, fallthrough */
     } else {
         /* Due to operator precedence, we should never arrive here. */
-        RE__ASSERT_UNREACHED();
+        MN__ASSERT_UNREACHED();
     }
     /* Add the new node to the frame. */
     if ((err = re__parse_push_node(parse, new_ast, new_ast_ref))) {
@@ -306,12 +306,12 @@ RE_INTERNAL re_error re__parse_link_new_node(re__parse* parse, re__ast new_ast, 
     return err;
 }
 
-RE_INTERNAL re_error re__parse_add_new_node(re__parse* parse, re__ast new_ast) {
-    re_int32 dummy;
+MN_INTERNAL re_error re__parse_add_new_node(re__parse* parse, re__ast new_ast) {
+    mn_int32 dummy;
     return re__parse_link_new_node(parse, new_ast, &dummy);
 }
 
-RE_INTERNAL re_error re__parse_finish(re__parse* parse) {
+MN_INTERNAL re_error re__parse_finish(re__parse* parse) {
     re_error err = RE_ERROR_NONE;
     /* Pop frames until frame_ptr == 0. */
     while (1) {
@@ -351,22 +351,22 @@ RE_INTERNAL re_error re__parse_finish(re__parse* parse) {
 
 /* Begin a new group. Push a group node and set stack/previous/base pointers
  * appropriately. Also push the current frame. */
-RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
+MN_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
     re__ast new_group;
     re_error err = RE_ERROR_NONE;
-    re_int32 new_group_ref;
-    re__str_view group_name;
-    re_uint32 new_group_idx = 0;
+    mn_int32 new_group_ref;
+    mn__str_view group_name;
+    mn_uint32 new_group_idx = 0;
     if (parse->group_flags & RE__AST_GROUP_FLAG_NAMED) {
         if (parse->group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
             return re__parse_error(parse, "cannot have non-matching group with a name");
         } else {
-            re__str_view_init_n(&group_name, parse->str_begin, (re_size)(parse->str_end - parse->str_begin));
+            mn__str_view_init_n(&group_name, parse->str_begin, (mn_size)(parse->str_end - parse->str_begin));
             new_group_idx = re__ast_root_get_num_groups(parse->ast_root);
             re__ast_root_add_group(parse->ast_root, group_name);
         }
     } else if (!(parse->group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
-        re__str_view_init_null(&group_name);
+        mn__str_view_init_null(&group_name);
         new_group_idx = re__ast_root_get_num_groups(parse->ast_root);
         re__ast_root_add_group(parse->ast_root, group_name);
     }
@@ -395,7 +395,7 @@ RE_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
 }
 
 /* End a group. Pop operators until we get a group node. */
-RE_INTERNAL re_error re__parse_group_end(re__parse* parse) {
+MN_INTERNAL re_error re__parse_group_end(re__parse* parse) {
     while (1) {
         re__ast_type peek_type;
         /* If we are at the absolute bottom of the stack, there was no opening
@@ -417,7 +417,7 @@ RE_INTERNAL re_error re__parse_group_end(re__parse* parse) {
 
 /* Act on a '|' character. If this is the first alteration, we wrap the current
  * group node in an ALT. If not, we simply add to the previous ALT. */
-RE_INTERNAL re_error re__parse_alt(re__parse* parse) {
+MN_INTERNAL re_error re__parse_alt(re__parse* parse) {
     re__ast_type peek_type;
     re_error err = RE_ERROR_NONE;
     while (1) {
@@ -433,7 +433,7 @@ RE_INTERNAL re_error re__parse_alt(re__parse* parse) {
              * don't need to mess around with the amount of children for either
              * node. */
             re__ast new_alt;
-            re_int32 new_alt_ref;
+            mn_int32 new_alt_ref;
             re__ast_init_alt(&new_alt);
             if ((err = re__parse_link_wrap_node(parse, new_alt, &new_alt_ref))) {
                 return err;
@@ -448,7 +448,7 @@ RE_INTERNAL re_error re__parse_alt(re__parse* parse) {
             parse->depth_max_prev = parse->depth;
             /* Perform a MAX here because we need to keep track of the previous
              * node that started the ALT */
-            parse->depth_max = RE__MAX(parse->depth_max, parse->depth);
+            parse->depth_max = MN__MAX(parse->depth_max, parse->depth);
             /* Set base_ptr to the ALT node */
             parse->ast_frame_root_ref = new_alt_ref;
             /* Indicate that there are no new children. */
@@ -459,21 +459,21 @@ RE_INTERNAL re_error re__parse_alt(re__parse* parse) {
             /* Indicate that there are no new children (this is the beginning
              * of the second+ part of an alteration) */
             parse->ast_prev_child_ref = RE__AST_NONE;
-            parse->depth_max = RE__MAX(parse->depth_max, parse->depth_max_prev);
+            parse->depth_max = MN__MAX(parse->depth_max, parse->depth_max_prev);
             return err;
         }
     }
 }
 
 /* Ingest a single rune. */
-RE_INTERNAL re_error re__parse_rune(re__parse* parse, re_rune ch) {
+MN_INTERNAL re_error re__parse_rune(re__parse* parse, re_rune ch) {
     re__ast new_rune;
     re__ast_init_rune(&new_rune, ch);
     return re__parse_add_new_node(parse, new_rune);
 }
 
 /* Clear number parsing state. */
-RE_INTERNAL void re__parse_radix_clear(re__parse* parse) {
+MN_INTERNAL void re__parse_radix_clear(re__parse* parse) {
     parse->radix_num = 0;
     parse->radix_digits = 0;
 }
@@ -485,11 +485,11 @@ RE_INTERNAL void re__parse_radix_clear(re__parse* parse) {
     ((ch) == '0' || (ch) == '1' || (ch) == '2' || (ch) == '3' || (ch) == '4' || (ch) == '5' || (ch) == '6' || (ch) == '7')
 
 /* Parse in a single octal digit. */
-RE_INTERNAL re_error re__parse_radix_consume_oct(re__parse* parse, re_rune ch) {
+MN_INTERNAL re_error re__parse_radix_consume_oct(re__parse* parse, re_rune ch) {
     if (parse->radix_digits == RE__PARSE_OCT_DIGITS_MAX) {
         return re__parse_error(parse, "octal literal exceeds maximum of three digits");
     }
-    RE_ASSERT(RE__PARSE_IS_OCT_DIGIT(ch));
+    MN_ASSERT(RE__PARSE_IS_OCT_DIGIT(ch));
     parse->radix_num *= 8;
     parse->radix_num += ch - '0';
     parse->radix_digits++;
@@ -500,7 +500,7 @@ RE_INTERNAL re_error re__parse_radix_consume_oct(re__parse* parse, re_rune ch) {
 }
 
 /* Ensure that the radix doesn't exceed octal limits. */
-RE_INTERNAL re_error re__parse_radix_check_oct(re__parse* parse) {
+MN_INTERNAL re_error re__parse_radix_check_oct(re__parse* parse) {
     if (parse->radix_num >= RE__PARSE_OCT_NUM_MAX) {
         return re__parse_error(parse, "octal literal exceeds maximum value of \\777");
     }
@@ -517,7 +517,7 @@ RE_INTERNAL re_error re__parse_radix_check_oct(re__parse* parse) {
      (ch) == '8' || (ch) == '9' || (ch) == 'A' || (ch) == 'B' || (ch) == 'C' || (ch) == 'D' || (ch) == 'E' || (ch) == 'F' || \
      (ch) == 'a' || (ch) == 'b' || (ch) == 'c' || (ch) == 'd' || (ch) == 'e' || (ch) == 'f')
 
-RE_INTERNAL re_rune re__parse_radix_hex_digit(re_rune dig) {
+MN_INTERNAL re_rune re__parse_radix_hex_digit(re_rune dig) {
     if (dig >= '0' && dig <= '9') {
         return dig - '0';
     } else if (dig >= 'A' && dig <= 'F') {
@@ -525,17 +525,17 @@ RE_INTERNAL re_rune re__parse_radix_hex_digit(re_rune dig) {
     } else if (dig >= 'a' && dig <= 'f') {
         return (dig - 'a') + 10;
     } else {
-        RE__ASSERT_UNREACHED();
+        MN__ASSERT_UNREACHED();
         return 0;
     }
 }
 
 /* Parse in a single hex digit in short format (\x..) */
-RE_INTERNAL re_error re__parse_radix_consume_hex_short(re__parse* parse, re_rune ch) {
+MN_INTERNAL re_error re__parse_radix_consume_hex_short(re__parse* parse, re_rune ch) {
     if (parse->radix_digits == RE__PARSE_HEX_SHORT_DIGITS_MAX) {
         return re__parse_error(parse, "short hex literal exceeds maximum of two digits");
     }
-    RE_ASSERT(RE__PARSE_IS_HEX_DIGIT(ch));
+    MN_ASSERT(RE__PARSE_IS_HEX_DIGIT(ch));
     parse->radix_num *= 16;
     parse->radix_num += re__parse_radix_hex_digit(ch);
     parse->radix_digits++;
@@ -546,7 +546,7 @@ RE_INTERNAL re_error re__parse_radix_consume_hex_short(re__parse* parse, re_rune
 }
 
 /* Ensure that the radix doesn't exceed hex limits. */
-RE_INTERNAL re_error re__parse_radix_check_hex_short(re__parse* parse) {
+MN_INTERNAL re_error re__parse_radix_check_hex_short(re__parse* parse) {
     if (parse->radix_num >= RE__PARSE_HEX_SHORT_NUM_MAX) {
         return re__parse_error(parse, "short hex literal exceeds maximum value of \\xFF");
     }
@@ -560,11 +560,11 @@ RE_INTERNAL re_error re__parse_radix_check_hex_short(re__parse* parse) {
 #define RE__PARSE_HEX_LONG_DIGITS_MAX 6
 
 /* Parse in a single hex digit in long format (\x{....}) */
-RE_INTERNAL re_error re__parse_radix_consume_hex_long(re__parse* parse, re_rune ch) {
+MN_INTERNAL re_error re__parse_radix_consume_hex_long(re__parse* parse, re_rune ch) {
     if (parse->radix_digits == RE__PARSE_HEX_LONG_DIGITS_MAX) {
         return re__parse_error(parse, "long hex literal exceeds maximum of six digits");
     }
-    RE_ASSERT(RE__PARSE_IS_HEX_DIGIT(ch));
+    MN_ASSERT(RE__PARSE_IS_HEX_DIGIT(ch));
     parse->radix_num *= 16;
     parse->radix_num += re__parse_radix_hex_digit(ch);
     parse->radix_digits++;
@@ -575,7 +575,7 @@ RE_INTERNAL re_error re__parse_radix_consume_hex_long(re__parse* parse, re_rune 
 }
 
 /* Ensure that the radix doesn't exceed hex limits. */
-RE_INTERNAL re_error re__parse_radix_check_hex_long(re__parse* parse) {
+MN_INTERNAL re_error re__parse_radix_check_hex_long(re__parse* parse) {
     if (parse->radix_num > RE__PARSE_HEX_LONG_NUM_MAX) {
         return re__parse_error(parse, "long hex literal exceeds maximum value of \\x{10FFFF}");
     }
@@ -591,24 +591,24 @@ RE_INTERNAL re_error re__parse_radix_check_hex_long(re__parse* parse) {
      (ch) == '8' || (ch) == '9')
 
 /* Parse in a single decimal digit */
-RE_INTERNAL re_error re__parse_radix_consume_counting(re__parse* parse, re_rune ch) {
+MN_INTERNAL re_error re__parse_radix_consume_counting(re__parse* parse, re_rune ch) {
     if (parse->radix_digits == RE__PARSE_COUNTING_DIGITS_MAX) {
         return re__parse_error(parse, "counting literal exceeds maximum of four digits");
     }
-    RE_ASSERT(RE__PARSE_IS_DEC_DIGIT(ch));
+    MN_ASSERT(RE__PARSE_IS_DEC_DIGIT(ch));
     parse->radix_num *= 10;
     parse->radix_num += ch - '0';
     parse->radix_digits++;
     if (parse->radix_num >= RE__AST_QUANTIFIER_MAX) {
-        return re__parse_error(parse, "counting literal exceeds maximum value of " RE__STRINGIFY(RE__AST_QUANTIFIER_MAX) );
+        return re__parse_error(parse, "counting literal exceeds maximum value of " MN__STRINGIFY(RE__AST_QUANTIFIER_MAX) );
     }
     return RE_ERROR_NONE;
 }
 
 /* Ensure that the radix doesn't exceed decimal counting limits. */
-RE_INTERNAL re_error re__parse_radix_check_counting(re__parse* parse) {
+MN_INTERNAL re_error re__parse_radix_check_counting(re__parse* parse) {
     if (parse->radix_num > RE__AST_QUANTIFIER_MAX) {
-        return re__parse_error(parse, "counting literal exceeds maximum value of " RE__STRINGIFY(RE__AST_QUANTIFIER_MAX) );
+        return re__parse_error(parse, "counting literal exceeds maximum value of " MN__STRINGIFY(RE__AST_QUANTIFIER_MAX) );
     }
     if (parse->radix_digits > RE__PARSE_COUNTING_DIGITS_MAX) {
         return re__parse_error(parse, "counting literal exceeds maximum of four digits");
@@ -620,22 +620,22 @@ RE_INTERNAL re_error re__parse_radix_check_counting(re__parse* parse) {
 /* This function succeeds when the calling state is GND, but does not when the
  * calling state is anything else, in which case it returns an error. */
 /* Ensure that this is only called with printable characters. */
-RE_INTERNAL re_error re__parse_disallow_escape_in_charclass(re__parse* parse, re_rune esc) {
+MN_INTERNAL re_error re__parse_disallow_escape_in_charclass(re__parse* parse, re_rune esc) {
     re_error err = RE_ERROR_NONE;
     re__parse_frame top;
-    re__str err_str;
-    RE_ASSERT(re__parse_frame_vec_size(&parse->frames) > 0);
+    mn__str err_str;
+    MN_ASSERT(re__parse_frame_vec_size(&parse->frames) > 0);
     top = re__parse_frame_vec_peek(&parse->frames);
     if (top.ret_state != RE__PARSE_STATE_GND) {
         /* Build error message */
-        re_char esc_ch = (re_char)(esc);
-        if ((err = re__str_init_s(&err_str, (const re_char*)"cannot use escape sequence '\\"))) {
+        mn_char esc_ch = (mn_char)(esc);
+        if ((err = mn__str_init_s(&err_str, (const mn_char*)"cannot use escape sequence '\\"))) {
             goto destroy_err_str;
         }
-        if ((err = re__str_cat_n(&err_str, &esc_ch, 1))) {
+        if ((err = mn__str_cat_n(&err_str, &esc_ch, 1))) {
             goto destroy_err_str;
         }
-        if ((err = re__str_cat_s(&err_str, (const re_char*)"' from within character class (\"[]\")"))) {
+        if ((err = mn__str_cat_s(&err_str, (const mn_char*)"' from within character class (\"[]\")"))) {
             goto destroy_err_str;
         }
         re__set_error_str(parse->re, &err_str);
@@ -643,44 +643,44 @@ RE_INTERNAL re_error re__parse_disallow_escape_in_charclass(re__parse* parse, re
     }
     return err;
 destroy_err_str:
-    re__str_destroy(&err_str);
+    mn__str_destroy(&err_str);
     return err;
 }
 
 /* Create a new assert */
-RE_INTERNAL re_error re__parse_create_assert(re__parse* parse, re__ast_assert_type assert_type) {
+MN_INTERNAL re_error re__parse_create_assert(re__parse* parse, re__ast_assert_type assert_type) {
     re__ast new_node;
     re__ast_init_assert(&new_node, assert_type);
     return re__parse_add_new_node(parse, new_node);
 }
 
 /* Create a new "any byte" (\C) */
-RE_INTERNAL re_error re__parse_create_any_byte(re__parse* parse) {
+MN_INTERNAL re_error re__parse_create_any_byte(re__parse* parse) {
     re__ast new_node;
     re__ast_init_any_byte(&new_node);
     return re__parse_add_new_node(parse, new_node);
 }
 
 /* Create a new "any char" (.) */
-RE_INTERNAL re_error re__parse_create_any_char(re__parse* parse) {
+MN_INTERNAL re_error re__parse_create_any_char(re__parse* parse) {
     re__ast new_node;
     re__ast_init_any_char(&new_node);
     return re__parse_add_new_node(parse, new_node);
 }
 
-RE_INTERNAL void re__parse_charclass_begin(re__parse* parse) {
+MN_INTERNAL void re__parse_charclass_begin(re__parse* parse) {
     re__charclass_builder_begin(&parse->charclass_builder);
     parse->charclass_lo_rune = -1;
 }
 
-RE_INTERNAL void re__parse_charclass_setlo(re__parse* parse, re_rune ch) {
+MN_INTERNAL void re__parse_charclass_setlo(re__parse* parse, re_rune ch) {
     parse->charclass_lo_rune = ch;
 }
 
-RE_INTERNAL re_error re__parse_charclass_addlo(re__parse* parse) {
+MN_INTERNAL re_error re__parse_charclass_addlo(re__parse* parse) {
     re_error err = RE_ERROR_NONE;
     re__rune_range new_range;
-    RE_ASSERT(parse->charclass_lo_rune != -1);
+    MN_ASSERT(parse->charclass_lo_rune != -1);
     new_range.min = parse->charclass_lo_rune;
     new_range.max = parse->charclass_lo_rune;
     parse->charclass_lo_rune = -1;
@@ -690,10 +690,10 @@ RE_INTERNAL re_error re__parse_charclass_addlo(re__parse* parse) {
     return err;
 }
 
-RE_INTERNAL re_error re__parse_charclass_addhi(re__parse* parse, re_rune ch) {
+MN_INTERNAL re_error re__parse_charclass_addhi(re__parse* parse, re_rune ch) {
     re_error err = RE_ERROR_NONE;
     re__rune_range new_range;
-    RE_ASSERT(parse->charclass_lo_rune != -1);
+    MN_ASSERT(parse->charclass_lo_rune != -1);
     new_range.min = parse->charclass_lo_rune;
     new_range.max = ch;
     parse->charclass_lo_rune = -1;
@@ -704,11 +704,11 @@ RE_INTERNAL re_error re__parse_charclass_addhi(re__parse* parse, re_rune ch) {
 }
 
 
-RE_INTERNAL re_error re__parse_charclass_finish(re__parse* parse) {
+MN_INTERNAL re_error re__parse_charclass_finish(re__parse* parse) {
     re__ast new_node;
     re__charclass new_charclass;
     re_error err = RE_ERROR_NONE;
-    re_int32 new_charclass_ref;
+    mn_int32 new_charclass_ref;
     if ((err = re__charclass_builder_finish(&parse->charclass_builder, &new_charclass))) {
         return err;
     }
@@ -725,11 +725,11 @@ RE_INTERNAL re_error re__parse_charclass_finish(re__parse* parse) {
 
 /* Depending on the current state, push a new character AST node, or add the
  * given character to the current character class. */
-RE_INTERNAL re_error re__parse_finish_escape_char(re__parse* parse, re_rune ch) {
+MN_INTERNAL re_error re__parse_finish_escape_char(re__parse* parse, re_rune ch) {
     re__parse_state top_state;
     re_error err = RE_ERROR_NONE;
     /* This can only be called on GND or a charclass builder state. */
-    RE_ASSERT(re__parse_frame_vec_size(&parse->frames) > 0);
+    MN_ASSERT(re__parse_frame_vec_size(&parse->frames) > 0);
     top_state = re__parse_frame_vec_peek(&parse->frames).ret_state;
     re__parse_frame_pop(parse);
     if (top_state == RE__PARSE_STATE_GND) {
@@ -740,22 +740,22 @@ RE_INTERNAL re_error re__parse_finish_escape_char(re__parse* parse, re_rune ch) 
             return err;
         }
     } else if (top_state == RE__PARSE_STATE_CHARCLASS_AFTER_LO) {
-        RE_ASSERT(parse->charclass_lo_rune == -1);
+        MN_ASSERT(parse->charclass_lo_rune == -1);
         re__parse_charclass_setlo(parse, ch);
     } else if (top_state == RE__PARSE_STATE_CHARCLASS_LO) {
-        RE_ASSERT(parse->charclass_lo_rune != -1);
+        MN_ASSERT(parse->charclass_lo_rune != -1);
         if ((err = re__parse_charclass_addhi(parse, ch))) {
             return err;
         }
     } else {
-        RE__ASSERT_UNREACHED();
+        MN__ASSERT_UNREACHED();
     }
     return err;
 }
 
 /* Depending on the current state, add a character class *into* a character
  * class, *OR* add a character class AST node. */
-RE_INTERNAL re_error re__parse_finish_escape_class(re__parse* parse, re__charclass_ascii_type ascii_cc, int inverted) {
+MN_INTERNAL re_error re__parse_finish_escape_class(re__parse* parse, re__charclass_ascii_type ascii_cc, int inverted) {
     re__parse_state top_state;
     re__charclass new_class;
     re_error err = RE_ERROR_NONE;
@@ -768,7 +768,7 @@ RE_INTERNAL re_error re__parse_finish_escape_class(re__parse* parse, re__charcla
     if (top_state == RE__PARSE_STATE_GND) {
         /* Wrap it in an AST node */
         re__ast new_node;
-        re_int32 new_class_ref;
+        mn_int32 new_class_ref;
         if ((err = re__ast_root_add_charclass(parse->ast_root, new_class, &new_class_ref))) {
             re__charclass_destroy(&new_class);
             return err;
@@ -780,7 +780,7 @@ RE_INTERNAL re_error re__parse_finish_escape_class(re__parse* parse, re__charcla
             return err;
         }
     } else if (top_state == RE__PARSE_STATE_CHARCLASS_AFTER_LO) {
-        RE_ASSERT(parse->charclass_lo_rune == -1);
+        MN_ASSERT(parse->charclass_lo_rune == -1);
         /* Add it to the charclass builder */
         if ((err = re__charclass_builder_insert_class(&parse->charclass_builder, &new_class))) {
             /* destroy charclass */
@@ -802,11 +802,11 @@ RE_INTERNAL re_error re__parse_finish_escape_class(re__parse* parse, re__charcla
     return err;
 }
 
-RE_INTERNAL void re__parse_defer(re__parse* parse) {
+MN_INTERNAL void re__parse_defer(re__parse* parse) {
     parse->defer = 1;
 }
 
-RE_INTERNAL re_error re__parse_create_star(re__parse* parse) {
+MN_INTERNAL re_error re__parse_create_star(re__parse* parse) {
     re__ast new_star;
     if (re__parse_frame_is_empty(parse)) {
         return re__parse_error(parse, "cannot use '*' operator with nothing");
@@ -816,7 +816,7 @@ RE_INTERNAL re_error re__parse_create_star(re__parse* parse) {
     return re__parse_wrap_node(parse, new_star);
 }
 
-RE_INTERNAL re_error re__parse_create_plus(re__parse* parse) {
+MN_INTERNAL re_error re__parse_create_plus(re__parse* parse) {
     re__ast new_plus;
     if (re__parse_frame_is_empty(parse)) {
         return re__parse_error(parse, "cannot use '+' operator with nothing");
@@ -826,7 +826,7 @@ RE_INTERNAL re_error re__parse_create_plus(re__parse* parse) {
     return re__parse_wrap_node(parse, new_plus);
 }
 
-RE_INTERNAL re_error re__parse_create_question(re__parse* parse) {
+MN_INTERNAL re_error re__parse_create_question(re__parse* parse) {
     re__ast new_question;
     if (re__parse_frame_is_empty(parse)) {
         return re__parse_error(parse, "cannot use '?' operator with nothing");
@@ -836,7 +836,7 @@ RE_INTERNAL re_error re__parse_create_question(re__parse* parse) {
     return re__parse_wrap_node(parse, new_question);
 }
 
-RE_INTERNAL re_error re__parse_create_repeat(re__parse* parse, re_int32 min, re_int32 max) {
+MN_INTERNAL re_error re__parse_create_repeat(re__parse* parse, mn_int32 min, mn_int32 max) {
     re__ast new_question;
     if (re__parse_frame_is_empty(parse)) {
         return re__parse_error(parse, "cannot use '{' operator with nothing");
@@ -852,21 +852,21 @@ RE_INTERNAL re_error re__parse_create_repeat(re__parse* parse, re_int32 min, re_
     return re__parse_wrap_node(parse, new_question);
 }
 
-RE_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
+MN_INTERNAL void re__parse_swap_greedy(re__parse* parse) {
     re__ast* quant;
     /* Cannot make nothing ungreedy */
-    RE_ASSERT(!re__parse_frame_is_empty(parse));
+    MN_ASSERT(!re__parse_frame_is_empty(parse));
     quant = re__ast_root_get(parse->ast_root, parse->ast_prev_child_ref);
     /* Must be a quantifier */
-    RE_ASSERT(quant->type == RE__AST_TYPE_QUANTIFIER);
+    MN_ASSERT(quant->type == RE__AST_TYPE_QUANTIFIER);
     re__ast_set_quantifier_greediness(quant, !re__ast_get_quantifier_greediness(quant));
 }
 
-RE_INTERNAL re_error re__parse_finish_named_class(re__parse* parse, int should_invert) {
+MN_INTERNAL re_error re__parse_finish_named_class(re__parse* parse, int should_invert) {
     re__charclass new_class;
     re_error err = RE_ERROR_NONE;
-    re__str_view name_view;
-    re__str_view_init_n(&name_view, parse->str_begin, (re_size)(parse->str_end - parse->str_begin));
+    mn__str_view name_view;
+    mn__str_view_init_n(&name_view, parse->str_begin, (mn_size)(parse->str_end - parse->str_begin));
     if ((err = re__charclass_init_from_str(&new_class, name_view, should_invert))) {
         if (err == RE_ERROR_INVALID) {
             return re__parse_error(parse, "invalid charclass name");
@@ -882,12 +882,12 @@ RE_INTERNAL re_error re__parse_finish_named_class(re__parse* parse, int should_i
     return err;
 }
 
-RE_INTERNAL void re__parse_str_clear(re__parse* parse, const re_char* begin) {
+MN_INTERNAL void re__parse_str_clear(re__parse* parse, const mn_char* begin) {
     parse->str_begin = begin;
     parse->str_end = begin;
 }
 
-RE_INTERNAL void re__parse_str_setend(re__parse* parse, const re_char* end) {
+MN_INTERNAL void re__parse_str_setend(re__parse* parse, const mn_char* end) {
     parse->str_end = end;
 }
 
@@ -902,10 +902,10 @@ RE_INTERNAL void re__parse_str_setend(re__parse* parse, const re_char* end) {
         goto error; \
     }
 
-RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) {
-    /*const re_char* start = regex;*/
-    const re_char* current = re__str_view_get_data(regex);
-    const re_char* end = current + re__str_view_size(regex);
+MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) {
+    /*const mn_char* start = regex;*/
+    const mn_char* current = mn__str_view_get_data(regex);
+    const mn_char* end = current + mn__str_view_size(regex);
     re_error err = RE_ERROR_NONE;
     /* ch will only be -1 if the if this is the last character, a.k.a.
      * "epsilon" as all the cool kids call it */
@@ -1630,21 +1630,21 @@ RE_INTERNAL re_error re__parse_str(re__parse* parse, const re__str_view* regex) 
                 RE__TRY(re__parse_error(parse, "expected a ']' to end named character class expression"));
             }
         } else {
-            RE__ASSERT_UNREACHED();
+            MN__ASSERT_UNREACHED();
         }
     }
     /* Parse state must equal ground when done. Other states must either defer
      * to ground or create errors. */
-    RE_ASSERT(parse->state == RE__PARSE_STATE_GND);
-    RE_ASSERT(re__parse_frame_vec_size(&parse->frames) == 0);
+    MN_ASSERT(parse->state == RE__PARSE_STATE_GND);
+    MN_ASSERT(re__parse_frame_vec_size(&parse->frames) == 0);
     parse->ast_root->depth_max = parse->depth_max + 1;
 #if RE_DEBUG
-    RE_ASSERT(re__ast_root_verify(parse->ast_root));
+    MN_ASSERT(re__ast_root_verify(parse->ast_root));
 #endif
     return RE_ERROR_NONE;
 error:
     if (err == RE_ERROR_PARSE) {
-        RE_ASSERT(re__str_size(&parse->re->data->error_string));
+        MN_ASSERT(mn__str_size(&parse->re->data->error_string));
     } else {
         re__set_error_generic(parse->re, err);
     }

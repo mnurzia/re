@@ -1,10 +1,10 @@
 #ifndef RE_API_H
 #define RE_API_H
 
-#include "pack/re_common_api.h"
+#include "_cpack/api.h"
 
 typedef int re_error;
-typedef re_int32 re_rune;
+typedef mn_int32 re_rune;
 
 #define RE_RUNE_MAX 0x10FFFF
 
@@ -26,8 +26,8 @@ typedef struct re {
 } re;
 
 typedef struct re_span {
-    re_size begin;
-    re_size end;
+    mn_size begin;
+    mn_size end;
 } re_span;
 
 #define RE__MATCH_GROUPS_MAX 10000
@@ -46,14 +46,14 @@ typedef enum re_match_groups_type {
 } re_match_groups_type;
 
 re_error re_init(re* reg, const char* regex);
-re_error re_init_set(re* reg, const char** regexes, re_uint32 regexes_size);
+re_error re_init_set(re* reg, const char** regexes, mn_uint32 regexes_size);
 void re_destroy(re* reg);
 
-const char* re_get_error(re* reg, re_size* error_len);
+const char* re_get_error(re* reg, mn_size* error_len);
 
-re_uint32 re_get_max_groups(re* reg);
+mn_uint32 re_get_max_groups(re* reg);
 
-re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, re_size string_size, re_span* out);
-re_error re_match_set(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* const* strings, re_size* string_sizes, re_uint32* out_match_index, re_span* out);
+re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, mn_size string_size, re_span* out);
+re_error re_match_set(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* const* strings, mn_size* string_sizes, mn_uint32* out_match_index, re_span* out);
 
 #endif

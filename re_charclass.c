@@ -1,13 +1,13 @@
 #include "re_internal.h"
 
-RE_VEC_IMPL_FUNC(re__rune_range, init)
-RE_VEC_IMPL_FUNC(re__rune_range, destroy)
-RE_VEC_IMPL_FUNC(re__rune_range, push)
-RE_VEC_IMPL_FUNC(re__rune_range, get)
-RE_VEC_IMPL_FUNC(re__rune_range, insert)
-RE_VEC_IMPL_FUNC(re__rune_range, size)
-RE_VEC_IMPL_FUNC(re__rune_range, clear)
-RE_VEC_IMPL_FUNC(re__rune_range, get_data)
+MN__VEC_IMPL_FUNC(re__rune_range, init)
+MN__VEC_IMPL_FUNC(re__rune_range, destroy)
+MN__VEC_IMPL_FUNC(re__rune_range, push)
+MN__VEC_IMPL_FUNC(re__rune_range, get)
+MN__VEC_IMPL_FUNC(re__rune_range, insert)
+MN__VEC_IMPL_FUNC(re__rune_range, size)
+MN__VEC_IMPL_FUNC(re__rune_range, clear)
+MN__VEC_IMPL_FUNC(re__rune_range, get_data)
 
 /* Holds a single ASCII character class. */
 typedef struct re__charclass_ascii {
@@ -40,42 +40,42 @@ static const re__charclass_ascii re__charclass_ascii_defaults[] = {
 
 #define RE__CHARCLASS_ASCII_DEFAULTS_SIZE (sizeof(re__charclass_ascii_defaults) / sizeof(re__charclass_ascii))
 
-RE_INTERNAL void re__charclass_init(re__charclass* charclass) {
+MN_INTERNAL void re__charclass_init(re__charclass* charclass) {
     re__rune_range_vec_init(&charclass->ranges);
 }
 
-RE_INTERNAL void re__charclass_destroy(re__charclass* charclass) {
+MN_INTERNAL void re__charclass_destroy(re__charclass* charclass) {
     re__rune_range_vec_destroy(&charclass->ranges);
 }
 
-RE_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range range) {
+MN_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range range) {
     re__rune_range temp;
-    RE_ASSERT(range.min <= range.max);
-    re__zero_mem(sizeof(temp), (void*)&temp);
+    MN_ASSERT(range.min <= range.max);
+    mn__memset((void*)&temp, 0, sizeof(temp));
     temp.min = range.min;
     temp.max = range.max;
     return re__rune_range_vec_push(&charclass->ranges, range);
 }
 
-RE_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass) {
+MN_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass) {
     const re__rune_range* out = re__rune_range_vec_get_data(&charclass->ranges);
-    RE_ASSERT(out != NULL);
+    MN_ASSERT(out != NULL);
     return out;
 }
 
-RE_INTERNAL re_size re__charclass_get_num_ranges(const re__charclass* charclass) {
+MN_INTERNAL mn_size re__charclass_get_num_ranges(const re__charclass* charclass) {
     return re__rune_range_vec_size(&charclass->ranges);
 }
 
-RE_INTERNAL const re__charclass_ascii* re__charclass_ascii_find(re__str_view name_view) {
-    re_size i;
-    const re__charclass_ascii* found = RE_NULL;
+MN_INTERNAL const re__charclass_ascii* re__charclass_ascii_find(mn__str_view name_view) {
+    mn_size i;
+    const re__charclass_ascii* found = MN_NULL;
     /* Search table for the matching named character class */
     for (i = 0; i < RE__CHARCLASS_ASCII_DEFAULTS_SIZE; i++) {
         const re__charclass_ascii* cur = &re__charclass_ascii_defaults[i];
-        re__str_view temp_view;
-        re__str_view_init_n(&temp_view, (re_char*)cur->name, (re_size)cur->name_size);
-        if (re__str_view_cmp(&temp_view, &name_view) == 0) {
+        mn__str_view temp_view;
+        mn__str_view_init_n(&temp_view, (mn_char*)cur->name, (mn_size)cur->name_size);
+        if (mn__str_view_cmp(&temp_view, &name_view) == 0) {
             found = cur;
             break;
         }
@@ -83,9 +83,9 @@ RE_INTERNAL const re__charclass_ascii* re__charclass_ascii_find(re__str_view nam
     return found;
 }
 
-RE_INTERNAL re_error re__charclass_init_from_ascii(re__charclass* charclass, const re__charclass_ascii* ascii_cc, int inverted) {
+MN_INTERNAL re_error re__charclass_init_from_ascii(re__charclass* charclass, const re__charclass_ascii* ascii_cc, int inverted) {
     re_error err = RE_ERROR_NONE;
-    re_size i;
+    mn_size i;
     re__rune_range temp;
     re_rune last_max = -1;
     /* Dump found ranges into a char class */
@@ -129,48 +129,48 @@ RE_INTERNAL re_error re__charclass_init_from_ascii(re__charclass* charclass, con
     return err;
 }
 
-RE_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re__charclass_ascii_type type, int inverted) {
+MN_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re__charclass_ascii_type type, int inverted) {
     return re__charclass_init_from_ascii(charclass, &re__charclass_ascii_defaults[type], inverted);
 }
 
 /* Returns RE_ERROR_INVALID if not found */
-RE_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, re__str_view name, int inverted) {
+MN_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, mn__str_view name, int inverted) {
     const re__charclass_ascii* found = re__charclass_ascii_find(name);
     /* Found is NULL if we didn't find anything during the loop */
-    if (found == RE_NULL) {
+    if (found == MN_NULL) {
         return RE_ERROR_INVALID;
     }
     return re__charclass_init_from_ascii(charclass, found, inverted);
 }
 
-RE_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder) {
+MN_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder) {
     re__rune_range_vec_init(&builder->ranges);
     builder->should_invert = 0;
     builder->highest = -1;
 }
 
-RE_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder) {
+MN_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder) {
     re__rune_range_vec_clear(&builder->ranges);
     builder->should_invert = 0;
     builder->highest = -1;
 }
 
-RE_INTERNAL void re__charclass_builder_destroy(re__charclass_builder* builder) {
+MN_INTERNAL void re__charclass_builder_destroy(re__charclass_builder* builder) {
     re__rune_range_vec_destroy(&builder->ranges);
 }
 
-RE_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder) {
+MN_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder) {
     builder->should_invert = 1;
 }
 
 /* Insert a range into the builder. */
 /* Inserts in sorted order, that is, all ranges are ordered by their low bound. */
-RE_INTERNAL re_error re__charclass_builder_insert_range(re__charclass_builder* builder, re__rune_range range) {
+MN_INTERNAL re_error re__charclass_builder_insert_range(re__charclass_builder* builder, re__rune_range range) {
     re_error err = RE_ERROR_NONE;
-    re_size i;
-    re_size max = re__rune_range_vec_size(&builder->ranges);
+    mn_size i;
+    mn_size max = re__rune_range_vec_size(&builder->ranges);
     /* The range should be normalized. */
-    RE_ASSERT(range.min <= range.max);
+    MN_ASSERT(range.min <= range.max);
     /* We don't want to penalize people who sort their character classes already,
      * so we check if the lower bound is higher than the absolute highest bound,
      * and just push it on the end of the list of ranges */
@@ -200,9 +200,9 @@ just_push:
 
 /* Insert a character class into a builder. */
 /* Used when putting a named character class inside of an unnamed one. */
-RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* builder, re__charclass* charclass) {
-    re_size i;
-    re_size sz = re__rune_range_vec_size(&charclass->ranges);
+MN_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* builder, re__charclass* charclass) {
+    mn_size i;
+    mn_size sz = re__rune_range_vec_size(&charclass->ranges);
     re_error err = RE_ERROR_NONE;
     for (i = 0; i < sz; i++) {
         /* Iterate through ranges, adding them all */
@@ -215,19 +215,19 @@ RE_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* b
     return err;
 }
 
-RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass) {
+MN_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass) {
     re_error err = RE_ERROR_NONE;
     /* Temporary range */
     re_rune temp_min = -1;
     re_rune temp_max = -1;
     re_rune last_temp_max = -1;
-    re_size i;
-    re_size ranges_size = re__rune_range_vec_size(&builder->ranges);
+    mn_size i;
+    mn_size ranges_size = re__rune_range_vec_size(&builder->ranges);
     re__rune_range new_range;
     re__charclass_init(charclass);
     for (i = 0; i < ranges_size; i++) {
         re__rune_range cur = re__rune_range_vec_get(&builder->ranges, i);
-        RE_ASSERT(cur.min <= cur.max);
+        MN_ASSERT(cur.min <= cur.max);
         if (temp_min == -1) {
             /* First range */
             temp_min = cur.min;
@@ -292,7 +292,7 @@ RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder
                     new_range.min = last_temp_max + 1;
                     new_range.max = temp_min - 1;
                 }
-                RE_ASSERT(new_range.min <= new_range.max + 1);
+                MN_ASSERT(new_range.min <= new_range.max + 1);
                 if (new_range.min <= new_range.max) {
                     if ((err = re__charclass_push(charclass, new_range))) {
                         goto destroy_out;
@@ -332,7 +332,7 @@ RE_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder
             new_range.min = last_temp_max + 1;
             new_range.max = temp_min - 1;
         }
-        RE_ASSERT(new_range.min <= new_range.max + 1);
+        MN_ASSERT(new_range.min <= new_range.max + 1);
         if (new_range.min <= new_range.max) {
             /* If the lo/hi are equal, then don't bother */
             if ((err = re__charclass_push(charclass, new_range))) {
@@ -361,9 +361,9 @@ destroy_out:
 }
 
 int re__charclass_equals(const re__charclass* charclass, const re__charclass* other) {
-    re_size cs = re__charclass_get_num_ranges(charclass);
-    re_size os = re__charclass_get_num_ranges(other);
-    re_size i;
+    mn_size cs = re__charclass_get_num_ranges(charclass);
+    mn_size os = re__charclass_get_num_ranges(other);
+    mn_size i;
     if (cs != os) {
         return 0;
     }
@@ -377,14 +377,16 @@ int re__charclass_equals(const re__charclass* charclass, const re__charclass* ot
     return 1;
 }
 
-#if RE_DEBUG
+#if MN_DEBUG
 
-void re__charclass_dump(const re__charclass* charclass, re_size lvl) {
-    re_size i;
-    re_size sz = re__rune_range_vec_size(&charclass->ranges);
+#include <stdio.h>
+
+void re__charclass_dump(const re__charclass* charclass, mn_size lvl) {
+    mn_size i;
+    mn_size sz = re__rune_range_vec_size(&charclass->ranges);
     for (i = 0; i < sz; i++) {
         re__rune_range cur = re__rune_range_vec_get(&charclass->ranges, i);
-        re_size j;
+        mn_size j;
         for (j = 0; j < lvl; j++) {
             printf("  ");
         }
@@ -392,8 +394,8 @@ void re__charclass_dump(const re__charclass* charclass, re_size lvl) {
     }
 }
 
-RE_INTERNAL int re__charclass_verify(const re__charclass* charclass) {
-    re_size i;
+MN_INTERNAL int re__charclass_verify(const re__charclass* charclass) {
+    mn_size i;
     re__rune_range last;
     last.min = -1;
     last.max = -1;

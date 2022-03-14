@@ -1,11 +1,11 @@
 #include "re_internal.h"
 
-RE_INTERNAL void re__compile_patches_init(re__compile_patches* patches) {
+MN_INTERNAL void re__compile_patches_init(re__compile_patches* patches) {
     patches->first_inst = RE__PROG_LOC_INVALID;
     patches->last_inst = RE__PROG_LOC_INVALID;
 }
 
-RE_INTERNAL void re__compile_patches_prepend(re__compile_patches* patches, re__prog* prog, re__prog_loc to, int secondary) {
+MN_INTERNAL void re__compile_patches_prepend(re__compile_patches* patches, re__prog* prog, re__prog_loc to, int secondary) {
     re__prog_loc out_val = to << 1;
     if (secondary) {
         out_val |= 1;
@@ -24,7 +24,7 @@ RE_INTERNAL void re__compile_patches_prepend(re__compile_patches* patches, re__p
     }
 }
 
-RE_INTERNAL void re__compile_patches_append(re__compile_patches* patches, re__prog* prog, re__prog_loc to, int secondary) {
+MN_INTERNAL void re__compile_patches_append(re__compile_patches* patches, re__prog* prog, re__prog_loc to, int secondary) {
     re__prog_loc out_val = to << 1;
     if (secondary) {
         out_val |= 1;
@@ -43,10 +43,10 @@ RE_INTERNAL void re__compile_patches_append(re__compile_patches* patches, re__pr
     }
 }
 
-RE_INTERNAL void re__compile_patches_merge(re__compile_patches* patches, re__prog* prog, re__compile_patches* merge_from) {
+MN_INTERNAL void re__compile_patches_merge(re__compile_patches* patches, re__prog* prog, re__compile_patches* merge_from) {
     re__prog_loc first_loc;
     re__prog_inst* inst;
-    RE_ASSERT(merge_from->first_inst != RE__PROG_LOC_INVALID);
+    MN_ASSERT(merge_from->first_inst != RE__PROG_LOC_INVALID);
     if (patches->first_inst == RE__PROG_LOC_INVALID) {
         *patches = *merge_from;
         return;
@@ -61,7 +61,7 @@ RE_INTERNAL void re__compile_patches_merge(re__compile_patches* patches, re__pro
     patches->last_inst = merge_from->last_inst;
 }
 
-RE_INTERNAL void re__compile_patches_patch(re__compile_patches* patches, re__prog* prog, re__prog_loc to) {
+MN_INTERNAL void re__compile_patches_patch(re__compile_patches* patches, re__prog* prog, re__prog_loc to) {
     re__prog_loc current_loc = patches->first_inst;
     re__prog_inst* inst = re__prog_get(prog, current_loc >> 1);
     while (current_loc != patches->last_inst) {
@@ -85,7 +85,6 @@ RE_INTERNAL void re__compile_patches_patch(re__compile_patches* patches, re__pro
 
 #if RE_DEBUG
 
-RE_VEC_DECL(re__prog_loc);
 RE_VEC_IMPL_FUNC(re__prog_loc, init)
 RE_VEC_IMPL_FUNC(re__prog_loc, destroy)
 RE_VEC_IMPL_FUNC(re__prog_loc, push)
@@ -93,7 +92,7 @@ RE_VEC_IMPL_FUNC(re__prog_loc, size)
 RE_VEC_IMPL_FUNC(re__prog_loc, get)
 
 /* check for cycles in compile_patches */
-RE_INTERNAL int re__compile_patches_verify(re__compile_patches* patches, re__prog* prog) {
+MN_INTERNAL int re__compile_patches_verify(re__compile_patches* patches, re__prog* prog) {
     re__prog_loc current_loc = patches->first_inst;
     re__prog_loc_vec found_list;
     if (patches->first_inst == RE__PROG_LOC_INVALID) {
@@ -102,7 +101,7 @@ RE_INTERNAL int re__compile_patches_verify(re__compile_patches* patches, re__pro
     re__prog_loc_vec_init(&found_list);
     /* O(n^2) so use with care! */
     while (current_loc != patches->last_inst) {
-        re_size i;
+        mn_size i;
         re__prog_inst* inst = re__prog_get(prog, current_loc >> 1);
         for (i = 0; i < re__prog_loc_vec_size(&found_list); i++) {
             re__prog_loc found = re__prog_loc_vec_get(&found_list, i);
@@ -121,7 +120,7 @@ RE_INTERNAL int re__compile_patches_verify(re__compile_patches* patches, re__pro
     return 1;
 }
 
-RE_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog* prog) {
+MN_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog* prog) {
     re__prog_loc current_loc = patches->first_inst;
     if (current_loc == RE__PROG_LOC_INVALID) {
         printf("<no patches>\n");
@@ -143,7 +142,7 @@ RE_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog
 
 #endif
 
-RE_INTERNAL void re__compile_frame_init(re__compile_frame* frame, re_int32 ast_base_ref, re_int32 ast_child_ref, re__compile_patches patches, re__prog_loc start, re__prog_loc end) {
+MN_INTERNAL void re__compile_frame_init(re__compile_frame* frame, mn_int32 ast_base_ref, mn_int32 ast_child_ref, re__compile_patches patches, re__prog_loc start, re__prog_loc end) {
     frame->ast_base_ref = ast_base_ref;
     frame->ast_child_ref = ast_child_ref;
     frame->patches = patches;
@@ -152,7 +151,7 @@ RE_INTERNAL void re__compile_frame_init(re__compile_frame* frame, re_int32 ast_b
     frame->rep_idx = 0;
 }
 
-RE_INTERNAL void re__compile_init(re__compile* compile) {
+MN_INTERNAL void re__compile_init(re__compile* compile) {
     compile->frames = NULL;
     compile->frames_size = 0;
     compile->frame_ptr = 0;
@@ -166,46 +165,46 @@ RE_INTERNAL void re__compile_init(re__compile* compile) {
     compile->reversed = 0;
 }
 
-RE_INTERNAL void re__compile_destroy(re__compile* compile) {
+MN_INTERNAL void re__compile_destroy(re__compile* compile) {
     re__compile_charclass_destroy(&compile->char_comp);
 }
 
-RE_INTERNAL void re__compile_frame_push(re__compile* compile, re__compile_frame frame) {
-    RE_ASSERT(compile->frame_ptr != compile->frames_size);
+MN_INTERNAL void re__compile_frame_push(re__compile* compile, re__compile_frame frame) {
+    MN_ASSERT(compile->frame_ptr != compile->frames_size);
     compile->frames[compile->frame_ptr++] = frame;
 }
 
-RE_INTERNAL re__compile_frame re__compile_frame_pop(re__compile* compile) {
-    RE_ASSERT(compile->frame_ptr != 0);
+MN_INTERNAL re__compile_frame re__compile_frame_pop(re__compile* compile) {
+    MN_ASSERT(compile->frame_ptr != 0);
     return compile->frames[--compile->frame_ptr];
 }
 
-RE_INTERNAL int re__compile_gen_utf8(re_rune codep, re_uint8* out_buf) {
+MN_INTERNAL int re__compile_gen_utf8(re_rune codep, mn_uint8* out_buf) {
     if (codep <= 0x7F) {
 		out_buf[0] = codep & 0x7F;
         return 1;
 	} else if (codep <= 0x07FF) {
-		out_buf[0] = (re_uint8)(((codep >>  6) & 0x1F) | 0xC0);
-		out_buf[1] = (re_uint8)(((codep >>  0) & 0x3F) | 0x80);
+		out_buf[0] = (mn_uint8)(((codep >>  6) & 0x1F) | 0xC0);
+		out_buf[1] = (mn_uint8)(((codep >>  0) & 0x3F) | 0x80);
         return 2;
 	} else if (codep <= 0xFFFF) {
-		out_buf[0] = (re_uint8)(((codep >> 12) & 0x0F) | 0xE0);
-		out_buf[1] = (re_uint8)(((codep >>  6) & 0x3F) | 0x80);
-		out_buf[2] = (re_uint8)(((codep >>  0) & 0x3F) | 0x80);
+		out_buf[0] = (mn_uint8)(((codep >> 12) & 0x0F) | 0xE0);
+		out_buf[1] = (mn_uint8)(((codep >>  6) & 0x3F) | 0x80);
+		out_buf[2] = (mn_uint8)(((codep >>  0) & 0x3F) | 0x80);
         return 3;
 	} else if (codep <= 0x10FFFF) {
-		out_buf[0] = (re_uint8)(((codep >> 18) & 0x07) | 0xF0);
-		out_buf[1] = (re_uint8)(((codep >> 12) & 0x3F) | 0x80);
-		out_buf[2] = (re_uint8)(((codep >>  6) & 0x3F) | 0x80);
-		out_buf[3] = (re_uint8)(((codep >>  0) & 0x3F) | 0x80);
+		out_buf[0] = (mn_uint8)(((codep >> 18) & 0x07) | 0xF0);
+		out_buf[1] = (mn_uint8)(((codep >> 12) & 0x3F) | 0x80);
+		out_buf[2] = (mn_uint8)(((codep >>  6) & 0x3F) | 0x80);
+		out_buf[3] = (mn_uint8)(((codep >>  0) & 0x3F) | 0x80);
         return 4;
 	} else {
-        RE__ASSERT_UNREACHED();
+        MN__ASSERT_UNREACHED();
         return 0;
 	}
 }
 
-RE_INTERNAL re_error re__compile_do_rune(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_rune(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates a single Byte or series of Byte instructions for a
      * UTF-8 codepoint. */
     /*    +0
@@ -217,10 +216,10 @@ RE_INTERNAL re_error re__compile_do_rune(re__compile* compile, re__compile_frame
      *        +-----1--> ... */
     re_error err = RE_ERROR_NONE;
     re__prog_inst new_inst;
-    re_uint8 utf8_bytes[4];
+    mn_uint8 utf8_bytes[4];
     int num_bytes = re__compile_gen_utf8(re__ast_get_rune(ast), utf8_bytes);
     int i;
-    RE__UNUSED(compile);
+    MN__UNUSED(compile);
     for (i = 0; i < num_bytes; i++) {
         if (!compile->reversed) {
             re__prog_inst_init_byte(
@@ -246,7 +245,7 @@ RE_INTERNAL re_error re__compile_do_rune(re__compile* compile, re__compile_frame
     return err;
 }
 
-RE_INTERNAL re_error re__compile_do_str(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_str(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates a single Byte or series of Byte instructions for a
      * string. */
     /*    +0
@@ -258,19 +257,19 @@ RE_INTERNAL re_error re__compile_do_str(re__compile* compile, re__compile_frame*
      *        +-----1--> ... */
     re_error err = RE_ERROR_NONE;
     re__prog_inst new_inst;
-    re__str_view str_view = re__ast_root_get_str_view(compile->ast_root, re__ast_get_str_ref(ast));
-    re_size i;
-    re_size sz = re__str_view_size(&str_view);
+    mn__str_view str_view = re__ast_root_get_str_view(compile->ast_root, re__ast_get_str_ref(ast));
+    mn_size i;
+    mn_size sz = mn__str_view_size(&str_view);
     for (i = 0; i < sz; i++) {
         if (!compile->reversed) {
             re__prog_inst_init_byte(
                 &new_inst, 
-                (re_uint8)re__str_view_get_data(&str_view)[i]
+                (mn_uint8)mn__str_view_get_data(&str_view)[i]
             );
         } else {
             re__prog_inst_init_byte(
                 &new_inst, 
-                (re_uint8)re__str_view_get_data(&str_view)[(sz - 1) - i]
+                (mn_uint8)mn__str_view_get_data(&str_view)[(sz - 1) - i]
             );
         }
         if (i == sz - 1) {
@@ -286,7 +285,7 @@ RE_INTERNAL re_error re__compile_do_str(re__compile* compile, re__compile_frame*
     return err;
 }
 
-RE_INTERNAL re_error re__compile_do_charclass(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_charclass(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates a character class, which is a complex series of Byte
      * and Split instructions. */
     const re__charclass* charclass = re__ast_root_get_charclass(compile->ast_root,
@@ -297,7 +296,7 @@ RE_INTERNAL re_error re__compile_do_charclass(re__compile* compile, re__compile_
         prog, &frame->patches, compile->reversed);
 }
 
-RE_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates each child node, and patches them all together,
      * leaving the final child's outgoing branch targets unpatched. */
     /*    +0        +L(C0)          ...
@@ -313,7 +312,7 @@ RE_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_fra
      *                      +---...---+                 */
     /* Assert that there are children to compile.
      * Currently, we disallow concats with zero children. */ 
-    RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
+    MN_ASSERT(ast->first_child_ref != RE__AST_NONE);
     if (!compile->reversed) {
         if (frame->ast_child_ref == RE__AST_NONE) {
             /* Before first child */
@@ -354,7 +353,7 @@ RE_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_fra
     return RE_ERROR_NONE; /* <- cool! */
 }
 
-RE_INTERNAL re_error re__compile_do_alt(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_alt(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* For each child node except for the last one, generates a SPLIT 
      * instruction, and then the instructions of the child.
      * Each split instruction's primary branch target is patched to the
@@ -385,7 +384,7 @@ RE_INTERNAL re_error re__compile_do_alt(re__compile* compile, re__compile_frame*
      *                                                      +---10-> ...
      */
     re_error err = RE_ERROR_NONE;
-    RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
+    MN_ASSERT(ast->first_child_ref != RE__AST_NONE);
     /* Unlike concats, we still go through alterations in the correct order. */
     /* if (!compile->reversed || compile->reversed) { */
     if (frame->ast_child_ref == RE__AST_NONE) {
@@ -448,7 +447,7 @@ RE_INTERNAL re_error re__compile_do_alt(re__compile* compile, re__compile_frame*
     return err;
 }
 
-RE_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /*   *   min=0 max=INF */ /* Spl E -> 1 to 2 and out, 2 to 1 */
     /*   +   min=1 max=INF */ /* E Spl -> 1 to 2, 2 to 1 and out */
     /*   ?   min=0 max=1   */ /* Spl E -> 1 to 2 and out, 2 to out */
@@ -462,13 +461,13 @@ RE_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile
     /* {n, } min=n max=INF */ /* E repeated, Spl -> spl to last and out */
     /* {n,m} min=n max=m+1 */ /* E repeated, E Spl E Spl E*/
     re_error err = RE_ERROR_NONE;
-    re_int32 min = re__ast_get_quantifier_min(ast);
-    re_int32 max = re__ast_get_quantifier_max(ast);
-    re_int32 int_idx = frame->rep_idx;
+    mn_int32 min = re__ast_get_quantifier_min(ast);
+    mn_int32 max = re__ast_get_quantifier_max(ast);
+    mn_int32 int_idx = frame->rep_idx;
     re__prog_loc this_start_pc = re__prog_size(prog);
     frame->rep_idx++;
-    RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
-    RE_ASSERT(ast->first_child_ref == ast->last_child_ref);
+    MN_ASSERT(ast->first_child_ref != RE__AST_NONE);
+    MN_ASSERT(ast->first_child_ref == ast->last_child_ref);
     /* Quantifiers are the same when reversed */
     if (int_idx < min) {
         /* Generate child min times */
@@ -549,13 +548,13 @@ RE_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile
     return err;
 }
 
-RE_INTERNAL re_error re__compile_do_group(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_group(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     re_error err = RE_ERROR_NONE;
     re__prog_inst new_inst;
-    re_uint32 group_idx;
+    mn_uint32 group_idx;
     re__ast_group_flags group_flags = re__ast_get_group_flags(ast);
-    RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
-    RE_ASSERT(ast->first_child_ref == ast->last_child_ref);
+    MN_ASSERT(ast->first_child_ref != RE__AST_NONE);
+    MN_ASSERT(ast->first_child_ref == ast->last_child_ref);
     if (frame->ast_child_ref == RE__AST_NONE) {
         /* Before child */
         if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
@@ -595,7 +594,7 @@ RE_INTERNAL re_error re__compile_do_group(re__compile* compile, re__compile_fram
     return err;
 }
 
-RE_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates a single Assert instruction. */
     /*    +0
      * ~~~+-------+~~~
@@ -607,10 +606,10 @@ RE_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_fra
     re_error err = RE_ERROR_NONE;
     re__prog_inst new_inst;
     re__prog_loc assert_pc = re__prog_size(prog);
-    RE__UNUSED(compile);
+    MN__UNUSED(compile);
     re__prog_inst_init_assert(
         &new_inst,
-        (re_uint32)re__ast_get_assert_type(ast)
+        (mn_uint32)re__ast_get_assert_type(ast)
     ); /* Creates unpatched branch (1) */
     if ((err = re__prog_add(prog, new_inst))) {
         return err;
@@ -620,14 +619,14 @@ RE_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_fra
     return err;
 }
 
-RE_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates a sequence of instructions corresponding to a single
      * UTF-8 codepoint. */
     re_error err = RE_ERROR_NONE;
     re__prog_inst new_inst;
     re__prog_loc begin = re__prog_size(prog);
     re__prog_loc ptr = begin;
-    re_uint8 compressed_insts_data[] = {
+    mn_uint8 compressed_insts_data[] = {
         0x00,             0x01, 0x02, /* SPLIT -> 1, 2 */
         0x01, 0x00, 0x7F, 0x00,       /* RANGE 0, 127 -> out */
         0x00,             0x03, 0x05, /* SPLIT -> 3, 5 */
@@ -649,9 +648,9 @@ RE_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_f
         0x01, 0x80, 0x8F, 0x0A,       /* RANGE 128, 143 -> 10 */
         0x03                          /* END */
     };
-    re_uint8* compressed_insts = compressed_insts_data;
-    RE__UNUSED(compile);
-    RE__UNUSED(ast);
+    mn_uint8* compressed_insts = compressed_insts_data;
+    MN__UNUSED(compile);
+    MN__UNUSED(ast);
     while (*compressed_insts != 0x03) {
         re__prog_loc primary;
         if (*compressed_insts == 0x00) {
@@ -690,7 +689,7 @@ RE_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_f
     return err;
 }
 
-RE_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
+MN_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates a single Byte Range instruction. */
     /*    +0
      * ~~~+-------+~~~
@@ -703,8 +702,8 @@ RE_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_f
     re__prog_inst new_inst;
     re__prog_loc byte_range_pc = re__prog_size(prog);
     re__byte_range br;
-    RE__UNUSED(compile);
-    RE__UNUSED(ast);
+    MN__UNUSED(compile);
+    MN__UNUSED(ast);
     br.min = 0;
     br.max = 255;
     re__prog_inst_init_byte_range(
@@ -719,7 +718,7 @@ RE_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_f
     return err;
 }
 
-RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog, int reversed) {
+MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog, int reversed) {
     re_error err = RE_ERROR_NONE;
     re__compile_frame initial_frame;
     re__compile_patches initial_patches;
@@ -732,8 +731,8 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
     /* depth_max + 1 because we include an extra frame for terminals within the
      * deepest multi-child node */
     compile->frames_size = ast_root->depth_max;
-    compile->frames = (re__compile_frame*)RE_MALLOC((sizeof(re__compile_frame)*((re_size)compile->frames_size)));
-    if (compile->frames == RE_NULL) {
+    compile->frames = (re__compile_frame*)MN_MALLOC((sizeof(re__compile_frame)*((mn_size)compile->frames_size)));
+    if (compile->frames == MN_NULL) {
         err = RE_ERROR_NOMEM;
         goto error;
     }
@@ -786,7 +785,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
                 err = re__compile_do_any_byte(compile, &top_frame, top_node, prog);
                 break;
             default:
-                RE__ASSERT_UNREACHED();
+                MN__ASSERT_UNREACHED();
         }
         if (err) {
             goto error;
@@ -797,7 +796,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
             re__compile_frame up_frame;
             re__compile_patches up_patches;
 
-            RE_ASSERT(compile->should_push_child_ref != RE__AST_NONE);
+            MN_ASSERT(compile->should_push_child_ref != RE__AST_NONE);
             re__compile_frame_push(compile, top_frame);
             /* Prepare the child's patches */
             re__compile_patches_init(&up_patches);
@@ -815,7 +814,7 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
         compile->returned_frame = top_frame;
     }
     /* There should be no more frames. */
-    RE_ASSERT(compile->frame_ptr == 0);
+    MN_ASSERT(compile->frame_ptr == 0);
     /* Link the returned patches to a final MATCH instruction. */
     re__compile_patches_patch(&compile->returned_frame.patches, prog, re__prog_size(prog));
     {
@@ -825,12 +824,12 @@ RE_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
             goto error;
         }
     }
-    RE_FREE(compile->frames);
+    MN_FREE(compile->frames);
     compile->frames = NULL;
     return err;
 error:
-    if (compile->frames != RE_NULL) {
-        RE_FREE(compile->frames);
+    if (compile->frames != MN_NULL) {
+        MN_FREE(compile->frames);
     }
     compile->frames = NULL;
     /*
@@ -845,7 +844,7 @@ error:
         re__str_destroy(&err_str);
     }
     if (err == RE_ERROR_COMPILE) {
-        RE_ASSERT(re__str_size(&compile->re->data->error_string));
+        MN_ASSERT(re__str_size(&compile->re->data->error_string));
     } else {
         re__set_error_generic(compile->re, err);
     }*/
@@ -855,8 +854,8 @@ error:
 #if RE_DEBUG
 
 void re__compile_debug_dump(re__compile* compile) {
-    re_int32 i;
-    printf("%u frames / %u frames:\n", (re_uint32)compile->frame_ptr, (re_uint32)compile->frames_size);
+    mn_int32 i;
+    printf("%u frames / %u frames:\n", (mn_uint32)compile->frame_ptr, (mn_uint32)compile->frames_size);
     for (i = 0; i < compile->frames_size; i++) {
         re__compile_frame* cur_frame = &compile->frames[i];
         printf("  Frame %u:\n", i);
