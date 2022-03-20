@@ -305,7 +305,7 @@ void re__compile_charclass_hash_tree(re__compile_charclass* char_comp, mn_uint32
                 hash_obj.down_hash = child_child->aux;
             }
             /* Murmurhash seemed good... */
-            child->aux = mn__murmurhash3_32((const mn_uint8*)&hash_obj, sizeof(hash_obj));
+            child->aux = mn__murmurhash3_32(0, (const mn_uint8*)&hash_obj, sizeof(hash_obj));
         }
         sibling_ref = child_ref;
         sibling = child;

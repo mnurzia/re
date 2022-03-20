@@ -366,9 +366,8 @@ MN_INTERNAL mn_uint32 mn__murmurhash3_fmix32(mn_uint32 h) {
 }
 
 /* Note: this behaves differently on machines with different endians. */
-MN_INTERNAL mn_uint32 mn__murmurhash3_32(const mn_uint8* data, mn_size data_len) {
+MN_INTERNAL mn_uint32 mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_len) {
     const mn_size num_blocks = data_len / 4;
-    mn_uint32 h1 = 0xDEADBEEF;
     const mn_uint32 c1 = 0xCC9E2D51;
     const mn_uint32 c2 = 0x1B873593;
     mn_size i;

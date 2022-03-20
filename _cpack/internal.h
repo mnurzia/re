@@ -74,7 +74,7 @@ void mn__memset(void* ptr, int value, mn_size count);
 #define MN__UNUSED(x) ((void)(x))
 
 /* algorithm/hash/murmur3 */
-mn_uint32 mn__murmurhash3_32(const mn_uint8* data, mn_size data_len);
+mn_uint32 mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_len);
 
 /* container/vec */
 #define MN__VEC_TYPE(T) \
