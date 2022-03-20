@@ -85,16 +85,25 @@ mn_uint32 re_get_max_groups(re* reg) {
  * -- | DFA-F   | DFA-F+R | NFA-F
  */
 
+MN_INTERNAL re__ast_assert_type re__match_next_assert_ctx(mn_size pos, mn_size len) {
+    re__ast_assert_type out = 0;
+    if (pos == 0) {
+        out |= RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_START;
+    }
+    if (pos == len) {
+        out |= RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_END;
+    }
+    return out;
+}
+
 re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, mn_size string_size, re_span* out) {
     re_error err = RE_ERROR_NONE;
     re__exec_nfa exec_nfa;
     mn__str_view string_view;
-    mn_uint32 nfa_num_groups;
     if (groups_type < RE_MATCH_GROUPS_NONE) {
         return RE_ERROR_INVALID;
     }
-    nfa_num_groups = (mn_uint32)(groups_type + 1);
-    if (nfa_num_groups > re__ast_root_get_num_groups(&reg->data->ast_root) + 1) {
+    if (groups_type > (re_match_groups_type)re__ast_root_get_num_groups(&reg->data->ast_root)) {
         return RE_ERROR_INVALID;
     }
     if (!re__prog_size(&reg->data->program)) {
@@ -109,13 +118,36 @@ re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_typ
             }
         }
     }
-    re__exec_nfa_init(&exec_nfa, &reg->data->program, anchor_type, nfa_num_groups);
-    mn__str_view_init_n(&string_view, string, string_size);
-    nfa_num_groups = (mn_uint32)(groups_type + 1);
-    if ((err = re__exec_nfa_do(&exec_nfa, &reg->data->program, anchor_type, nfa_num_groups, string_view, out))) {
-        re__exec_nfa_destroy(&exec_nfa);
-        return err;
+    if (groups_type == RE_MATCH_GROUPS_ALL) {
+        groups_type = re__ast_root_get_num_groups(&reg->data->ast_root);
     }
+    re__exec_nfa_init(&exec_nfa, &reg->data->program, groups_type);
+    mn__str_view_init_n(&string_view, string, string_size);
+    {
+        mn_size pos;
+        mn_size assert_ctx = RE__AST_ASSERT_TYPE_TEXT_START | RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE;
+        re_error res;
+        if ((err = re__exec_nfa_start(&exec_nfa, assert_ctx, 1))) {
+            goto error;
+        }
+        for (pos = 0; pos < mn__str_view_size(&string_view); pos++) {
+            mn_char ch = mn__str_view_get_data(&string_view)[pos];
+            assert_ctx = re__match_next_assert_ctx(pos, mn__str_view_size(&string_view));
+            res = re__exec_nfa_run(&exec_nfa, ch, pos, assert_ctx);
+            if (res >= 0) {
+                if (anchor_type == RE_MATCH_ANCHOR_BOTH || anchor_type == RE_MATCH_ANCHOR_END) {
+                    /* can bail! */
+                    break;
+                }
+            } else if (res == RE_NOMATCH) {
+                /* continue... */
+            } else {
+                goto error;
+            }
+        }
+        err = re__exec_nfa_finish(&exec_nfa, out, pos);
+    }
+error:
     re__exec_nfa_destroy(&exec_nfa);
     return err;
 }

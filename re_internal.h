@@ -780,8 +780,7 @@ MN_INTERNAL re_error re__exec_save_do_save(re__exec_save* save, mn_int32* slots_
 /* Execution context. */
 typedef struct re__exec_nfa {
     const re__prog* prog;
-    re_match_anchor_type anchor_type;
-    mn_uint32 num_groups;
+    re_match_groups_type num_groups;
     re__exec_thrd_set set_a;
     re__exec_thrd_set set_b;
     re__exec_thrd_set set_c;
@@ -789,44 +788,64 @@ typedef struct re__exec_nfa {
     re__exec_save save_slots;
 } re__exec_nfa;
 
-MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, const re__prog* prog, re_match_anchor_type anchor_type, mn_uint32 num_groups);
+MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, const re__prog* prog, re_match_groups_type num_groups);
 MN_INTERNAL const re__exec_thrd* re__exec_nfa_get_thrds(re__exec_nfa* exec, re__prog_loc* out_thrds_size);
 MN_INTERNAL void re__exec_nfa_set_thrds(re__exec_nfa* exec, const re__prog_loc* in_thrds, re__prog_loc in_thrds_size);
 MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type assert_ctx, re__prog_loc start_loc);
 MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_char ch, mn_size pos, re__ast_assert_type assert_ctx);
-MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out);
+MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
-
-MN_INTERNAL re_error re__exec_nfa_do(re__exec_nfa* exec, re__prog* prog, re_match_anchor_type anchor_type, mn_uint32 num_groups, mn__str_view str_view, re_span* out);
-MN_INTERNAL re_error re__exec_dfa_do(re__exec_nfa* exec, re__prog* prog, mn__str_view str_view, mn_uint32* out_end, mn_uint32* out_match);
 
 MN__VEC_DECL(re__prog_loc);
 
+#define RE__EXEC_DFA_PAGE_SIZE 4
+#define RE__EXEC_DFA_THRD_LOCS_PAGE_SIZE 1024
+
+enum re__exec_dfa_sym {
+    RE__EXEC_DFA_SYM_EOT = 256,
+    RE__EXEC_DFA_SYM_MAX
+};
+
+typedef struct re__exec_dfa_state re__exec_dfa_state;
+
+typedef re__exec_dfa_state* re__exec_dfa_state_ptr;
+
 /* DFA state. */
-typedef struct re__exec_dfa_state {
-    mn_uint32 next[256];
+struct re__exec_dfa_state {
+    re__exec_dfa_state_ptr next[RE__EXEC_DFA_SYM_MAX];
+    re__ast_assert_type assert_ctx;
     mn_uint32 match_idx;
-    mn_uint32 thrd_locs_begin;
-    mn_uint32 thrd_locs_end;
-} re__exec_dfa_state;
+    mn_uint32* thrd_locs_begin;
+    mn_uint32* thrd_locs_end;
+};
 
-MN__VEC_DECL(re__exec_dfa_state);
-
-typedef struct re__exec_dfa_hash_entry {
+typedef struct re__exec_dfa_cache_entry {
+    re__exec_dfa_state_ptr state_ptr;
     mn_uint32 hash;
-    mn_uint32 state_ref;
-} re__exec_dfa_hash_entry;
+} re__exec_dfa_cache_entry;
 
-MN__VEC_DECL(re__exec_dfa_hash_entry);
+typedef mn_uint32* mn_uint32_ptr;
+
+MN__VEC_DECL(re__exec_dfa_state_ptr);
+MN__VEC_DECL(mn_uint32_ptr);
 
 typedef struct re__exec_dfa {
-    re__exec_dfa_state_vec states;
-    re__prog_loc_vec thrd_locs;
-    re__exec_dfa_hash_entry_vec hash_map;
+    re__exec_dfa_state_ptr current_state;
+    re__exec_dfa_state_ptr_vec state_pages;
+    mn_size state_page_idx;
+    mn_uint32_ptr_vec thrd_loc_pages;
+    mn_size thrd_loc_page_idx;
+    re__exec_nfa nfa;
+    /* targets a load factor of 0.75 */
+    re__exec_dfa_cache_entry* cache;
+    mn_size cache_stored;
+    mn_size cache_alloc;
 } re__exec_dfa;
 
-MN_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec);
+MN_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog);
 MN_INTERNAL void re__exec_dfa_destroy(re__exec_dfa* exec);
+MN_INTERNAL re_error re__exec_dfa_start(re__exec_dfa* exec, re__ast_assert_type assert_ctx, re__prog_loc start_loc);
+MN_INTERNAL re_error re__exec_dfa_run(re__exec_dfa* exec, mn_char ch, re__ast_assert_type assert_ctx);
 
 /* Internal data structure */
 struct re_data {
