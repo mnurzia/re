@@ -627,7 +627,7 @@ MN_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_f
     if (compile->reversed) {
         id = RE__PROG_DATA_ID_DOT_REV_ACCSURR;
     }
-return re__prog_decompress(prog, re__prog_data[id], re__prog_data_size[id], &frame->patches);
+return re__prog_data_decompress(prog, re__prog_data[id], re__prog_data_size[id], &frame->patches);
 }
 
 MN_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
@@ -811,7 +811,7 @@ MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed) {
         return err;
     }
     re__compile_patches_init(&patches);
-    if ((err = re__prog_decompress(prog, re__prog_data[id], re__prog_data_size[id], &patches))) {
+    if ((err = re__prog_data_decompress(prog, re__prog_data[id], re__prog_data_size[id], &patches))) {
         return err;
     }
     re__compile_patches_patch(&patches, prog, entry);

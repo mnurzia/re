@@ -787,7 +787,7 @@ typedef enum re__prog_data_id {
 
 MN_INTERNAL mn_uint8* re__prog_data[RE__PROG_DATA_ID_MAX];
 MN_INTERNAL mn_size re__prog_data_size[RE__PROG_DATA_ID_MAX];
-MN_INTERNAL re_error re__prog_decompress(re__prog* prog, mn_uint8* compressed, mn_size compressed_size, re__compile_patches* patches);
+MN_INTERNAL re_error re__prog_data_decompress(re__prog* prog, mn_uint8* compressed_data, mn_size compressed_size, re__compile_patches* patches);
 
 
 /* ---------------------------------------------------------------------------

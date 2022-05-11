@@ -303,7 +303,7 @@ MN_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__exec_thrd thrd, re_
     }
     while (re__exec_thrd_vec_size(&exec->thrd_stk)) {
         re__exec_thrd top = re__exec_thrd_vec_pop(&exec->thrd_stk);
-        const re__prog_inst* inst = re__prog_cget(exec->prog, top.loc);
+        const re__prog_inst* inst = re__prog_get_const(exec->prog, top.loc);
         re__prog_inst_type inst_type;
         MN_ASSERT(top.loc != 0);
         if (re__exec_thrd_set_ismemb(&exec->set_c, top)) {
@@ -409,7 +409,7 @@ MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_char ch, mn_size po
     re_error err = RE_ERROR_NONE;
     for (j = 0; j < exec->set_a.n; j++) {
         re__exec_thrd cur_thrd = exec->set_a.dense[j];
-        const re__prog_inst* cur_inst = re__prog_cget(exec->prog, cur_thrd.loc);
+        const re__prog_inst* cur_inst = re__prog_get_const(exec->prog, cur_thrd.loc);
         re__prog_inst_type cur_inst_type = re__prog_inst_get_type(cur_inst);
         if (cur_inst_type == RE__PROG_INST_TYPE_BYTE) {
             if (ch == re__prog_inst_get_byte(cur_inst)) {

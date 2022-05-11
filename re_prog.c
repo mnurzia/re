@@ -152,7 +152,7 @@ MN_INTERNAL re__prog_inst* re__prog_get(re__prog* prog, re__prog_loc loc) {
     return re__prog_inst_vec_getref(&prog->_instructions, loc);
 }
 
-MN_INTERNAL const re__prog_inst* re__prog_cget(const re__prog* prog, re__prog_loc loc) {
+MN_INTERNAL const re__prog_inst* re__prog_get_const(const re__prog* prog, re__prog_loc loc) {
     return re__prog_inst_vec_getcref(&prog->_instructions, loc);
 }
 
@@ -181,111 +181,6 @@ MN_INTERNAL int re__prog_equals(re__prog* a, re__prog* b) {
     return 1;
 }
 
-MN_INTERNAL re_error re__prog_decompress_read_loc(mn_uint8* compressed, mn_size compressed_size, mn_size* ptr, re__prog_loc* out_loc) {
-    re__prog_loc loc = 0;
-    mn_uint8 byte;
-    int len = 0;
-    if (compressed_size == *ptr) {
-        return RE__ERROR_COMPRESSION_FORMAT;
-    }
-    byte = compressed[*ptr];
-    (*ptr)++;
-    loc = byte & 0x7F;
-    len++;
-    while ((byte & 0x80) == 0x80) {
-        if (compressed_size == *ptr) {
-            return RE__ERROR_COMPRESSION_FORMAT;
-        }
-        byte = compressed[*ptr];
-        (*ptr)++;
-        loc <<= 7;
-        loc |= byte & 0x7F;
-        len++;
-        if (len == 3) {
-            return RE__ERROR_COMPRESSION_FORMAT;
-        }
-    }
-    *out_loc = loc;
-    return RE_ERROR_NONE;
-}
-
-MN_INTERNAL re_error re__prog_decompress(re__prog* prog, mn_uint8* compressed, mn_size compressed_size, re__compile_patches* patches) {
-    mn_size ptr = 0;
-    re_error err;
-    re__prog_inst inst;
-    re__prog_loc offset = re__prog_size(prog) - 1;
-    while (1) {
-        mn_uint8 inst_type;
-        if (ptr == compressed_size) {
-            break;
-        }
-        inst_type = compressed[ptr++];
-        if (inst_type == 0) { /* BYTE */
-            mn_uint8 byte_val;
-            re__prog_loc primary;
-            if (ptr == compressed_size) {
-                return RE__ERROR_COMPRESSION_FORMAT;
-            }
-            byte_val = compressed[ptr++];
-            if ((err = re__prog_decompress_read_loc(compressed, compressed_size, &ptr, &primary))) {
-                return err;
-            }
-            re__prog_inst_init_byte(&inst, byte_val);
-            if (primary == 0) {
-                re__compile_patches_append(patches, prog, re__prog_size(prog), 0);
-            } else {
-                re__prog_inst_set_primary(&inst, primary + offset);
-            }
-        } else if (inst_type == 1) { /* RANGE */
-            re__byte_range range;
-            re__prog_loc primary;
-            if (ptr == compressed_size) {
-                return RE__ERROR_COMPRESSION_FORMAT;
-            }
-            range.min = compressed[ptr++];
-            if (ptr == compressed_size) {
-                return RE__ERROR_COMPRESSION_FORMAT;
-            }
-            range.max = compressed[ptr++];
-            if ((err = re__prog_decompress_read_loc(compressed, compressed_size, &ptr, &primary))) {
-                return err;
-            }
-            re__prog_inst_init_byte_range(&inst, range);
-            if (primary == 0) {
-                re__compile_patches_append(patches, prog, re__prog_size(prog), 0);
-            } else {
-                re__prog_inst_set_primary(&inst, primary + offset);
-            }
-        } else if (inst_type == 2) { /* SPLIT */
-            re__prog_loc primary;
-            re__prog_loc secondary;
-            if ((err = re__prog_decompress_read_loc(compressed, compressed_size, &ptr, &primary))) {
-                return err;
-            }
-            if ((err = re__prog_decompress_read_loc(compressed, compressed_size, &ptr, &secondary))) {
-                return err;
-            }
-            re__prog_inst_init_split(&inst, 0, 0);
-            if (primary == 0) {
-                re__compile_patches_append(patches, prog, re__prog_size(prog), 0);
-            } else {
-                re__prog_inst_set_primary(&inst, primary + offset);
-            }
-            if (secondary == 0) {
-                re__compile_patches_append(patches, prog, re__prog_size(prog), 1);
-            } else {
-                re__prog_inst_set_split_secondary(&inst, secondary + offset);
-            }
-        } else {
-            return RE__ERROR_COMPRESSION_FORMAT;
-        }
-        if ((err = re__prog_add(prog, inst))) {
-            return err;
-        }
-    }
-    return RE_ERROR_NONE;
-}
-
 MN_INTERNAL void re__prog_set_entry(re__prog* prog, re__prog_entry idx, re__prog_loc loc) {
     MN_ASSERT(idx < RE__PROG_ENTRY_MAX);
     prog->_entrypoints[idx] = loc;
@@ -303,7 +198,7 @@ MN_INTERNAL re__prog_loc re__prog_get_entry(const re__prog* prog, re__prog_entry
 MN_INTERNAL void re__prog_debug_dump(const re__prog* prog) {
     re__prog_loc i;
     for (i = 0; i < re__prog_size(prog); i++) {
-        const re__prog_inst* inst = re__prog_cget(prog, i);
+        const re__prog_inst* inst = re__prog_get_const(prog, i);
         printf("%04X | ", i);
         switch (re__prog_inst_get_type(inst)) {
             case RE__PROG_INST_TYPE_BYTE:
