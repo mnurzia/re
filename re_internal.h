@@ -525,6 +525,28 @@ MN_INTERNAL void re__compile_patches_dump(re__compile_patches* patches, re__prog
 
 #endif
 
+
+/* ---------------------------------------------------------------------------
+ * Pre-compiled programs (re_prog_data.c)
+ * ------------------------------------------------------------------------ */
+/* Pre-compiled programs, at this point they only exist as optimized UTF-8 .
+ * representations */
+typedef enum re__prog_data_id {
+    /* dot, forward, accept surrogates */
+    RE__PROG_DATA_ID_DOT_FWD_ACCSURR,
+    /* dot, reverse, accept surrogates */
+    RE__PROG_DATA_ID_DOT_REV_ACCSURR,
+    /* dot, forward, reject surrogates */
+    RE__PROG_DATA_ID_DOT_FWD_REJSURR,
+    /* dot, reverse, accept surrogates */
+    RE__PROG_DATA_ID_DOT_REV_REJSURR,
+    RE__PROG_DATA_ID_MAX
+} re__prog_data_id;
+
+MN_INTERNAL mn_uint8* re__prog_data[RE__PROG_DATA_ID_MAX];
+MN_INTERNAL mn_size re__prog_data_size[RE__PROG_DATA_ID_MAX];
+MN_INTERNAL re_error re__prog_decompress(re__prog* prog, mn_uint8* compressed, mn_size compressed_size, re__compile_patches* patches);
+
 typedef struct re__compile_charclass re__compile_charclass;
 
 /* Tree node, used for representing a character class. */

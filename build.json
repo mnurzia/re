@@ -36,6 +36,7 @@
             "re_exec_nfa.c",
             "re_parse.c",
             "re_prog.c",
+            "re_prog_data.c",
             "re_range.c",
             "re_re.c"
         ],
