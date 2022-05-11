@@ -3,31 +3,36 @@
 
 #include "api.h"
 
-/* math/max */
+/* bits/math/implies */
+#define MN__IMPLIES(a, b) (!(a) || b)
+
+/* bits/math/max */
 #define MN__MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-/* math/min */
+/* bits/math/min */
 #define MN__MIN(a, b) (((a) < (b)) ? (a) : (b))
 
-/* util/exports */
+/* bits/util/exports */
 #if !defined(MN__SPLIT_BUILD)
 #define MN_INTERNAL static
 #else
 #define MN_INTERNAL extern
 #endif
 
-/* util/preproc/stringify */
+#define MN_INTERNAL_DATA static
+
+/* bits/util/preproc/stringify */
 #define MN__STRINGIFY_0(x) #x
 #define MN__STRINGIFY(x) MN__STRINGIFY_0(x)
 
-/* util/preproc/token_paste */
+/* bits/util/preproc/token_paste */
 #define MN__PASTE_0(a, b) a ## b
 #define MN__PASTE(a, b) MN__PASTE_0(a, b)
 
-/* util/static_assert */
+/* bits/util/static_assert */
 #define MN__STATIC_ASSERT(name, expr) char MN__PASTE(mn__, name)[(expr)==1]
 
-/* container/str */
+/* bits/container/str */
 typedef struct mn__str {
     mn_size _size_short; /* does not include \0 */
     mn_size _alloc; /* does not include \0 */
@@ -50,7 +55,7 @@ const mn_char* mn__str_get_data(const mn__str* str);
 int mn__str_cmp(const mn__str* str_a, const mn__str* str_b);
 mn_size mn__str_slen(const mn_char* chars);
 
-/* container/str_view */
+/* bits/container/str_view */
 typedef struct mn__str_view {
     const mn_char* _data;
     mn_size _size;
@@ -64,19 +69,19 @@ mn_size mn__str_view_size(const mn__str_view* view);
 const mn_char* mn__str_view_get_data(const mn__str_view* view);
 int mn__str_view_cmp(const mn__str_view* a, const mn__str_view* b);
 
-/* hooks/memset */
+/* bits/hooks/memset */
 void mn__memset(void* ptr, int value, mn_size count);
 
-/* util/unreached */
+/* bits/util/unreached */
 #define MN__ASSERT_UNREACHED() MN_ASSERT(0)
 
-/* util/unused */
+/* bits/util/unused */
 #define MN__UNUSED(x) ((void)(x))
 
-/* algorithm/hash/murmur3 */
+/* bits/algorithm/hash/murmur3 */
 mn_uint32 mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_len);
 
-/* container/vec */
+/* bits/container/vec */
 #define MN__VEC_TYPE(T) \
     MN__PASTE(T, _vec)
 
@@ -379,7 +384,7 @@ mn_uint32 mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_le
         return 0; \
     }
 
-/* container/arena */
+/* bits/container/arena */
 #define MN__ARENA_REF_NONE -1
 
 #define MN__ARENA_TYPE(T) \

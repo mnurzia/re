@@ -3,10 +3,10 @@
 
 #include "config.h"
 
-/* types/size */
+/* bits/types/size */
 typedef MN_SIZE_TYPE mn_size;
 
-/* util/cstd */
+/* bits/util/cstd */
 /* If __STDC__ is not defined, assume C89. */
 #ifndef __STDC__
     #define MN__CSTD 1989
@@ -22,7 +22,7 @@ typedef MN_SIZE_TYPE mn_size;
     #endif
 #endif
 
-/* util/debug */
+/* bits/util/debug */
 #if !MN_DEBUG
 #if defined(NDEBUG)
 #if NDEBUG == 0
@@ -33,7 +33,7 @@ typedef MN_SIZE_TYPE mn_size;
 #endif
 #endif
 
-/* util/exports */
+/* bits/util/exports */
 #if !defined(MN__SPLIT_BUILD)
 #if MN_STATIC
 #define MN_API static
@@ -44,17 +44,17 @@ typedef MN_SIZE_TYPE mn_size;
 #define MN_API extern
 #endif
 
-/* util/null */
+/* bits/util/null */
 #define MN_NULL 0
 
-/* types/char */
+/* bits/types/char */
 #if !defined(MN_CHAR_TYPE)
 #define MN_CHAR_TYPE char
 #endif
 
 typedef MN_CHAR_TYPE mn_char;
 
-/* types/fixed/int32 */
+/* bits/types/fixed/int32 */
 #if !defined(MN_INT32_TYPE)
 #if MN__CSTD >= 1999
 #include <stdint.h>
@@ -66,7 +66,7 @@ typedef MN_CHAR_TYPE mn_char;
 
 typedef MN_INT32_TYPE mn_int32;
 
-/* types/fixed/uint32 */
+/* bits/types/fixed/uint32 */
 #if !defined(MN_UINT32_TYPE)
 #if MN__CSTD >= 1999
 #include <stdint.h>
@@ -78,7 +78,7 @@ typedef MN_INT32_TYPE mn_int32;
 
 typedef MN_UINT32_TYPE mn_uint32;
 
-/* types/fixed/uint8 */
+/* bits/types/fixed/uint8 */
 #if !defined(MN_UINT8_TYPE)
 #if MN__CSTD >= 1999
 #include <stdint.h>

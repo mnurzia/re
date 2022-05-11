@@ -1,9 +1,9 @@
 #include "internal.h"
 
-/* types/char */
+/* bits/types/char */
 MN__STATIC_ASSERT(mn__char_is_one_byte, sizeof(mn_char) == 1);
 
-/* container/str */
+/* bits/container/str */
 /* Maximum size, without null terminator */
 #define MN__STR_SHORT_SIZE_MAX (((sizeof(mn__str) - sizeof(mn_size)) / (sizeof(mn_char)) - 1))
 
@@ -278,7 +278,7 @@ int mn__str_cmp(const mn__str* str_a, const mn__str* str_b) {
     return 0;
 }
 
-/* container/str_view */
+/* bits/container/str_view */
 void mn__str_view_init(mn__str_view* view, const mn__str* other) {
     view->_size = mn__str_size(other);
     view->_data = mn__str_get_data(other);
@@ -330,19 +330,19 @@ int mn__str_view_cmp(const mn__str_view* view_a, const mn__str_view* view_b) {
     return 0;
 }
 
-/* types/fixed/int32 */
+/* bits/types/fixed/int32 */
 /* If this fails, you need to define MN_INT32_TYPE to a signed integer type
  * that is 32 bits wide. */
 MN__STATIC_ASSERT(mn__int32_is_4_bytes, sizeof(mn_int32) == 4);
-/* types/fixed/uint32 */
+/* bits/types/fixed/uint32 */
 /* If this fails, you need to define MN_UINT32_TYPE to a unsigned integer type
  * that is 32 bits wide. */
 MN__STATIC_ASSERT(mn__uint32_is_4_bytes, sizeof(mn_uint32) == 4);
-/* types/fixed/uint8 */
+/* bits/types/fixed/uint8 */
 /* If this fails, you need to define MN_UINT8_TYPE to a unsigned integer type
  * that is 8 bits wide. */
 MN__STATIC_ASSERT(mn__uint8_is_1_bytes, sizeof(mn_uint8) == 1);
-/* hooks/memset */
+/* bits/hooks/memset */
 void mn__memset(void* ptr, int value, mn_size count) {
     mn_size i;
     mn_uint8 trunc = (mn_uint8)value;
@@ -351,7 +351,7 @@ void mn__memset(void* ptr, int value, mn_size count) {
     }
 }
 
-/* algorithm/hash/murmur3 */
+/* bits/algorithm/hash/murmur3 */
 MN_INTERNAL mn_uint32 mn__murmurhash3_rotl32(mn_uint32 x, mn_uint8 r) {
     return (x << r) | (x >> (32 - r));
 }

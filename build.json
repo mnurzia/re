@@ -48,6 +48,7 @@
             "tests/test_exec.c",
             "tests/test_helpers.c",
             "tests/test_main.c",
+            "tests/test_match.c",
             "tests/test_parse.c",
             "tests/test_prog.c",
             "tests/test_range.c"
