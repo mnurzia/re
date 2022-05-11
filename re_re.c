@@ -77,14 +77,6 @@ mn_uint32 re_get_max_groups(re* reg) {
     return re__ast_root_get_num_groups(&reg->data->ast_root);
 }
 
-/*    | Match?  | Bounds? | Subs?
- * ---+---------+---------+-------
- * ^$ | DFA-F   | DFA-F   | NFA-F
- * ^- | DFA-F   | DFA-F   | NFA-F
- * -$ | DFA-R   | DFA-R   | NFA-R
- * -- | DFA-F   | DFA-F+R | NFA-F
- */
-
 MN_INTERNAL re__ast_assert_type re__match_next_assert_ctx(mn_size pos, mn_size len) {
     re__ast_assert_type out = 0;
     if (pos == 0) {
@@ -94,6 +86,143 @@ MN_INTERNAL re__ast_assert_type re__match_next_assert_ctx(mn_size pos, mn_size l
         out |= RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_END;
     }
     return out;
+}
+
+re_error re__match_prepare_progs(re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar) {
+    re_error err = RE_ERROR_NONE;
+    MN_ASSERT(MN__IMPLIES(fwd_dotstar, fwd));
+    MN_ASSERT(MN__IMPLIES(rev_dotstar, rev));
+    if (fwd) {
+        if (!re__prog_size(&reg->data->program)) {
+            if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program, 0))) {
+                return err;
+            }
+        }
+    }
+    if (fwd_dotstar) {
+        if (re__prog_get_entry(&reg->data->program, RE__PROG_ENTRY_DOTSTAR) == RE__PROG_LOC_INVALID) {
+            if ((err = re__compile_dotstar(&reg->data->program, 0))) {
+                return err;
+            }
+        }
+    }
+    if (rev) {
+        if (!re__prog_size(&reg->data->program_reverse)) {
+            if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program_reverse, 1))) {
+                return err;
+            }
+        }
+    }
+    if (rev_dotstar) {
+        if (re__prog_get_entry(&reg->data->program_reverse, RE__PROG_ENTRY_DOTSTAR) == RE__PROG_LOC_INVALID) {
+            if ((err = re__compile_dotstar(&reg->data->program_reverse, 1))) {
+                return err;
+            }
+        }
+    }
+    return err;
+}
+
+/*    | Match?  | Bounds? | Subs?
+ * ---+---------+---------+-------
+ * ^$ | DFA-F   | DFA-F   | NFA-F
+ * ^- | DFA-F   | DFA-F   | NFA-F
+ * -$ | DFA-R   | DFA-R   | NFA-R
+ * -- | DFA-F   | DFA-F+R | NFA-F
+ */
+
+/* DFA parameters:
+ * - Entrypoint
+ * - Program
+ * - Can bail early in thread exhaustion? -> return nomatch
+ * - Can bail early if any match state found? -> return match (bool)
+ * - Can bail early if highest-priority match state found? -> return match index, pos
+ */
+
+re_error re__match_dfa_driver(
+    re__prog* program, 
+    re__prog_entry entry, 
+    int request, /* 0 for boolean, 1 for match pos + index */
+    int reversed,
+    mn_size start_pos,
+    const char* text, 
+    mn_size text_size,
+    mn_uint32* out_match,
+    mn_size* out_pos) {
+    mn_size pos = start_pos;
+    re_error err = RE_ERROR_NONE;
+    re__exec_dfa exec_dfa;
+    re__exec_dfa_start_state_flags start_state_flags =
+        RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT
+        | RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE;
+    mn_size last_found_pos = 0;
+    mn_uint32 last_found_match = 0;
+    mn_uint32 match_status = 0;
+    MN_ASSERT(pos <= text_size);
+    re__exec_dfa_init(&exec_dfa, program);
+    if ((err = re__exec_dfa_start(&exec_dfa, entry, start_state_flags))) {
+        return err;
+    }
+    MN_ASSERT(MN__IMPLIES(request, out_match != MN_NULL));
+    MN_ASSERT(MN__IMPLIES(request, out_pos != MN_NULL));
+    while (pos < text_size) {
+        char ch;
+        if (!reversed) {
+            ch = text[pos];
+        } else {
+            ch = text[text_size - pos];
+        }
+        if ((err = re__exec_dfa_run(&exec_dfa, (mn_uint32)ch))) {
+            goto err_destroy_dfa;
+        }
+        if (request == 0) {
+            if (re__exec_dfa_get_match_index(&exec_dfa)) {
+                goto match_early_boolean;
+            }
+        } else {
+            match_status = re__exec_dfa_get_match_index(&exec_dfa);
+            if (match_status) {
+                last_found_match = match_status;
+                last_found_pos = pos;
+                if (re__exec_dfa_get_match_priority(&exec_dfa) == 0) {
+                    goto match_early_priority;
+                }
+            } else {
+                if (re__exec_dfa_get_exhaustion(&exec_dfa)) {
+                    if (last_found_match) {
+                        goto match_early_priority;
+                    }
+                }
+            }
+        }
+        pos++;
+    }
+    if ((err = re__exec_dfa_run(&exec_dfa, RE__EXEC_DFA_SYM_EOT))) {
+        goto err_destroy_dfa;
+    }
+    if ((last_found_match = re__exec_dfa_get_match_index(&exec_dfa))) {
+        last_found_pos = pos;
+    } else {
+        err = RE_NOMATCH;
+    }
+    re__exec_dfa_destroy(&exec_dfa);
+    return err;
+match_early_boolean:
+    re__exec_dfa_destroy(&exec_dfa);
+    return RE_MATCH;
+match_early_priority:
+    re__exec_dfa_destroy(&exec_dfa);
+    MN_ASSERT(last_found_pos <= text_size);
+    if (!reversed) {
+        *out_pos = last_found_pos;
+    } else {
+        *out_pos = text_size - last_found_pos;
+    }
+    *out_match = last_found_match;
+    return RE_MATCH;
+err_destroy_dfa:
+    re__exec_dfa_destroy(&exec_dfa);
+    return err;
 }
 
 re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_type groups_type, const char* string, mn_size string_size, re_span* out) {
@@ -106,43 +235,231 @@ re_error re_match(re* reg, re_match_anchor_type anchor_type, re_match_groups_typ
     if (groups_type > (re_match_groups_type)re__ast_root_get_num_groups(&reg->data->ast_root)) {
         return RE_ERROR_INVALID;
     }
-    if (!re__prog_size(&reg->data->program)) {
-        if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program, 0))) {
-            return err;
+    if (groups_type == RE_MATCH_GROUPS_NONE) {
+        /* no groups -- dfa can be used in all cases */
+        if (anchor_type == RE_MATCH_ANCHOR_BOTH) {
+            /* use dfa to search forward.
+             * - can bail early if no threads left
+             * - cannot bail early if match state found (does not need to check for match every byte) */
+            if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+                return err;
+            }
+            return re__match_dfa_driver(
+                &reg->data->program,
+                RE__PROG_ENTRY_DEFAULT,
+                0,
+                0,
+                0,
+                string,
+                string_size,
+                MN_NULL,
+                MN_NULL
+            );
+        } else if (anchor_type == RE_MATCH_ANCHOR_START) {
+            /* use dfa to search forward.
+             * - can bail early if no threads left
+             * - can bail early if match state found */
+            if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+                return err;
+            }
+            return re__match_dfa_driver(
+                &reg->data->program,
+                RE__PROG_ENTRY_DEFAULT,
+                0,
+                0,
+                0,
+                string,
+                string_size,
+                MN_NULL,
+                MN_NULL
+            );
+        } else if (anchor_type == RE_MATCH_ANCHOR_END) {
+            if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0))) {
+                return err;
+            }
+            return re__match_dfa_driver(
+                &reg->data->program_reverse,
+                RE__PROG_ENTRY_DEFAULT,
+                0,
+                1,
+                0,
+                string,
+                string_size,
+                MN_NULL,
+                MN_NULL
+            );
+        } else if (anchor_type == RE_MATCH_UNANCHORED) {
+            if ((err = re__match_prepare_progs(reg, 1, 0, 1, 0))) {
+                return err;
+            }
+            return re__match_dfa_driver(
+                &reg->data->program,
+                RE__PROG_ENTRY_DOTSTAR,
+                0,
+                0,
+                0,
+                string,
+                string_size,
+                MN_NULL,
+                MN_NULL
+            );
         }
-    }
-    if (!re__prog_size(&reg->data->program_reverse)) {
-        if (anchor_type == RE_MATCH_ANCHOR_END || anchor_type == RE_MATCH_UNANCHORED) {
-            if ((err = re__compile_regex(&reg->data->compile, &reg->data->ast_root, &reg->data->program_reverse, 1))) {
+    } else if (groups_type == RE_MATCH_GROUPS_MATCH_BOUNDARIES) {
+        /* match boundaries -- dfa can be used in all cases */
+        mn_uint32 out_match;
+        mn_size out_pos;
+        re_error match_err;
+        if (anchor_type == RE_MATCH_ANCHOR_BOTH) {
+            if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+                return err;
+            }
+            match_err = re__match_dfa_driver(
+                &reg->data->program,
+                RE__PROG_ENTRY_DEFAULT,
+                1,
+                0,
+                0,
+                string,
+                string_size,
+                &out_match,
+                &out_pos
+            );
+            if (match_err == RE_MATCH) {
+                if (out_pos != string_size) {
+                    return RE_NOMATCH;
+                } else {
+                    out[0].begin = 0;
+                    out[0].end = out_pos;
+                    return RE_MATCH;
+                }
+            } else {
+                return match_err;
+            }
+        } else if (anchor_type == RE_MATCH_ANCHOR_START) {
+            if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+                return err;
+            }
+            match_err = re__match_dfa_driver(
+                &reg->data->program,
+                RE__PROG_ENTRY_DEFAULT,
+                1,
+                0,
+                0,
+                string,
+                string_size,
+                &out_match,
+                &out_pos
+            );
+            if (match_err == RE_MATCH) {
+                out[0].begin = 0;
+                out[0].end = out_pos;
+                return RE_MATCH;
+            } else {
+                return match_err;
+            }
+        } else if (anchor_type == RE_MATCH_ANCHOR_END) {
+            if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0))) {
+                return err;
+            }
+            match_err = re__match_dfa_driver(
+                &reg->data->program_reverse,
+                RE__PROG_ENTRY_DEFAULT,
+                1,
+                1,
+                0,
+                string,
+                string_size,
+                &out_match,
+                &out_pos
+            );
+            if (match_err == RE_MATCH) {
+                out[0].begin = out_pos;
+                out[0].end = string_size;
+                return RE_MATCH;
+            } else {
+                return match_err;
+            }
+        } else if (anchor_type == RE_MATCH_UNANCHORED) {
+            if ((err = re__match_prepare_progs(reg, 1, 1, 1, 0))) {
+                return err;
+            }
+            match_err = re__match_dfa_driver(
+                &reg->data->program,
+                RE__PROG_ENTRY_DOTSTAR,
+                1,
+                0,
+                0,
+                string,
+                string_size,
+                &out_match,
+                &out_pos
+            );
+            if (match_err == RE_MATCH) {
+                out[0].end = out_pos;
+                /* scan back to find the start */
+                match_err = re__match_dfa_driver(
+                    &reg->data->program_reverse,
+                    RE__PROG_ENTRY_DEFAULT,
+                    1,
+                    1,
+                    out_pos,
+                    string,
+                    string_size,
+                    &out_match,
+                    &out_pos
+                );
+                /* should ALWAYS match. */
+                MN_ASSERT(match_err == RE_MATCH);
+                out[0].begin = out_pos;
+                return RE_MATCH;
+            } else {
+                return match_err;
+            }
+        }
+    } else {
+        /* subgroups -- dfa may be used to found boundaries */
+        if (groups_type == RE_MATCH_GROUPS_ALL) {
+            groups_type = (re_match_groups_type)re__ast_root_get_num_groups(&reg->data->ast_root);
+        }
+        if (anchor_type == RE_MATCH_ANCHOR_BOTH) {
+            if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+                return err;
+            }
+        } else if (anchor_type == RE_MATCH_ANCHOR_START) {
+            if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+                return err;
+            }
+        } else if (anchor_type == RE_MATCH_ANCHOR_END) {
+            if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0))) {
+                return err;
+            }
+        } else if (anchor_type == RE_MATCH_UNANCHORED) {
+            if ((err = re__match_prepare_progs(reg, 1, 1, 1, 0))) {
                 return err;
             }
         }
-    }
-    if (groups_type == RE_MATCH_GROUPS_ALL) {
-        groups_type = re__ast_root_get_num_groups(&reg->data->ast_root);
     }
     re__exec_nfa_init(&exec_nfa, &reg->data->program, groups_type);
     mn__str_view_init_n(&string_view, string, string_size);
     {
         mn_size pos;
-        mn_size assert_ctx = RE__AST_ASSERT_TYPE_TEXT_START | RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE;
-        re_error res;
+        re__ast_assert_type assert_ctx = RE__AST_ASSERT_TYPE_TEXT_START | RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE;
         if ((err = re__exec_nfa_start(&exec_nfa, assert_ctx, 1))) {
             goto error;
         }
         for (pos = 0; pos < mn__str_view_size(&string_view); pos++) {
             mn_char ch = mn__str_view_get_data(&string_view)[pos];
+            mn_uint32 match;
             assert_ctx = re__match_next_assert_ctx(pos, mn__str_view_size(&string_view));
-            res = re__exec_nfa_run(&exec_nfa, ch, pos, assert_ctx);
-            if (res >= 0) {
+            if ((err = re__exec_nfa_run(&exec_nfa, ch, pos, assert_ctx))) {
+                return err;
+            }
+            match = re__exec_nfa_get_match_index(&exec_nfa);
+            if (match) {
                 if (anchor_type == RE_MATCH_ANCHOR_BOTH || anchor_type == RE_MATCH_ANCHOR_END) {
                     /* can bail! */
                     break;
                 }
-            } else if (res == RE_NOMATCH) {
-                /* continue... */
-            } else {
-                goto error;
             }
         }
         err = re__exec_nfa_finish(&exec_nfa, out, pos);
