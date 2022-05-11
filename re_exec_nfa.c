@@ -133,7 +133,8 @@ MN_INTERNAL void re__exec_thrd_set_init(re__exec_thrd_set* set) {
     set->n = 0;
     set->dense = MN_NULL;
     set->sparse = MN_NULL;
-    set->match = 0;
+    set->match_index = 0;
+    set->match_priority = 0;
 }
 
 MN_INTERNAL void re__exec_thrd_set_destroy(re__exec_thrd_set* set) {
@@ -178,7 +179,8 @@ MN_INTERNAL void re__exec_thrd_set_add(re__exec_thrd_set* set, re__exec_thrd thr
 
 MN_INTERNAL void re__exec_thrd_set_clear(re__exec_thrd_set* set) {
     set->n = 0;
-    set->match = 0;
+    set->match_index = 0;
+    set->match_priority = 0;
 }
 
 MN_INTERNAL int re__exec_thrd_set_ismemb(re__exec_thrd_set* set, re__exec_thrd thrd) {
@@ -187,11 +189,15 @@ MN_INTERNAL int re__exec_thrd_set_ismemb(re__exec_thrd_set* set, re__exec_thrd t
            set->dense[set->sparse[thrd.loc]].loc == thrd.loc;
 }
 
-#if RE_DEBUG
+#if MN_DEBUG
+
+#include <stdio.h>
 
 MN_INTERNAL void re__exec_thrd_set_dump(const re__exec_thrd_set* set, const re__exec_nfa* exec, int with_save) {
     printf("n: %u\n", set->n);
     printf("s: %u\n", set->size);
+    printf("match: %u\n", set->match_index);
+    printf("match_priority: %u\n", set->match_priority);
     printf("memb:\n");
     {
         mn_uint32 i;
@@ -247,18 +253,39 @@ MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec) {
     re__exec_thrd_set_destroy(&exec->set_a);
 }
 
-MN_INTERNAL const re__exec_thrd* re__exec_nfa_get_thrds(re__exec_nfa* exec, re__prog_loc* out_thrds_size) {
-    *out_thrds_size = exec->set_a.n;
+MN_INTERNAL re__prog_loc re__exec_nfa_get_thrds_size(re__exec_nfa* exec) {
+    return exec->set_a.n;
+}
+
+MN_INTERNAL const re__exec_thrd* re__exec_nfa_get_thrds(re__exec_nfa* exec) {
     return exec->set_a.dense;
 }
 
 MN_INTERNAL void re__exec_nfa_set_thrds(re__exec_nfa* exec, const re__prog_loc* in_thrds, re__prog_loc in_thrds_size) {
     re__prog_loc i;
+    re__exec_thrd_set_clear(&exec->set_a);
+    re__exec_thrd_set_clear(&exec->set_b);
     for (i = 0; i < in_thrds_size; i++) {
         re__exec_thrd new_thrd;
         re__exec_thrd_init(&new_thrd, in_thrds[i], RE__EXEC_SAVE_REF_NONE);
         re__exec_thrd_set_add(&exec->set_a, new_thrd);
     }
+}
+
+MN_INTERNAL mn_uint32 re__exec_nfa_get_match_index(re__exec_nfa* exec) {
+    return exec->set_a.match_index;
+}
+
+MN_INTERNAL mn_uint32 re__exec_nfa_get_match_priority(re__exec_nfa* exec) {
+    return exec->set_a.match_priority;
+}
+
+MN_INTERNAL void re__exec_nfa_set_match_index(re__exec_nfa* exec, mn_uint32 match_index) {
+    exec->set_a.match_index = match_index;
+}
+
+MN_INTERNAL void re__exec_nfa_set_match_priority(re__exec_nfa* exec, mn_uint32 match_priority) {
+    exec->set_a.match_priority = match_priority;
 }
 
 MN_INTERNAL void re__exec_nfa_swap(re__exec_nfa* exec) {
@@ -313,8 +340,11 @@ MN_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__exec_thrd thrd, re_
                 return err;
             }
         } else if (inst_type == RE__PROG_INST_TYPE_MATCH) {
-            mn_uint32 match_idx = re__prog_inst_get_match_idx(inst);
-            exec->set_b.match = match_idx;
+            mn_uint32 match_index = re__prog_inst_get_match_idx(inst);
+            if (!exec->set_b.match_index) {
+                exec->set_b.match_index = match_index;
+                exec->set_b.match_priority = exec->set_b.n;
+            }
             re__exec_thrd_set_add(&exec->set_b, top);
         } else if (inst_type == RE__PROG_INST_TYPE_SAVE) {
             re__exec_thrd primary_thrd;
@@ -371,15 +401,12 @@ MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type 
     }
     re__exec_thrd_set_clear(&exec->set_a);
     re__exec_nfa_swap(exec);
-    if (exec->set_a.match) {
-        return (re_error)exec->set_a.match;
-    }
     return err;
 }
 
 MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_char ch, mn_size pos, re__ast_assert_type assert_ctx) {
     mn_size j;
-    re_error err = RE_ERROR_NOMATCH;
+    re_error err = RE_ERROR_NONE;
     for (j = 0; j < exec->set_a.n; j++) {
         re__exec_thrd cur_thrd = exec->set_a.dense[j];
         const re__prog_inst* cur_inst = re__prog_cget(exec->prog, cur_thrd.loc);
@@ -412,9 +439,6 @@ MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_char ch, mn_size po
     }
     re__exec_thrd_set_clear(&exec->set_a);
     re__exec_nfa_swap(exec);
-    if (exec->set_a.match) {
-        return (re_error)exec->set_a.match;
-    }
     return err;
 }
 
