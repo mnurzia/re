@@ -759,6 +759,8 @@ MN_INTERNAL void re__compile_init(re__compile* compile);
 MN_INTERNAL void re__compile_destroy(re__compile* compile);
 MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root* ast_root, re__prog* prog, int reversed);
 MN_INTERNAL int re__compile_gen_utf8(re_rune codep, mn_uint8* out_buf);
+MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed);
+
 
 /* Execution thread. */
 typedef struct re__exec_thrd {

@@ -664,6 +664,7 @@ MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
     re__compile_frame initial_frame;
     re__compile_patches initial_patches;
     re__prog_inst fail_inst;
+    re__prog_loc entry;
     /* Set ast_root */
     compile->ast_root = ast_root;
     /* Set reversed flag, more economical to set here */
@@ -677,11 +678,13 @@ MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
         err = RE_ERROR_NOMEM;
         goto error;
     }
+    MN_ASSERT(re__prog_get_entry(prog, RE__PROG_ENTRY_DEFAULT) == RE__PROG_LOC_INVALID);
     /* Add the FAIL instruction to the program */
     re__prog_inst_init_fail(&fail_inst);
     if ((err = re__prog_add(prog, fail_inst))) {
         goto error;
     }
+    entry = re__prog_size(prog);
     re__compile_patches_init(&initial_patches);
     /* Start first frame */
     re__compile_frame_init(&initial_frame, ast_root->root_ref, RE__AST_NONE, initial_patches, 0, 0);
@@ -760,19 +763,20 @@ MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
     re__compile_patches_patch(&compile->returned_frame.patches, prog, re__prog_size(prog));
     {
         re__prog_inst match_inst;
-        re__prog_inst_init_match(&match_inst, 0);
+        re__prog_inst_init_match(&match_inst, 1);
         if ((err = re__prog_add(prog, match_inst))) {
             goto error;
         }
     }
     MN_FREE(compile->frames);
-    compile->frames = NULL;
+    compile->frames = MN_NULL;
+    re__prog_set_entry(prog, RE__PROG_ENTRY_DEFAULT, entry);
     return err;
 error:
     if (compile->frames != MN_NULL) {
         MN_FREE(compile->frames);
     }
-    compile->frames = NULL;
+    compile->frames = MN_NULL;
     /*
     if (err == RE__ERROR_PROGMAX) {
         re__str err_str;
@@ -789,6 +793,29 @@ error:
     } else {
         re__set_error_generic(compile->re, err);
     }*/
+    return err;
+}
+
+MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed) {
+    re__compile_patches patches;
+    re__prog_loc entry = re__prog_size(prog);
+    re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_ACCSURR;
+    re__prog_inst inst;
+    re_error err = RE_ERROR_NONE;
+    MN_ASSERT(re__prog_get_entry(prog, RE__PROG_ENTRY_DOTSTAR) == RE__PROG_LOC_INVALID);
+    if (reversed) {
+        id = RE__PROG_DATA_ID_DOT_REV_ACCSURR;
+    }
+    re__prog_inst_init_split(&inst, re__prog_get_entry(prog, RE__PROG_ENTRY_DEFAULT), entry + 1);
+    if ((err = re__prog_add(prog, inst))) {
+        return err;
+    }
+    re__compile_patches_init(&patches);
+    if ((err = re__prog_decompress(prog, re__prog_data[id], re__prog_data_size[id], &patches))) {
+        return err;
+    }
+    re__compile_patches_patch(&patches, prog, entry);
+    re__prog_set_entry(prog, RE__PROG_ENTRY_DOTSTAR, entry);
     return err;
 }
 
