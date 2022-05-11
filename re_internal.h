@@ -4,6 +4,12 @@
 #include "re_api.h"
 #include "_cpack/internal.h"
 
+#define RE__ERROR_COMPRESSION_FORMAT (RE_ERROR_INTERNAL - 1)
+#define RE__ERROR_PROGMAX (RE_ERROR_INTERNAL - 2)
+
+/* ---------------------------------------------------------------------------
+ * Byte ranges (re_range.c)
+ * ------------------------------------------------------------------------ */
 /* POD type */
 /* Holds a byte range [min, max] */
 typedef struct re__byte_range {
@@ -11,12 +17,27 @@ typedef struct re__byte_range {
     mn_uint8 max;
 } re__byte_range;
 
+/* Check if two byte ranges equal each other */
 int re__byte_range_equals(re__byte_range range, re__byte_range other);
+
+/* Check if two byte ranges are adjacent (other comes directly after range) */
 int re__byte_range_adjacent(re__byte_range range, re__byte_range other);
+
+/* Check if two byte ranges intersect */
 int re__byte_range_intersects(re__byte_range range, re__byte_range clip);
+
+/* Compute the intersection of two byte ranges (requires predicate
+ * re__byte_range_intersects(range, other) == 1) */
 re__byte_range re__byte_range_intersection(re__byte_range range, re__byte_range clip);
+
+/* Compute the union of two adjacent byte ranges (requires predicate
+ * re__byte_range_adjacent(range, other) == 1) */
 re__byte_range re__byte_range_merge(re__byte_range range, re__byte_range other);
 
+
+/* ---------------------------------------------------------------------------
+ * Rune ranges (re_range.c)
+ * ------------------------------------------------------------------------ */
 /* POD type */
 /* Stores characters in the range [min, max] == [min, max+1) */
 typedef struct re__rune_range {
@@ -26,15 +47,28 @@ typedef struct re__rune_range {
 
 MN__VEC_DECL(re__rune_range);
 
+/* Check if two rune ranges equal each other */
 int re__rune_range_equals(re__rune_range range, re__rune_range other);
+
+/* Check if two rune ranges intersect */
 int re__rune_range_intersects(re__rune_range range, re__rune_range clip);
+
+/* Clamp the given range to be within the given bounds (requires predicate
+ * re__rune_range_intersects(range, clip) == 1) */
 re__rune_range re__rune_range_clamp(re__rune_range range, re__rune_range bounds);
 
-/* Character class. */
+
+/* ---------------------------------------------------------------------------
+ * Character class (re_charclass.c)
+ * ------------------------------------------------------------------------ */
 typedef struct re__charclass {
-    /* Non-overlapping set of ranges. */
+    /* Non-overlapping, sorted set of ranges. */
     re__rune_range_vec ranges;
 } re__charclass;
+/* Implementation detail: since the list of ranges is in this normal form
+ * (non-overlapping and sorted) doing certain operations is quick, especially
+ * checking equality. Additionally, creating the optimized code for the forward
+ * NFA is super fast, see re__compile_charclass.c for more details */
 
 /* Index of ASCII char class types. */
 typedef enum re__charclass_ascii_type {
@@ -56,13 +90,33 @@ typedef enum re__charclass_ascii_type {
     RE__CHARCLASS_ASCII_TYPE_MAX
 } re__charclass_ascii_type;
 
+/* Initialize the given character class */
 MN_INTERNAL void re__charclass_init(re__charclass* charclass);
+
+/* Initialize the given character class from the ASCII charclass index, indexed
+ * from enum re__charclass_ascii_type, optionally inverted */
 MN_INTERNAL re_error re__charclass_init_from_class(re__charclass* charclass, re__charclass_ascii_type type, int inverted);
+
+/* Initialize the given character class from the given string, the string should
+ * be one of the default character class names (ripped from POSIX/C standard), 
+ * see re__charclass_ascii_defaults[] in re__charclass.c, returns
+ * RE_ERROR_INVALID if not found */
 MN_INTERNAL re_error re__charclass_init_from_str(re__charclass* charclass, mn__str_view name, int inverted);
+
+/* Destroy the given character class */
 MN_INTERNAL void re__charclass_destroy(re__charclass* charclass);
+
+/* Push a range onto the end of the given character class */
 MN_INTERNAL re_error re__charclass_push(re__charclass* charclass, re__rune_range range);
+
+/* Return the array of ranges stored in this character class, pointer is invalid
+ * after calls to re__charclass_push() */
 MN_INTERNAL const re__rune_range* re__charclass_get_ranges(const re__charclass* charclass);
+
+/* Get the number of ranges in the character class */
 MN_INTERNAL mn_size re__charclass_get_num_ranges(const re__charclass* charclass);
+
+/* Check if the given character class is equal to the other */
 MN_INTERNAL int re__charclass_equals(const re__charclass* charclass, const re__charclass* other);
 
 #if MN_DEBUG
@@ -72,21 +126,47 @@ MN_INTERNAL int re__charclass_verify(const re__charclass* charclass);
 
 #endif
 
-/* Immediate-mode charclass builder. */
+
+/* ---------------------------------------------------------------------------
+ * Immediate-mode character class builder (re_charclass.c)
+ * ------------------------------------------------------------------------ */
 typedef struct re__charclass_builder {
+    /* List of pending ranges, is built in a sorted, non-overlapping way */
     re__rune_range_vec ranges;
+    /* 1 if the character class will be inverted when
+     * re__charclass_builder_finish() is called */
     int should_invert;
+    /* Optimization: highest rune in this charclass, if the rune-range to be
+     * added is greater than this, we can avoid calling insert() on ranges and
+     * just use push(), O(1) baby */
     re_rune highest;
 } re__charclass_builder;
 
+/* Initialize this character class builder */
 MN_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder);
+
+/* Destroy this character class builder */
 MN_INTERNAL void re__charclass_builder_destroy(re__charclass_builder* builder);
+
+/* Begin building a character class */
 MN_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder);
+
+/* Set the invert flag -- when finish() is called the class will be inverted */
 MN_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder);
+
+/* Insert a range of characters into this character class */
 MN_INTERNAL re_error re__charclass_builder_insert_range(re__charclass_builder* builder, re__rune_range range);
+
+/* Insert another character class into this one */
 MN_INTERNAL re_error re__charclass_builder_insert_class(re__charclass_builder* builder, re__charclass* charclass);
+
+/* Finish building, and output results to the given character class */
 MN_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder, re__charclass* charclass);
 
+
+/* ---------------------------------------------------------------------------
+ * AST node (re_ast.c)
+ * ------------------------------------------------------------------------ */
 typedef struct re__ast re__ast; 
 
 /* Enumeration of AST node types. */
@@ -120,7 +200,11 @@ typedef enum re__ast_type {
 
 MN__VEC_DECL(re__ast);
 
+/* Maximum number of repetitions a quantifier can have.
+ * One of a few mechanisms in place to prevent diabolical program growth. */
 #define RE__AST_QUANTIFIER_MAX 2000
+
+/* Signifies infinite repetitions (*, +) */
 #define RE__AST_QUANTIFIER_INFINITY RE__AST_QUANTIFIER_MAX+2
 
 /* Quantifier info. */
@@ -128,7 +212,8 @@ MN__VEC_DECL(re__ast);
 typedef struct re__ast_quantifier_info {
     /* Minimum amount. */
     mn_int32 min;
-    /* Maximum amount. -1 for infinity. */
+    /* Maximum amount. Could be RE__AST_QUANTIFIER_MAX or
+     * RE__AST_QUANTIFIER_INFINITY. */
     mn_int32 max;
     /* Whether or not to prefer fewer matches. */
     int greediness;
@@ -136,30 +221,47 @@ typedef struct re__ast_quantifier_info {
 
 /* Assert types, as they are represented in the AST. */
 typedef enum re__ast_assert_type {
+    /* Minimum value */
     RE__AST_ASSERT_TYPE_MIN = 1,
+    /* Text/Line start */
     RE__AST_ASSERT_TYPE_TEXT_START = 1,
+    /* Text/Line start */
     RE__AST_ASSERT_TYPE_TEXT_END = 2,
+    /* Text start */
     RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE = 4,
+    /* Text end */
     RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE = 8,
+    /* Word character (one-character lookaround) */
     RE__AST_ASSERT_TYPE_WORD = 16,
+    /* Not a word character */
     RE__AST_ASSERT_TYPE_WORD_NOT = 32,
+    /* Maximum value (non-inclusive) */
     RE__AST_ASSERT_TYPE_MAX = 64
 } re__ast_assert_type;
 
 /* Group flags */
 typedef enum re__ast_group_flags {
+    /* Group is case-insensitive */
     RE__AST_GROUP_FLAG_CASE_INSENSITIVE = 1,
+    /* ^/$ match begin/end of line */
     RE__AST_GROUP_FLAG_MULTILINE = 2,
+    /* . matches newline */
     RE__AST_GROUP_FLAG_DOT_NEWLINE = 4,
+    /* Ungreedy matching: all quantifiers have greediness swapped */
     RE__AST_GROUP_FLAG_UNGREEDY = 8,
+    /* Not a capturing group */
     RE__AST_GROUP_FLAG_NONMATCHING = 16,
+    /* Group has a name */
     RE__AST_GROUP_FLAG_NAMED = 32,
+    /* Maximum value (non-inclusive) */
     RE__AST_GROUP_FLAG_MAX = 64
 } re__ast_group_flags;
 
 /* Group info */
 typedef struct re__ast_group_info {
+    /* Group's flags */
     re__ast_group_flags flags;
+    /* Index (ID) if this group */
     mn_uint32 group_idx;
 } re__ast_group_info;
 
@@ -179,37 +281,90 @@ typedef union re__ast_data {
     re__ast_assert_type assert_type;
 } re__ast_data;
 
-#define RE__AST_NONE -1
-
+/* AST node */
 struct re__ast {
+    /* Reference to next / previous siblings */
     mn_int32 next_sibling_ref;
     mn_int32 prev_sibling_ref;
+    /* Reference to first / last children */
     mn_int32 first_child_ref;
     mn_int32 last_child_ref;
+    /* Type of AST node */
     re__ast_type type;
+    /* Data describing this node */
     re__ast_data _data;
 };
-/* 32 bytes on my M1 */
+/* 32 bytes on my M1 Mac */
+/* References are in arena format, that is, they are offsets in a contiguous
+ * chunk of memory managed by re__ast_root. This design decision was made to
+ * simplify destruction / moving of AST nodes, and it speeds up the parser
+ * implementation. Null references are RE__AST_NONE. */
 
+/* Initialize the given node as a RE__AST_TYPE_RUNE node */
 MN_INTERNAL void re__ast_init_rune(re__ast* ast, re_rune rune);
+
+/* Initialize the given node as a RE__AST_TYPE_STR node, str_ref is the index
+ * of the node's string given by the ast_root object in its string arena */
 MN_INTERNAL void re__ast_init_str(re__ast* ast, mn_int32 str_ref);
+
+/* Initialize the given node as a RE__AST_TYPE_CHARCLASS node, charclass_ref
+ * is the index of the node's charclass given by the ast_root object in its
+ * charclass arena */
 MN_INTERNAL void re__ast_init_charclass(re__ast* ast, mn_int32 charclass_ref);
+
+/* Initialize the given node as a RE__AST_TYPE_CONCAT node */
 MN_INTERNAL void re__ast_init_concat(re__ast* ast);
+
+/* Initialize the given node as a RE__AST_TYPE_ALT node */
 MN_INTERNAL void re__ast_init_alt(re__ast* ast);
+
+/* Initialize the given node as a RE__AST_TYPE_QUANTIFIER node with the
+ * specified boundaries min/max */
 MN_INTERNAL void re__ast_init_quantifier(re__ast* ast, mn_int32 min, mn_int32 max);
+
+/* Initialize the given node as a RE__AST_TYPE_GROUP with the given group index
+ * and flags */
 MN_INTERNAL void re__ast_init_group(re__ast* ast, mn_uint32 group_idx, re__ast_group_flags flags);
+
+/* Initialize the given node as a RE__AST_TYPE_ASSERT with the given assert
+ * type */
 MN_INTERNAL void re__ast_init_assert(re__ast* ast, re__ast_assert_type assert_type);
+
+/* Initialize the given node as a RE__AST_TYPE_ANY_CHAR (.) */
 MN_INTERNAL void re__ast_init_any_char(re__ast* ast);
+
+/* Initialize the given node as a RE__AST_TYPE_ANY_BYTE (\C) */
 MN_INTERNAL void re__ast_init_any_byte(re__ast* ast);
+
+/* Destroy the given node */
 MN_INTERNAL void re__ast_destroy(re__ast* ast);
+
+/* Get the given node's greediness (node must be RE__AST_TYPE_QUANTIFIER) */
 MN_INTERNAL int re__ast_get_quantifier_greediness(const re__ast* ast);
+
+/* Set the given node's greediness (node must be RE__AST_TYPE_QUANTIFIER) */
 MN_INTERNAL void re__ast_set_quantifier_greediness(re__ast* ast, int is_greedy);
+
+/* Get the given node's minimum repeat (node must be RE__AST_TYPE_QUANTIFIER) */
 MN_INTERNAL mn_int32 re__ast_get_quantifier_min(const re__ast* ast);
+
+/* Get the given node's maximum repeat (node must be RE__AST_TYPE_QUANTIFIER) */
 MN_INTERNAL mn_int32 re__ast_get_quantifier_max(const re__ast* ast);
+
+/* Get the given node's rune (node must be RE__AST_TYPE_RUNE) */
 MN_INTERNAL re_rune re__ast_get_rune(const re__ast* ast);
+
+/* Get the given node's group flags (node must be RE__AST_TYPE_GROUP) */
 MN_INTERNAL re__ast_group_flags re__ast_get_group_flags(const re__ast* ast);
+
+/* Get the given node's group index (node must be RE__AST_TYPE_GROUP) */
 MN_INTERNAL mn_uint32 re__ast_get_group_idx(const re__ast* ast);
+
+/* Get the given node's assert bits (node must be RE__AST_TYPE_ASSERT) */
 MN_INTERNAL re__ast_assert_type re__ast_get_assert_type(const re__ast* ast);
+
+/* Get the reference to the node's string in ast_root (node must be 
+ * RE__AST_TYPE_STR) */
 MN_INTERNAL mn_int32 re__ast_get_str_ref(const re__ast* ast);
 
 MN__ARENA_DECL(re__charclass);
@@ -217,35 +372,81 @@ MN__ARENA_DECL(mn__str);
 
 MN__VEC_DECL(mn__str);
 
+/* Sentinel value for re__ast_root object */
+#define RE__AST_NONE -1
+
+/* ---------------------------------------------------------------------------
+ * AST root manager (re_ast.c)
+ * ------------------------------------------------------------------------ */
 typedef struct re__ast_root {
+    /* Vector of AST nodes, used as an arena */
     re__ast_vec ast_vec;
+    /* Last empty location in ast_vec */
     mn_int32 last_empty_ref;
+    /* Reference to root node */
     mn_int32 root_ref;
+    /* Reference to last child of root node */
     mn_int32 root_last_child_ref;
+    /* Character classes in use by RE__AST_TYPE_CHARCLASS nodes */
     re__charclass_arena charclasses;
+    /* Strings in use by RE__AST_TYPE_STR nodes */
     mn__str_arena strings;
+    /* Group names in use by RE__AST_TYPE_GROUP nodes */
     mn__str_vec group_names;
+    /* Maximum depth recorded in this AST tree */
     mn_int32 depth_max;
 } re__ast_root;
 
+/* Initialize this ast root */
 MN_INTERNAL void re__ast_root_init(re__ast_root* ast_root);
+
+/* Destroy this ast root */
 MN_INTERNAL void re__ast_root_destroy(re__ast_root* ast_root);
+
+/* Given ast_ref, get a pointer to the re__ast within this ast root */
 MN_INTERNAL re__ast* re__ast_root_get(re__ast_root* ast_root, mn_int32 ast_ref);
+
+/* Given ast_ref, get a const pointer to the re__ast within this ast root */
 MN_INTERNAL const re__ast* re__ast_root_get_const(const re__ast_root* ast_root, mn_int32 ast_ref);
+
+/* Remove the given reference from the ast root. Does not clean up references 
+ * from previous / parent nodes. Only used for testing. */
 MN_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, mn_int32 ast_ref);
+
+/* Replace the node at the given reference with the given replacement. */
 MN_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, mn_int32 ast_ref, re__ast replacement);
+
+/* Create a new node under the given parent with the given ast, storing its
+ * resulting reference in out_ref. */
 MN_INTERNAL re_error re__ast_root_add_child(re__ast_root* ast_root, mn_int32 parent_ref, re__ast ast, mn_int32* out_ref);
+
+/* Create a new node under the given parent that wraps the given inner reference
+ * with the given outer node, storing the resulting reference to ast_outer in
+ * out_ref. */
 MN_INTERNAL re_error re__ast_root_add_wrap(re__ast_root* ast_root, mn_int32 parent_ref, mn_int32 inner_ref, re__ast ast_outer, mn_int32* out_ref);
 
+/* Register a new charclass, storing its reference in out_charclass_ref.*/
 MN_INTERNAL re_error re__ast_root_add_charclass(re__ast_root* ast_root, re__charclass charclass, mn_int32* out_charclass_ref);
+
+/* Get a const pointer to the charclass referenced by charclass_ref. */
 MN_INTERNAL const re__charclass* re__ast_root_get_charclass(const re__ast_root* ast_root, mn_int32 charclass_ref); 
 
-MN_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, mn__str str, mn_int32* out_ref);
+/* Register a new string, storing its reference in out_str_ref. */
+MN_INTERNAL re_error re__ast_root_add_str(re__ast_root* ast_root, mn__str str, mn_int32* out_str_ref);
+
+/* Get a pointer to the string referenced by str_ref. */
 MN_INTERNAL mn__str* re__ast_root_get_str(re__ast_root* ast_root, mn_int32 str_ref);
+
+/* Get the string view referenced by str_ref. */
 MN_INTERNAL mn__str_view re__ast_root_get_str_view(const re__ast_root* ast_root, mn_int32 str_ref);
 
+/* Register a new group. */
 MN_INTERNAL re_error re__ast_root_add_group(re__ast_root* ast_root, mn__str_view group_name);
+
+/* Get a group name referenced by its number. */
 MN_INTERNAL mn__str_view re__ast_root_get_group(re__ast_root* ast_root, mn_uint32 group_number);
+
+/* Get the number of groups in this ast root. */
 MN_INTERNAL mn_uint32 re__ast_root_get_num_groups(re__ast_root* ast_root);
 
 #if MN_DEBUG
@@ -255,6 +456,12 @@ MN_INTERNAL int re__ast_root_verify(re__ast_root* ast_root);
 
 #endif
 
+/* ---------------------------------------------------------------------------
+ * Parser (re_parse.c)
+ * ------------------------------------------------------------------------ */
+/* Enumeration of parse states */
+/* The parser will likely be rewritten as recursive-descent with an explicit
+ * stack. */
 typedef enum re__parse_state {
     RE__PARSE_STATE_GND,
     RE__PARSE_STATE_MAYBE_QUESTION,
@@ -289,11 +496,21 @@ typedef enum re__parse_state {
     RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON
 } re__parse_state;
 
+/* Parse stack frame object. */
 typedef struct re__parse_frame {
+    /* Reference to base AST node that this frame is building */
     mn_int32 ast_frame_root_ref;
+    /* Reference to previous child that was built by this frame, this is only
+     * used in nodes with children, like quantifiers or alts */
     mn_int32 ast_prev_child_ref;
+    /* Since ESCAPE and CHARCLASS share a lot of code, we use ret_state to
+     * tell which state to return to after popping a frame in those cases, and
+     * just merge a lot of the parsing code for those two cases */
     re__parse_state ret_state;
+    /* Group flags, we need to explicitly maintain these on a stack so that we
+     * correctly reset flags as we unwind the stack */
     re__ast_group_flags group_flags;
+    /* Depth/maximum depth tracking of this frame */
     mn_int32 depth;
     mn_int32 depth_max;
 } re__parse_frame;
@@ -326,6 +543,10 @@ MN_INTERNAL void re__parse_init(re__parse* parse, re* re);
 MN_INTERNAL void re__parse_destroy(re__parse* parse);
 MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex);
 
+
+/* ---------------------------------------------------------------------------
+ * Instruction format (re_prog.c)
+ * ------------------------------------------------------------------------ */
 typedef mn_uint32 re__prog_loc;
 
 /* Invalid program location (used for debugging) */
@@ -488,7 +709,10 @@ MN_INTERNAL mn_uint32 re__prog_inst_get_match_idx(const re__prog_inst* inst);
 MN_INTERNAL mn_uint32 re__prog_inst_get_save_idx(const re__prog_inst* inst);
 MN_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b);
 
-#define RE__ERROR_PROGMAX (RE_ERROR_COMPILE | (1 << 8))
+
+/* ---------------------------------------------------------------------------
+ * Program (re_prog.c)
+ * ------------------------------------------------------------------------ */
 #define RE__PROG_SIZE_MAX 100000
 
 /* Program entry points. */
@@ -511,7 +735,17 @@ MN_INTERNAL re__prog_inst* re__prog_get(re__prog* prog, re__prog_loc loc);
 MN_INTERNAL const re__prog_inst* re__prog_cget(const re__prog* prog, re__prog_loc loc);
 MN_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst);
 MN_INTERNAL int re__prog_equals(re__prog* a, re__prog* b);
+MN_INTERNAL void re__prog_set_entry(re__prog* prog, re__prog_entry idx, re__prog_loc loc);
+MN_INTERNAL re__prog_loc re__prog_get_entry(const re__prog* prog, re__prog_entry idx);
 
+#if MN_DEBUG
+MN_INTERNAL void re__prog_debug_dump(const re__prog* prog);
+#endif
+
+
+/* ---------------------------------------------------------------------------
+ * Compilation patch cache (re_compile.c)
+ * ------------------------------------------------------------------------ */
 /* A list of program patches -- locations in the program that need to point to
  * later instructions */
 /* Like RE2, we store the location of the next patch in each instruction, so it
@@ -555,6 +789,10 @@ MN_INTERNAL mn_uint8* re__prog_data[RE__PROG_DATA_ID_MAX];
 MN_INTERNAL mn_size re__prog_data_size[RE__PROG_DATA_ID_MAX];
 MN_INTERNAL re_error re__prog_decompress(re__prog* prog, mn_uint8* compressed, mn_size compressed_size, re__compile_patches* patches);
 
+
+/* ---------------------------------------------------------------------------
+ * Character class compiler (re_compile_charclass.c)
+ * ------------------------------------------------------------------------ */
 typedef struct re__compile_charclass re__compile_charclass;
 
 /* Tree node, used for representing a character class. */
@@ -629,7 +867,8 @@ typedef struct re__compile_charclass_tree {
      * If the tree has not had its forward program generated, then aux is a
      * hash, otherwise, the reverse program is being generated, and aux
      * references the complement node. */
-    /* This could be fixed with a union, I plan on doing this sometime soon. */
+    /* This could be better clarified with a union, I plan on doing this 
+     * sometime soon. */
     mn_uint32 aux;
 } re__compile_charclass_tree;
 /* 16 bytes, nominally, (16 on my M1 Max) */
@@ -647,7 +886,7 @@ re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, mn_uin
  * element in the dense vector points *back* to the sparse array. This is very
  * similar to a sparse set. */
 /* If more than one element hashes to the same position in the dense vector, we
- * link them together using the 'next' member, forming a mini-linked list. */
+ * link them together using the 'next' member, forming a mini linked list. */
 typedef struct re__compile_charclass_hash_entry {
     /* Index in sparse array */
     mn_int32 sparse_index;
@@ -700,6 +939,10 @@ MN_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compi
 void re__compile_charclass_dump(re__compile_charclass* char_comp, mn_uint32 tree_idx, mn_int32 indent);
 #endif
 
+
+/* ---------------------------------------------------------------------------
+ * Program compiler (re_compile.c)
+ * ------------------------------------------------------------------------ */
 /* Stack frame for the compiler. */
 typedef struct re__compile_frame {
     /* Base AST node being compiled. Represents the current node that is being
@@ -762,6 +1005,9 @@ MN_INTERNAL int re__compile_gen_utf8(re_rune codep, mn_uint8* out_buf);
 MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed);
 
 
+/* ---------------------------------------------------------------------------
+ * NFA execution context (re_exec_nfa.c)
+ * ------------------------------------------------------------------------ */
 /* Execution thread. */
 typedef struct re__exec_thrd {
     /* PC of this thread */
@@ -786,7 +1032,10 @@ typedef struct re__exec_thrd_set {
     /* Allocation size of 'dense' (sparse is a single worst case alloc) */
     re__prog_loc size;
     /* 0 if this does not contain a match instruction, 1+ otherwise */
-    mn_uint32 match;
+    mn_uint32 match_index;
+    /* 0 if the match is the top state, 1+ otherwise */
+    mn_uint32 match_priority;
+    /* Note: (match_priority != 0) implies (match_index != 0) */
 } re__exec_thrd_set;
 
 MN__VEC_DECL(mn_size);
@@ -821,13 +1070,22 @@ typedef struct re__exec_nfa {
 } re__exec_nfa;
 
 MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, const re__prog* prog, re_match_groups_type num_groups);
-MN_INTERNAL const re__exec_thrd* re__exec_nfa_get_thrds(re__exec_nfa* exec, re__prog_loc* out_thrds_size);
+MN_INTERNAL re__prog_loc re__exec_nfa_get_thrds_size(re__exec_nfa* exec);
+MN_INTERNAL const re__exec_thrd* re__exec_nfa_get_thrds(re__exec_nfa* exec);
 MN_INTERNAL void re__exec_nfa_set_thrds(re__exec_nfa* exec, const re__prog_loc* in_thrds, re__prog_loc in_thrds_size);
-MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type assert_ctx, re__prog_loc start_loc);
+MN_INTERNAL mn_uint32 re__exec_nfa_get_match_index(re__exec_nfa* exec);
+MN_INTERNAL mn_uint32 re__exec_nfa_get_match_priority(re__exec_nfa* exec);
+MN_INTERNAL void re__exec_nfa_set_match_index(re__exec_nfa* exec, mn_uint32 match_index);
+MN_INTERNAL void re__exec_nfa_set_match_priority(re__exec_nfa* exec, mn_uint32 match_priority);
+MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type assert_ctx, re__prog_entry entry);
 MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_char ch, mn_size pos, re__ast_assert_type assert_ctx);
 MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
 
+
+/* ---------------------------------------------------------------------------
+ * DFA execution context (re_exec_dfa.c)
+ * ------------------------------------------------------------------------ */
 MN__VEC_DECL(re__prog_loc);
 
 #define RE__EXEC_DFA_PAGE_SIZE 4
@@ -842,13 +1100,23 @@ typedef struct re__exec_dfa_state re__exec_dfa_state;
 
 typedef re__exec_dfa_state* re__exec_dfa_state_ptr;
 
+typedef enum re__exec_dfa_flags {
+    RE__EXEC_DFA_FLAG_FROM_WORD = 1,
+    RE__EXEC_DFA_FLAG_START_STATE = 2,
+    RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT = 4,
+    RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE = 8
+} re__exec_dfa_flags;
+
 /* DFA state. */
 struct re__exec_dfa_state {
     re__exec_dfa_state_ptr next[RE__EXEC_DFA_SYM_MAX];
-    re__ast_assert_type assert_ctx;
-    mn_uint32 match_idx;
+    re__exec_dfa_flags flags;
+    mn_uint32 match_index;
+    mn_uint32 match_priority;
     mn_uint32* thrd_locs_begin;
     mn_uint32* thrd_locs_end;
+    mn_uint32 empty;
+    re__prog_entry start_entry;
 };
 
 typedef struct re__exec_dfa_cache_entry {
@@ -861,8 +1129,16 @@ typedef mn_uint32* mn_uint32_ptr;
 MN__VEC_DECL(re__exec_dfa_state_ptr);
 MN__VEC_DECL(mn_uint32_ptr);
 
+typedef enum re__exec_dfa_start_state_flags {
+    RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD = 1,
+    RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT = 2,
+    RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE = 4,
+    RE__EXEC_DFA_START_STATE_COUNT = 8
+} re__exec_dfa_start_state_flags;
+
 typedef struct re__exec_dfa {
     re__exec_dfa_state_ptr current_state;
+    re__exec_dfa_state_ptr start_states[RE__EXEC_DFA_START_STATE_COUNT * RE__PROG_ENTRY_MAX];
     re__exec_dfa_state_ptr_vec state_pages;
     mn_size state_page_idx;
     mn_uint32_ptr_vec thrd_loc_pages;
@@ -872,13 +1148,20 @@ typedef struct re__exec_dfa {
     re__exec_dfa_cache_entry* cache;
     mn_size cache_stored;
     mn_size cache_alloc;
+    mn_uint32 prev_sym;
 } re__exec_dfa;
 
 MN_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog);
 MN_INTERNAL void re__exec_dfa_destroy(re__exec_dfa* exec);
-MN_INTERNAL re_error re__exec_dfa_start(re__exec_dfa* exec, re__ast_assert_type assert_ctx, re__prog_loc start_loc);
-MN_INTERNAL re_error re__exec_dfa_run(re__exec_dfa* exec, mn_char ch, re__ast_assert_type assert_ctx);
+MN_INTERNAL re_error re__exec_dfa_start(re__exec_dfa* exec, re__prog_entry entry, re__exec_dfa_start_state_flags start_state_flags);
+MN_INTERNAL re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym);
+MN_INTERNAL mn_uint32 re__exec_dfa_get_match_index(re__exec_dfa* exec);
+MN_INTERNAL mn_uint32 re__exec_dfa_get_match_priority(re__exec_dfa* exec);
+MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec);
 
+/* ---------------------------------------------------------------------------
+ * Top-level data (re_re.c)
+ * ------------------------------------------------------------------------ */
 /* Internal data structure */
 struct re_data {
     re__parse parse;
@@ -896,8 +1179,5 @@ struct re_data {
 
 MN_INTERNAL void re__set_error_str(re* re, const mn__str* error_str);
 MN_INTERNAL void re__set_error_generic(re* re, re_error err);
-
-/*MN_INTERNAL re_error re__compile(re* re);*/
-MN_INTERNAL void re__prog_debug_dump(re__prog* prog);
 
 #endif
