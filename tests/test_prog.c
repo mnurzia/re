@@ -208,6 +208,38 @@ SUITE(s_prog_inst_init) {
     FUZZ_TEST(t_prog_inst_init_save);
 }
 
+void re__inst_random(re__prog_inst* inst) {
+    re__prog_inst_type inst_type = (re__prog_inst_type)RAND_PARAM(RE__PROG_INST_TYPE_MAX);
+    if (inst_type == RE__PROG_INST_TYPE_BYTE) {
+        re__prog_inst_init_byte(inst, (mn_uint8)RAND_PARAM(256));
+    } else if (inst_type == RE__PROG_INST_TYPE_BYTE_RANGE) {
+        re__prog_inst_init_byte_range(inst, re__byte_range_random());
+    } else if (inst_type == RE__PROG_INST_TYPE_SPLIT) {
+        re__prog_inst_init_split(inst, (re__prog_loc)RAND_PARAM(RE__PROG_SIZE_MAX), (re__prog_loc)RAND_PARAM(RE__PROG_SIZE_MAX));
+    } else if (inst_type == RE__PROG_INST_TYPE_MATCH) {
+        re__prog_inst_init_match(inst, (mn_uint32)RAND_PARAM(256));
+    } else if (inst_type == RE__PROG_INST_TYPE_SAVE) {
+        re__prog_inst_init_save(inst, (mn_uint32)RAND_PARAM(256));
+    } else if (inst_type == RE__PROG_INST_TYPE_ASSERT) {
+        re__prog_inst_init_assert(inst, (re__ast_assert_type)RAND_PARAM(RE__AST_ASSERT_TYPE_MAX - 1));
+    }
+}
+
+TEST(t_prog_inst_set_get_primary) {
+    re__prog_inst inst;
+    re__prog_loc primary = (re__prog_loc)RAND_PARAM(RE__PROG_SIZE_MAX);
+    re__inst_random(&inst);
+    re__prog_inst_set_primary(&inst, primary);
+    ASSERT_EQ(re__prog_inst_get_primary(&inst), primary);
+    if (re__prog_inst_get_type(&inst) == RE__PROG_INST_TYPE_SPLIT) {
+        re__prog_loc secondary = (re__prog_loc)RAND_PARAM(RE__PROG_SIZE_MAX);
+        re__prog_inst_set_primary(&inst, secondary);
+        ASSERT_EQ(re__prog_inst_get_primary(&inst), secondary);
+    }
+    PASS();
+}
+
 SUITE(s_prog_inst) {
     RUN_SUITE(s_prog_inst_init);
+    FUZZ_TEST(t_prog_inst_set_get_primary);
 }
