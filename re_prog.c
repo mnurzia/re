@@ -296,10 +296,14 @@ MN_INTERNAL re__prog_loc re__prog_get_entry(const re__prog* prog, re__prog_entry
     return prog->_entrypoints[idx];
 }
 
-MN_INTERNAL void re__prog_debug_dump(re__prog* prog) {
+#if MN_DEBUG
+
+#include <stdio.h>
+
+MN_INTERNAL void re__prog_debug_dump(const re__prog* prog) {
     re__prog_loc i;
     for (i = 0; i < re__prog_size(prog); i++) {
-        re__prog_inst* inst = re__prog_get(prog, i);
+        const re__prog_inst* inst = re__prog_cget(prog, i);
         printf("%04X | ", i);
         switch (re__prog_inst_get_type(inst)) {
             case RE__PROG_INST_TYPE_BYTE:
@@ -328,7 +332,7 @@ MN_INTERNAL void re__prog_debug_dump(re__prog* prog) {
                 printf("ASSERT ctx=%u", re__prog_inst_get_assert_ctx(inst));
                 break;
             default:
-                RE__ASSERT_UNREACHED();
+                MN__ASSERT_UNREACHED();
                 break;
         }
         printf(" -> %04X", re__prog_inst_get_primary(inst));
