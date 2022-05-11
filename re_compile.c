@@ -622,71 +622,12 @@ MN_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_fra
 MN_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates a sequence of instructions corresponding to a single
      * UTF-8 codepoint. */
-    re_error err = RE_ERROR_NONE;
-    re__prog_inst new_inst;
-    re__prog_loc begin = re__prog_size(prog);
-    re__prog_loc ptr = begin;
-    mn_uint8 compressed_insts_data[] = {
-        0x00,             0x01, 0x02, /* SPLIT -> 1, 2 */
-        0x01, 0x00, 0x7F, 0x00,       /* RANGE 0, 127 -> out */
-        0x00,             0x03, 0x05, /* SPLIT -> 3, 5 */
-        0x01, 0xC2, 0xDF, 0x04,       /* RANGE 194, 223 -> 4 */
-        0x01, 0x80, 0xBF, 0x00,       /* RANGE 128, 191 -> out */
-        0x00,             0x06, 0x08, /* SPLIT -> 6, 8 */
-        0x02, 0xE0,       0x07,       /* BYTE 224 -> 7 */
-        0x01, 0xA0, 0xBF, 0x04,       /* RANGE 160, 191 -> 4 */
-        0x00,             0x09, 0x0B, /* SPLIT -> 9, 11 */
-        0x01, 0xE1, 0xEF, 0x0A,       /* RANGE 225, 239 -> 10 */
-        0x01, 0x80, 0xBF, 0x04,       /* RANGE 128, 191 -> 4 */
-        0x00,             0x0C, 0x0E, /* SPLIT -> 12, 14 */
-        0x02, 0xF0,       0x0D,       /* BYTE 240 -> 13 */
-        0x01, 0x90, 0xBF, 0x0A,       /* RANGE 144, 191 -> 10 */
-        0x00,             0x0F, 0x11, /* SPLIT -> 15, 17 */
-        0x01, 0xF1, 0xF3, 0x10,       /* RANGE 241, 243 -> 16 */
-        0x01, 0x80, 0xBF, 0x0A,       /* RANGE 128, 191 -> 10 */
-        0x02, 0xF4,       0x12,       /* BYTE 244 -> 18 */
-        0x01, 0x80, 0x8F, 0x0A,       /* RANGE 128, 143 -> 10 */
-        0x03                          /* END */
-    };
-    mn_uint8* compressed_insts = compressed_insts_data;
-    MN__UNUSED(compile);
+    re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_ACCSURR;
     MN__UNUSED(ast);
-    while (*compressed_insts != 0x03) {
-        re__prog_loc primary;
-        if (*compressed_insts == 0x00) {
-            re__prog_loc secondary;
-            primary = *(++compressed_insts);
-            secondary = *(++compressed_insts);
-            re__prog_inst_init_split(
-                &new_inst,
-                begin + primary,
-                begin + secondary);
-        } else if (*compressed_insts == 0x01) {
-            re__byte_range br;
-            br.min = *(++compressed_insts);
-            br.max = *(++compressed_insts);
-            primary = *(++compressed_insts);
-            re__prog_inst_init_byte_range(
-                &new_inst,
-                br
-            );
-            if (primary == 0) {
-                re__compile_patches_append(&frame->patches, prog, ptr, 0);
-            } else {
-                re__prog_inst_set_primary(&new_inst, begin + primary);
-            }
-        } else if (*compressed_insts == 0x02) {
-            re__prog_inst_init_byte(&new_inst, *(++compressed_insts));
-            primary = *(++compressed_insts);
-            re__prog_inst_set_primary(&new_inst, begin + primary);
-        }
-        if ((err = re__prog_add(prog, new_inst))) {
-            return err;
-        }
-        ptr++;
-        compressed_insts++;
+    if (compile->reversed) {
+        id = RE__PROG_DATA_ID_DOT_REV_ACCSURR;
     }
-    return err;
+return re__prog_decompress(prog, re__prog_data[id], re__prog_data_size[id], &frame->patches);
 }
 
 MN_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
