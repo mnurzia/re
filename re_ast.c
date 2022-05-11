@@ -363,7 +363,10 @@ MN_INTERNAL mn__str_view re__ast_root_get_str_view(const re__ast_root* ast_root,
 
 MN_INTERNAL re_error re__ast_root_add_group(re__ast_root* ast_root, mn__str_view group_name) {
     mn__str new_str;
-    mn__str_init_n(&new_str, mn__str_view_get_data(&group_name), mn__str_view_size(&group_name));
+    re_error err = mn__str_init_n(&new_str, mn__str_view_get_data(&group_name), mn__str_view_size(&group_name));
+    if (err) {
+        return err;
+    }
     return mn__str_vec_push(&ast_root->group_names, new_str);
 }
 
