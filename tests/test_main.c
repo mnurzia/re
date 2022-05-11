@@ -6,6 +6,7 @@
 #include "test_compile.h"
 #include "test_compile_charclass.h"
 #include "test_exec.h"
+#include "test_match.h"
 #include "test_parse.h"
 #include "test_prog.h"
 #include "test_range.h"
@@ -20,7 +21,8 @@ int main(void) {
     RUN_SUITE(s_charclass_builder);
     RUN_SUITE(s_compile);
     RUN_SUITE(s_compile_charclass);
-    RUN_SUITE(s_exec);
+    /*RUN_SUITE(s_exec);*/
+    RUN_SUITE(s_match);
     RUN_SUITE(s_range);
     RUN_SUITE(s_parse);
     RUN_SUITE(s_prog_inst);
