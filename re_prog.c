@@ -131,6 +131,12 @@ MN__VEC_IMPL_FUNC(re__prog_inst, size)
 
 MN_INTERNAL re_error re__prog_init(re__prog* prog) {
     re__prog_inst_vec_init(&prog->_instructions);
+    {
+        int i;
+        for (i = 0; i < RE__PROG_ENTRY_MAX; i++) {
+            prog->_entrypoints[i] = RE__PROG_LOC_INVALID;
+        }
+    }
     return RE_ERROR_NONE;
 }
 

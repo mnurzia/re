@@ -491,9 +491,17 @@ MN_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b);
 #define RE__ERROR_PROGMAX (RE_ERROR_COMPILE | (1 << 8))
 #define RE__PROG_SIZE_MAX 100000
 
+/* Program entry points. */
+typedef enum re__prog_entry {
+    RE__PROG_ENTRY_DEFAULT,
+    RE__PROG_ENTRY_DOTSTAR,
+    RE__PROG_ENTRY_MAX
+} re__prog_entry;
+
 /* The program itself */
 typedef struct re__prog {
     re__prog_inst_vec _instructions;
+    re__prog_loc _entrypoints[RE__PROG_ENTRY_MAX];
 } re__prog;
 
 MN_INTERNAL re_error re__prog_init(re__prog* prog);
