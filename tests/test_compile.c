@@ -24,7 +24,7 @@ TEST(t_compile_rune_ascii) {
         "(prog"
         "  (fail)"
         "  (byte 'a' 2)"
-        "  (match 0 0))"
+        "  (match 1 0))"
     );
     re__compile_destroy(&compile);
     re__prog_destroy(&prog);
@@ -51,7 +51,7 @@ TEST(t_compile_rune_ascii_reversed) {
         "(prog"
         "  (fail)"
         "  (byte 'a' 2)"
-        "  (match 0 0))"
+        "  (match 1 0))"
     );
     re__compile_destroy(&compile);
     re__prog_destroy(&prog);
@@ -84,7 +84,7 @@ TEST(t_compile_rune_unicode) {
         re__prog_inst_set_primary(&inst, 2 + i);
         re__prog_add(&prog, inst);
     }
-    re__prog_inst_init_match(&inst, 0);
+    re__prog_inst_init_match(&inst, 1);
     re__prog_add(&prog, inst);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
     ASSERT(re__prog_equals(&prog, &prog_actual));
@@ -117,7 +117,7 @@ TEST(t_compile_str) {
         "  (byte 'e' 3)"
         "  (byte 's' 4)"
         "  (byte 't' 5)"
-        "  (match 0 0))"
+        "  (match 1 0))"
     );
     re__compile_destroy(&compile);
     re__prog_destroy(&prog);
@@ -159,7 +159,7 @@ TEST(t_compile_str_thrash) {
         re__prog_inst_set_primary(&inst, 2 + i);
         re__prog_add(&prog, inst);
     }
-    re__prog_inst_init_match(&inst, 0);
+    re__prog_inst_init_match(&inst, 1);
     re__prog_add(&prog, inst);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
     ASSERT(re__prog_equals(&prog, &prog_actual));
@@ -186,7 +186,7 @@ TEST(t_compile_concat) {
         "    (fail)"
         "    (byte 'a' 2)"
         "    (byte 'b' 3)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -214,7 +214,7 @@ TEST(t_compile_alt) {
         "    (split 2 3)"
         "    (byte 'a' 4)"
         "    (byte 'b' 4)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -245,7 +245,7 @@ TEST(t_compile_alts) {
         "    (split 4 5)"
         "    (byte 'b' 6)"
         "    (byte 'c' 6)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -270,7 +270,7 @@ TEST(t_compile_star) {
         "    (fail)"
         "    (split 2 3)"
         "    (byte 'a' 1)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -295,7 +295,7 @@ TEST(t_compile_star_nongreedy) {
         "    (fail)"
         "    (split 3 2)"
         "    (byte 'a' 1)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -320,7 +320,7 @@ TEST(t_compile_question) {
         "    (fail)"
         "    (split 2 3)"
         "    (byte 'a' 3)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -345,7 +345,7 @@ TEST(t_compile_question_nongreedy) {
         "    (fail)"
         "    (split 3 2)"
         "    (byte 'a' 3)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -370,7 +370,7 @@ TEST(t_compile_plus) {
         "    (fail)"
         "    (byte 'a' 2)"
         "    (split 1 3)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -395,7 +395,7 @@ TEST(t_compile_plus_nongreedy) {
         "    (fail)"
         "    (byte 'a' 2)"
         "    (split 3 1)"
-        "    (match 0 0)", &prog);
+        "    (match 1 0)", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -422,7 +422,7 @@ TEST(t_compile_quantifier_nomax) {
         "    (byte 'a' 3)"
         "    (byte 'a' 4)"
         "    (split 3 5)"
-        "    (match 0 0))", &prog);
+        "    (match 1 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -449,7 +449,7 @@ TEST(t_compile_quantifier_nomax_nongreedy) {
         "    (byte 'a' 3)"
         "    (byte 'a' 4)"
         "    (split 5 3)"
-        "    (match 0 0))", &prog);
+        "    (match 1 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -479,7 +479,7 @@ TEST(t_compile_quantifier_minmax) {
         "    (byte 'a' 6)"
         "    (split 7 8)"
         "    (byte 'a' 8)"
-        "    (match 0 0))", &prog);
+        "    (match 1 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -509,7 +509,7 @@ TEST(t_compile_quantifier_minmax_nongreedy) {
         "    (byte 'a' 6)"
         "    (split 8 7)"
         "    (byte 'a' 8)"
-        "    (match 0 0))", &prog);
+        "    (match 1 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -535,7 +535,7 @@ TEST(t_compile_group) {
         "    (save 0 2)"
         "    (byte 'a' 3)"
         "    (save 1 4)"
-        "    (match 0 0))", &prog);
+        "    (match 1 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -559,7 +559,7 @@ TEST(t_compile_group_nonmatching) {
         "(prog"
         "    (fail)"
         "    (byte 'a' 2)"
-        "    (match 0 0))", &prog);
+        "    (match 1 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -582,7 +582,7 @@ TEST(t_compile_assert) {
         "(prog"
         "    (fail)"
         "    (assert (text_start text_end word word_not) 2)"
-        "    (match 0 0))", &prog);
+        "    (match 1 0))", &prog);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
@@ -594,7 +594,32 @@ TEST(t_compile_assert) {
     PASS();
 }
 
-/*TEST(t_compile_any_char) {
+/* 509 characters?? Really??? */
+char* t_compile_any_char_text = 
+    "(prog "
+    "    (fail)"
+    "    (split 2 3)"
+    "    (byte_range 0x0 0x7F 20)"
+    "    (split 4 6)"
+    "    (byte_range 0xC2 0xDF 5)"
+    "    (byte_range 0x80 0xBF 20)"
+    "    (split 7 9)"
+    "    (byte 0xE0 8)"
+    "    (byte_range 0xA0 0xBF 5)"
+    "    (split 10 12)"
+    "    (byte_range 0xE1 0xEF 11)"
+    "    (byte_range 0x80 0xBF 5)"
+    "    (split 13 15)"
+    "    (byte 0xF0 14)"
+    "    (byte_range 0x90 0xBF 11)"
+    "    (split 16 18)"
+    "    (byte_range 0xF1 0xF3 17)"
+    "    (byte_range 0x80 0xBF 11)"
+    "    (byte 0xF4 19)"
+    "    (byte_range 0x80 0x8F 11)"
+    "    (match 1 0))";
+
+TEST(t_compile_any_char) {
     re__ast_root ast_root;
     re__prog prog_actual;
     re__compile compile;
@@ -603,12 +628,14 @@ TEST(t_compile_assert) {
         "    (any_char))", &ast_root);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
-    ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual));
+    ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
+    ASSERT_SYMEQ(re__prog, prog_actual,
+        t_compile_any_char_text);
     re__compile_destroy(&compile);
     re__prog_destroy(&prog_actual);
     re__ast_root_destroy(&ast_root);
     PASS();
-}*/
+}
 
 SUITE(s_compile) {
     RUN_TEST(t_compile_rune_ascii);
@@ -632,5 +659,5 @@ SUITE(s_compile) {
     RUN_TEST(t_compile_group);
     RUN_TEST(t_compile_group_nonmatching);
     RUN_TEST(t_compile_assert);
-    /*RUN_TEST(t_compile_any_char);*/
+    RUN_TEST(t_compile_any_char);
 }
