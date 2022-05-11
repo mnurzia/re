@@ -170,7 +170,7 @@ re_error re__match_dfa_driver(
         if (!reversed) {
             ch = text[pos];
         } else {
-            ch = text[text_size - pos];
+            ch = text[(text_size - pos) - 1];
         }
         if ((err = re__exec_dfa_run(&exec_dfa, (mn_uint32)ch))) {
             goto err_destroy_dfa;
