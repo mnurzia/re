@@ -15,6 +15,7 @@ typedef mn_int32 re_rune;
 #define RE_ERROR_PARSE -3
 #define RE_ERROR_COMPILE -4
 #define RE_ERROR_NOMATCH -5
+#define RE_ERROR_INTERNAL -6
 
 #define RE_MATCH 0
 #define RE_NOMATCH RE_ERROR_NOMATCH
