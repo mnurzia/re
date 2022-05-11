@@ -688,25 +688,73 @@ typedef struct re__prog_inst {
 
 MN__VEC_DECL(re__prog_inst);
 
+/* Initialize an instruction as a byte instruction, given its ordinal value in 
+ * the range [0, 255] */
 MN_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, mn_uint8 byte);
+
+/* Initialize an instruction as a byte range instruction, given a 
+ * re__byte_range */
 MN_INTERNAL void re__prog_inst_init_byte_range(re__prog_inst* inst, re__byte_range br);
+
+/* Initialize an instruction as a split instruction, given its primary and
+ * secondary branch targets */
 MN_INTERNAL void re__prog_inst_init_split(re__prog_inst* inst, re__prog_loc primary, re__prog_loc secondary);
+
+/* Initialize an instruction as a match instruction, given its match index */
 MN_INTERNAL void re__prog_inst_init_match(re__prog_inst* inst, mn_uint32 match_idx);
+
+/* Initialize an instruction as a fail instruction */
 MN_INTERNAL void re__prog_inst_init_fail(re__prog_inst* inst);
+
+/* Initialize an instruction as an assert instruction, given its assert context
+ * flags */
 MN_INTERNAL void re__prog_inst_init_assert(re__prog_inst* inst, mn_uint32 assert_context);
+
+/* Initialize an instruction as a save instruction, given its save slot index */
 MN_INTERNAL void re__prog_inst_init_save(re__prog_inst* inst, mn_uint32 save_idx);
+
+/* Get the primary branch target of an instruction */
 MN_INTERNAL re__prog_loc re__prog_inst_get_primary(const re__prog_inst* inst);
+
+/* Set the primary branch target of an instruction */
 MN_INTERNAL void re__prog_inst_set_primary(re__prog_inst* inst, re__prog_loc loc);
-MN_INTERNAL mn_uint8 re__prog_inst_get_byte(const re__prog_inst* inst);
-MN_INTERNAL mn_uint8 re__prog_inst_get_byte_min(const re__prog_inst* inst);
-MN_INTERNAL mn_uint8 re__prog_inst_get_byte_max(const re__prog_inst* inst);
-MN_INTERNAL re__prog_loc re__prog_inst_get_split_secondary(const re__prog_inst* inst);
-MN_INTERNAL void re__prog_inst_set_split_secondary(re__prog_inst* inst, re__prog_loc loc);
+
+/* Get an instruction's type */
 MN_INTERNAL re__prog_inst_type re__prog_inst_get_type(const re__prog_inst* inst);
+
+/* Get the byte value of an instruction (instruction must be 
+ * RE__PROG_INST_TYPE_BYTE) */
+MN_INTERNAL mn_uint8 re__prog_inst_get_byte(const re__prog_inst* inst);
+
+/* Get the minimum byte value of an instruction (instruction must be 
+ * RE__PROG_INST_TYPE_BYTE_RANGE) */
+MN_INTERNAL mn_uint8 re__prog_inst_get_byte_min(const re__prog_inst* inst);
+
+/* Get the maximum byte value of an instruction (instruction must be 
+ * RE__PROG_INST_TYPE_BYTE_RANGE) */
+MN_INTERNAL mn_uint8 re__prog_inst_get_byte_max(const re__prog_inst* inst);
+
+/* Get the secondary branch target of an instruction (instruction must be
+ * RE__PROG_INST_TYPE_SPLIT) */
+MN_INTERNAL re__prog_loc re__prog_inst_get_split_secondary(const re__prog_inst* inst);
+
+/* Set the secondary branch target of an instruction (instruction must be
+ * RE__PROG_INST_TYPE_SPLIT) */
+MN_INTERNAL void re__prog_inst_set_split_secondary(re__prog_inst* inst, re__prog_loc loc);
+
+/* Get an instruction's assert context (instruction must be 
+ * RE__PROG_INST_TYPE_ASSERT) */
 MN_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(const re__prog_inst* inst);
-MN_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(const re__prog_inst* inst);
+
+/* Get an instruction's match index (instruction must be 
+ * RE__PROG_INST_TYPE_MATCH) */
 MN_INTERNAL mn_uint32 re__prog_inst_get_match_idx(const re__prog_inst* inst);
+
+/* Get an instruction's save index (instruction must be 
+ * RE__PROG_INST_TYPE_SAVE) */
 MN_INTERNAL mn_uint32 re__prog_inst_get_save_idx(const re__prog_inst* inst);
+
+/* Check if two instructions are equal */
 MN_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b);
 
 
@@ -717,25 +765,49 @@ MN_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b);
 
 /* Program entry points. */
 typedef enum re__prog_entry {
+    /* Default entry point - start of the program as compiled. */
     RE__PROG_ENTRY_DEFAULT,
+    /* Dotstar entry - used for left-unanchored matches. Calls into 
+     * RE__PROG_ENTRY_DEFAULT. */
     RE__PROG_ENTRY_DOTSTAR,
+    /* Maximum value */
     RE__PROG_ENTRY_MAX
 } re__prog_entry;
 
 /* The program itself */
 typedef struct re__prog {
+    /* Instruction listing */
     re__prog_inst_vec _instructions;
+    /* Entrypoints */
     re__prog_loc _entrypoints[RE__PROG_ENTRY_MAX];
 } re__prog;
 
+/* Initialize a program. */
 MN_INTERNAL re_error re__prog_init(re__prog* prog);
+
+/* Destroy a program. */
 MN_INTERNAL void re__prog_destroy(re__prog* prog);
+
+/* Get the size of a program. Also tells the location of the next inst. */
 MN_INTERNAL re__prog_loc re__prog_size(const re__prog* prog);
+
+/* Get a pointer to the instruction at the given location in the program. */
 MN_INTERNAL re__prog_inst* re__prog_get(re__prog* prog, re__prog_loc loc);
-MN_INTERNAL const re__prog_inst* re__prog_cget(const re__prog* prog, re__prog_loc loc);
+
+/* Get a const pointer to the instruction at the given location in the
+ * program. */
+MN_INTERNAL const re__prog_inst* re__prog_get_const(const re__prog* prog, re__prog_loc loc);
+
+/* Add an instruction to the end of the program. */
 MN_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst);
+
+/* Check if a program is equal to another one. */
 MN_INTERNAL int re__prog_equals(re__prog* a, re__prog* b);
+
+/* Set the given entrypoint of a program to the given location. */
 MN_INTERNAL void re__prog_set_entry(re__prog* prog, re__prog_entry idx, re__prog_loc loc);
+
+/* Get the given entrypoint of a program. */
 MN_INTERNAL re__prog_loc re__prog_get_entry(const re__prog* prog, re__prog_entry idx);
 
 #if MN_DEBUG
@@ -744,7 +816,7 @@ MN_INTERNAL void re__prog_debug_dump(const re__prog* prog);
 
 
 /* ---------------------------------------------------------------------------
- * Compilation patch cache (re_compile.c)
+ * Compilation patch list (re_compile.c)
  * ------------------------------------------------------------------------ */
 /* A list of program patches -- locations in the program that need to point to
  * later instructions */
@@ -754,11 +826,18 @@ MN_INTERNAL void re__prog_debug_dump(const re__prog* prog);
  * and iterate facilities. So in addition to not having to perform manual memory
  * allocation, we get quick operations "for free". */
 typedef struct re__compile_patches {
+    /* Head of linked list */
     re__prog_loc first_inst;
+    /* Tail of linked list */
     re__prog_loc last_inst;
 } re__compile_patches;
 
+/* Initialize a patch list object */
 MN_INTERNAL void re__compile_patches_init(re__compile_patches* patches);
+
+/* Append the given location to the patch list object, given a re__prog for
+ * linked-list storage, and a flag indicating if the location is to have its
+ * secondary branch target patched. */
 MN_INTERNAL void re__compile_patches_append(re__compile_patches* patches, re__prog* prog, re__prog_loc to, int secondary);
 
 #if RE_DEBUG
@@ -785,8 +864,31 @@ typedef enum re__prog_data_id {
     RE__PROG_DATA_ID_MAX
 } re__prog_data_id;
 
+/* Pointers to precompiled program data. See re__prog_decompress for the
+ * compressed program format. */
 MN_INTERNAL mn_uint8* re__prog_data[RE__PROG_DATA_ID_MAX];
+
+/* Corresponding sizes of precompiled program data. */
 MN_INTERNAL mn_size re__prog_data_size[RE__PROG_DATA_ID_MAX];
+
+/* Decompress a compressed program into an re__prog object, storing outward
+ * patches in the given patches object. */
+/* The format for compressed data is as follows:
+ * <program> ::= <insts>
+ * <insts> ::= <inst> | <inst> <insts>
+ * <inst> ::= <inst_byte> | <inst_range> | <inst_split>
+ * <inst_byte> ::= 0x00 <loc> <byte_value>
+ * <inst_range> ::= 0x01 <loc> <byte_value> <byte_value>
+ * <inst_split> ::= 0x02 <loc> <loc>
+ * <loc> ::= [0x00-0x7F] | [0x80-0xFF] <loc>
+ * <byte_value> ::= [0x00-0xFF]
+ * 
+ * Notes:
+ *   <loc> is a variable-length integer, big-endian, where the top bit indicates
+ *   more data.
+ * 
+ * Returns RE__ERROR_COMPRESSION_FORMAT if the format is wrong.
+ */
 MN_INTERNAL re_error re__prog_data_decompress(re__prog* prog, mn_uint8* compressed_data, mn_size compressed_size, re__compile_patches* patches);
 
 
