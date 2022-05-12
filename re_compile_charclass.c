@@ -28,10 +28,12 @@ MN_INTERNAL re__compile_charclass_tree* re__compile_charclass_tree_get(re__compi
     return re__compile_charclass_tree_vec_getref(&char_comp->tree, (mn_size)tree_ref);
 }
 
+/* Create a new node in the charclass compiler's internal tree structure. */
 re_error re__compile_charclass_new_node(re__compile_charclass* char_comp, mn_uint32 parent_ref, re__byte_range byte_range, mn_uint32* out_new_node_ref, int use_reverse_tree) {
     re_error err = RE_ERROR_NONE;
     re__compile_charclass_tree new_node;
     mn_uint32 prev_sibling_ref;
+    /* out_new_node_ref contains the next available position in the vector. */
     *out_new_node_ref = (mn_uint32)re__compile_charclass_tree_vec_size(&char_comp->tree);
     if (parent_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
         /* adding to root */
