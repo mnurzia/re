@@ -421,11 +421,14 @@ MN_INTERNAL re_error re__parse_alt(re__parse* parse) {
     re__ast_type peek_type;
     re_error err = RE_ERROR_NONE;
     while (1) {
-        peek_type = re__parse_get_frame(parse)->type;
+        peek_type = RE__AST_TYPE_NONE;
+        if (parse->ast_frame_root_ref != RE__AST_NONE) {
+            peek_type = re__parse_get_frame(parse)->type;
+        }
         if (peek_type == RE__AST_TYPE_CONCAT) {
             /* Pop all concatenations, alt takes priority */
             re__parse_frame_pop(parse);
-        } else if (peek_type == RE__AST_TYPE_GROUP) {
+        } else if (peek_type == RE__AST_TYPE_GROUP || peek_type == RE__AST_TYPE_NONE) {
             /* This is the initial alteration: "a|" or "(a|" */
             /* Note: the group in question could be the base frame. */
             /* In any case, we shim an ALT node in before the previous child. */
