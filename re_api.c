@@ -427,14 +427,14 @@ re_error re_match_groups(re* reg, const char* text, mn_size text_size, re_anchor
         {
             mn_size pos;
             re__assert_type assert_ctx = RE__ASSERT_TYPE_TEXT_START | RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
-            if ((err = re__exec_nfa_start(&exec_nfa, assert_ctx, 1))) {
+            if ((err = re__exec_nfa_start(&exec_nfa, 0))) {
                 goto error;
             }
             for (pos = 0; pos < mn__str_view_size(&string_view); pos++) {
                 mn_uint8 ch = (mn_uint8)mn__str_view_get_data(&string_view)[pos];
                 mn_uint32 match;
                 assert_ctx = re__match_next_assert_ctx(pos, mn__str_view_size(&string_view));
-                if ((err = re__exec_nfa_run(&exec_nfa, ch, pos, assert_ctx))) {
+                if ((err = re__exec_nfa_run_byte(&exec_nfa, assert_ctx, ch, pos))) {
                     return err;
                 }
                 match = re__exec_nfa_get_match_index(&exec_nfa);
@@ -444,6 +444,9 @@ re_error re_match_groups(re* reg, const char* text, mn_size text_size, re_anchor
                         break;
                     }
                 }
+            }
+            if ((err = re__exec_nfa_run_byte(&exec_nfa, assert_ctx, RE__EXEC_SYM_EOT, pos))) {
+                return err;
             }
             err = re__exec_nfa_finish(&exec_nfa, out_groups, pos);
         }

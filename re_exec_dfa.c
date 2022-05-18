@@ -300,7 +300,7 @@ re_error re__exec_dfa_start(re__exec_dfa* exec, re__prog_entry entry, re__exec_d
         if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT) {
             dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT;
         }
-        if ((err = re__exec_nfa_start_new(&exec->nfa, entry))) {
+        if ((err = re__exec_nfa_start(&exec->nfa, entry))) {
             return err;
         }
         if ((err = re__exec_dfa_get_state(exec, dfa_flags, start_state))) {
@@ -341,7 +341,7 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
         );
         re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
         re__exec_nfa_set_match_priority(&exec->nfa, current_state->match_priority);
-        if ((err = re__exec_nfa_run_byte_new(&exec->nfa, assert_ctx, next_sym, 0))) {
+        if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, next_sym, 0))) {
             return err;
         }
         /* if (is_word_char(sym)) dfa_flags |= from_word */

@@ -1196,14 +1196,10 @@ MN_INTERNAL mn_uint32 re__exec_nfa_get_match_index(re__exec_nfa* exec);
 MN_INTERNAL mn_uint32 re__exec_nfa_get_match_priority(re__exec_nfa* exec);
 MN_INTERNAL void re__exec_nfa_set_match_index(re__exec_nfa* exec, mn_uint32 match_index);
 MN_INTERNAL void re__exec_nfa_set_match_priority(re__exec_nfa* exec, mn_uint32 match_priority);
-MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__assert_type assert_ctx, re__prog_entry entry);
-MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__assert_type assert_ctx);
-MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
-MN_INTERNAL re_error re__exec_nfa_start_new(re__exec_nfa* exec, re__prog_entry entry);
-MN_INTERNAL re_error re__exec_nfa_run_byte_new(re__exec_nfa* exec, re__assert_type assert_type, re__exec_sym symbol, mn_size pos);
-MN_INTERNAL re_error re__exec_nfa_run_eof_new(re__exec_nfa* exec, re__assert_type assert_type, mn_size pos);
-
+MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__prog_entry entry);
+MN_INTERNAL re_error re__exec_nfa_run_byte(re__exec_nfa* exec, re__assert_type assert_type, re__exec_sym symbol, mn_size pos);
+MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 
 #if MN_DEBUG
 

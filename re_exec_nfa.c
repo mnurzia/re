@@ -295,155 +295,6 @@ MN_INTERNAL void re__exec_nfa_swap(re__exec_nfa* exec) {
     exec->set_b = temp;
 }
 
-MN_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__exec_thrd thrd, re__assert_type assert_context, mn_size pos) {
-    re_error err = RE_ERROR_NONE;
-    re__exec_thrd_vec_clear(&exec->thrd_stk);
-    re__exec_thrd_set_clear(&exec->set_c);
-    if ((err = re__exec_thrd_vec_push(&exec->thrd_stk, thrd))) {
-        return err;
-    }
-    while (re__exec_thrd_vec_size(&exec->thrd_stk)) {
-        re__exec_thrd top = re__exec_thrd_vec_pop(&exec->thrd_stk);
-        const re__prog_inst* inst = re__prog_get_const(exec->prog, top.loc);
-        re__prog_inst_type inst_type;
-        MN_ASSERT(top.loc != 0);
-        if (re__exec_thrd_set_ismemb(&exec->set_c, top)) {
-            /* target is already a member */
-            continue;
-        } else {
-            re__exec_thrd_set_add(&exec->set_c, top);
-        }
-        inst_type = re__prog_inst_get_type(inst);
-        if (inst_type == RE__PROG_INST_TYPE_BYTE) {
-            re__exec_thrd_set_add(&exec->set_b, top);
-        } else if (inst_type == RE__PROG_INST_TYPE_BYTE_RANGE) {
-            re__exec_thrd_set_add(&exec->set_b, top);
-        } else if (inst_type == RE__PROG_INST_TYPE_SPLIT) {
-            /* push secondary first to maintain priority */
-            re__exec_thrd secondary_thrd, primary_thrd;
-            re__exec_thrd_init(
-                &secondary_thrd, 
-                re__prog_inst_get_split_secondary(inst),
-                top.save_slot
-            );
-            re__exec_thrd_init(
-                &primary_thrd,
-                re__prog_inst_get_primary(inst),
-                top.save_slot
-            );
-            if (top.save_slot != RE__EXEC_SAVE_REF_NONE) {
-                re__exec_save_inc_refs(&exec->save_slots, top.save_slot);
-            }
-            if ((err = re__exec_thrd_vec_push(&exec->thrd_stk, secondary_thrd))) {
-                return err;
-            }
-            if ((err = re__exec_thrd_vec_push(&exec->thrd_stk, primary_thrd))) {
-                return err;
-            }
-        } else if (inst_type == RE__PROG_INST_TYPE_MATCH) {
-            mn_uint32 match_index = re__prog_inst_get_match_idx(inst);
-            if (!exec->set_b.match_index) {
-                exec->set_b.match_index = match_index;
-                exec->set_b.match_priority = exec->set_b.n;
-            }
-            re__exec_thrd_set_add(&exec->set_b, top);
-        } else if (inst_type == RE__PROG_INST_TYPE_SAVE) {
-            re__exec_thrd primary_thrd;
-            mn_uint32 save_idx = re__prog_inst_get_save_idx(inst);
-            re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(inst), top.save_slot);
-            if (save_idx < re__exec_save_get_slots_per_thrd(&exec->save_slots)) {
-                if ((err = re__exec_save_do_save(&exec->save_slots, &primary_thrd.save_slot, re__prog_inst_get_save_idx(inst), pos))) {
-                    return err;
-                }
-            }
-            if ((err = re__exec_thrd_vec_push(&exec->thrd_stk, primary_thrd))) {
-                return err;
-            }
-        } else if (inst_type == RE__PROG_INST_TYPE_ASSERT) {
-            re__exec_thrd primary_thrd;
-            re__assert_type required_ctx = re__prog_inst_get_assert_ctx(inst);
-            re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(inst), top.save_slot);
-            if ((required_ctx & assert_context) == required_ctx) {
-                if ((err = re__exec_thrd_vec_push(&exec->thrd_stk, primary_thrd))) {
-                    return err;
-                }
-            } else {
-                re__exec_save_dec_refs(&exec->save_slots, primary_thrd.save_slot);
-            }
-        } else {
-            MN__ASSERT_UNREACHED();
-        }
-    }
-    return err;
-}
-
-MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__assert_type assert_ctx, re__prog_loc start_loc) {
-    re_error err = RE_ERROR_NONE;
-    re__prog_loc set_size = re__prog_size(exec->prog);
-    re__exec_thrd initial;
-    re__exec_save_start(&exec->save_slots);
-    if (exec->num_groups < 1) {
-        re__exec_save_set_slots_per_thrd(&exec->save_slots, 0);
-    } else {
-        /* cast is ok since exec->num_groups guaranteed > 1 */
-        re__exec_save_set_slots_per_thrd(&exec->save_slots, (mn_uint32)(exec->num_groups * 2));
-    }
-    if ((err = re__exec_thrd_set_alloc(&exec->set_a, set_size))) {
-        return err;
-    }
-    if ((err = re__exec_thrd_set_alloc(&exec->set_b, set_size))) {
-        return err;
-    }
-    if ((err = re__exec_thrd_set_alloc(&exec->set_c, set_size))) {
-        return err;
-    }
-    re__exec_thrd_init(&initial, start_loc, -1);
-    if ((err = re__exec_follow(exec, initial, assert_ctx, 0))) {
-        return err;
-    }
-    re__exec_thrd_set_clear(&exec->set_a);
-    re__exec_nfa_swap(exec);
-    return err;
-}
-
-MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__assert_type assert_ctx) {
-    mn_size j;
-    re_error err = RE_ERROR_NONE;
-    for (j = 0; j < exec->set_a.n; j++) {
-        re__exec_thrd cur_thrd = exec->set_a.dense[j];
-        const re__prog_inst* cur_inst = re__prog_get_const(exec->prog, cur_thrd.loc);
-        re__prog_inst_type cur_inst_type = re__prog_inst_get_type(cur_inst);
-        if (cur_inst_type == RE__PROG_INST_TYPE_BYTE) {
-            if (ch == re__prog_inst_get_byte(cur_inst)) {
-                re__exec_thrd primary_thrd;
-                re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(cur_inst), cur_thrd.save_slot);
-                if ((err = re__exec_follow(exec, primary_thrd, assert_ctx, pos + 1))) {
-                    return err;
-                }
-            } else {
-                re__exec_save_dec_refs(&exec->save_slots, cur_thrd.save_slot);
-            }
-        } else if (cur_inst_type == RE__PROG_INST_TYPE_BYTE_RANGE) {
-            if (ch >= re__prog_inst_get_byte_min(cur_inst) && ch <= re__prog_inst_get_byte_max(cur_inst)) {
-                re__exec_thrd primary_thrd;
-                re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(cur_inst), cur_thrd.save_slot);
-                if ((err = re__exec_follow(exec, primary_thrd, assert_ctx, pos + 1))) {
-                    return err;
-                }
-            } else {
-                re__exec_save_dec_refs(&exec->save_slots, cur_thrd.save_slot);
-            }
-        } else if (cur_inst_type == RE__PROG_INST_TYPE_MATCH) {
-            /* do nothing */
-        } else {
-            MN__ASSERT_UNREACHED();
-        }
-    }
-    re__exec_thrd_set_clear(&exec->set_a);
-    re__exec_nfa_swap(exec);
-    return err;
-}
-
 MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos) {
     /* check if there are any threads left */
     if (exec->set_a.n) {
@@ -474,7 +325,7 @@ MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_si
     }
 }
 
-MN_INTERNAL re_error re__exec_nfa_start_new(re__exec_nfa* exec, re__prog_entry entry) {
+MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__prog_entry entry) {
     re_error err = RE_ERROR_NONE;
     re__prog_loc set_size = re__prog_size(exec->prog);
     re__exec_thrd initial;
@@ -585,7 +436,7 @@ MN_INTERNAL re_error re__exec_nfa_run_follow_new(re__exec_nfa* exec, re__assert_
     return err;
 }
 
-MN_INTERNAL re_error re__exec_nfa_run_byte_new(re__exec_nfa* exec, re__assert_type assert_type, unsigned int ch, mn_size pos) {
+MN_INTERNAL re_error re__exec_nfa_run_byte(re__exec_nfa* exec, re__assert_type assert_type, unsigned int ch, mn_size pos) {
     re_error err = RE_ERROR_NONE;
     re__prog_loc i;
     if ((err = re__exec_nfa_run_follow_new(exec, assert_type, pos))) {
