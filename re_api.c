@@ -218,7 +218,7 @@ re_error re__match_dfa_driver(
         }
         pos++;
     }
-    if ((err = re__exec_dfa_run(&exec_dfa, RE__EXEC_DFA_SYM_EOT))) {
+    if ((err = re__exec_dfa_run(&exec_dfa, RE__EXEC_SYM_EOT))) {
         goto err_destroy_dfa;
     }
     if ((last_found_match = re__exec_dfa_get_match_index(&exec_dfa))) {

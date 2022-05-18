@@ -1173,6 +1173,10 @@ MN_INTERNAL mn_size re__exec_save_get_refs(const re__exec_save* save, mn_int32 s
 MN_INTERNAL re_error re__exec_save_get_new(re__exec_save* save, mn_int32* slots_out_ref);
 MN_INTERNAL re_error re__exec_save_do_save(re__exec_save* save, mn_int32* slots_inout_ref, mn_uint32 slot_number, mn_size data);
 
+typedef unsigned int re__exec_sym;
+#define RE__EXEC_SYM_EOT 256
+#define RE__EXEC_SYM_MAX 257
+
 /* Execution context. */
 typedef struct re__exec_nfa {
     const re__prog* prog;
@@ -1196,6 +1200,10 @@ MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__assert_type asse
 MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__assert_type assert_ctx);
 MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
+MN_INTERNAL re_error re__exec_nfa_start_new(re__exec_nfa* exec, re__prog_entry entry);
+MN_INTERNAL re_error re__exec_nfa_run_byte_new(re__exec_nfa* exec, re__assert_type assert_type, re__exec_sym symbol, mn_size pos);
+MN_INTERNAL re_error re__exec_nfa_run_eof_new(re__exec_nfa* exec, re__assert_type assert_type, mn_size pos);
+
 
 #if MN_DEBUG
 
@@ -1212,11 +1220,6 @@ MN__VEC_DECL(re__prog_loc);
 #define RE__EXEC_DFA_PAGE_SIZE 4
 #define RE__EXEC_DFA_THRD_LOCS_PAGE_SIZE 1024
 
-enum re__exec_dfa_sym {
-    RE__EXEC_DFA_SYM_EOT = 256,
-    RE__EXEC_DFA_SYM_MAX
-};
-
 typedef struct re__exec_dfa_state re__exec_dfa_state;
 
 typedef re__exec_dfa_state* re__exec_dfa_state_ptr;
@@ -1232,7 +1235,7 @@ typedef enum re__exec_dfa_flags {
 
 /* DFA state. */
 struct re__exec_dfa_state {
-    re__exec_dfa_state_ptr next[RE__EXEC_DFA_SYM_MAX];
+    re__exec_dfa_state_ptr next[RE__EXEC_SYM_MAX];
     re__exec_dfa_flags flags;
     mn_uint32 match_index;
     mn_uint32 match_priority;
@@ -1327,9 +1330,3 @@ MN_INTERNAL void re__set_error_generic(re* re, re_error err);
 /* sets state->next[byte] */
 /* dfa_run_empty() */
 /* sets state->eof */
-
-typedef unsigned int re__exec_sym;
-
-MN_INTERNAL re_error re__exec_nfa_start_new(re__exec_nfa* exec, re__prog_entry entry);
-MN_INTERNAL re_error re__exec_nfa_run_byte_new(re__exec_nfa* exec, re__assert_type assert_type, re__exec_sym symbol, mn_size pos);
-MN_INTERNAL re_error re__exec_nfa_run_eof_new(re__exec_nfa* exec, re__assert_type assert_type, mn_size pos);

@@ -624,12 +624,3 @@ MN_INTERNAL re_error re__exec_nfa_run_byte_new(re__exec_nfa* exec, re__assert_ty
     }
     return err;
 }
-
-MN_INTERNAL re_error re__exec_nfa_run_eof_new(re__exec_nfa* exec, re__assert_type assert_type, mn_size pos) {
-    re_error err = RE_ERROR_NONE;
-    if ((err = re__exec_nfa_run_follow_new(exec, assert_type, pos))) {
-        return err;
-    }
-    re__exec_nfa_swap(exec);
-    return err;
-}

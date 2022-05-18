@@ -50,7 +50,7 @@ void re__exec_dfa_destroy(re__exec_dfa* exec) {
 
 void re__exec_dfa_state_init(re__exec_dfa_state* state, mn_uint32* thrd_locs_begin, mn_uint32* thrd_locs_end) {
     mn_uint32 i;
-    for (i = 0; i < RE__EXEC_DFA_SYM_MAX; i++) {
+    for (i = 0; i < RE__EXEC_SYM_MAX; i++) {
         state->next[i] = MN_NULL;
     }
     state->flags = 0;
@@ -318,14 +318,14 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
     re_error err = RE_ERROR_NONE;
     /* for now, ensure it's not null */
     MN_ASSERT(current_state != MN_NULL);
-    MN_ASSERT(next_sym <= RE__EXEC_DFA_SYM_EOT);
+    MN_ASSERT(next_sym <= RE__EXEC_SYM_EOT);
     next_state = current_state->next[next_sym];
     if (next_state == MN_NULL) {
         re__assert_type assert_ctx = 0;
         if (current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD) {
             assert_ctx |= RE__ASSERT_TYPE_WORD;
         }
-        if (next_sym == RE__EXEC_DFA_SYM_EOT) {
+        if (next_sym == RE__EXEC_SYM_EOT) {
             assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
             assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
         }
@@ -372,7 +372,7 @@ MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec) {
 #include <stdio.h>
 
 MN_INTERNAL void re__exec_dfa_debug_dump_state_idx(int sym) {
-    if (sym < RE__EXEC_DFA_SYM_EOT) {
+    if (sym < RE__EXEC_SYM_EOT) {
         re__byte_debug_dump((mn_uint8)sym);
     } else {
         printf("<max>");
@@ -406,7 +406,7 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec) {
     printf("  Nexts:\n");
     {
         int sym;
-        for (sym = 0; sym < RE__EXEC_DFA_SYM_MAX; sym++) {
+        for (sym = 0; sym < RE__EXEC_SYM_MAX; sym++) {
             re__exec_dfa_state* next = state->next[sym];
             if (next != MN_NULL) {
                 printf("    [");
