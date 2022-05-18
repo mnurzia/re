@@ -26,7 +26,7 @@ void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog) {
     exec->state_page_idx = 0;
     mn_uint32_ptr_vec_init(&exec->thrd_loc_pages);
     exec->thrd_loc_page_idx = 0;
-    re__exec_nfa_init(&exec->nfa, prog, RE_MATCH_GROUPS_NONE);
+    re__exec_nfa_init(&exec->nfa, prog, 0);
     exec->cache = MN_NULL;
     exec->cache_stored = 0;
     exec->cache_alloc = 0;
@@ -339,7 +339,7 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
             );
             re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
             re__exec_nfa_set_match_priority(&exec->nfa, current_state->match_priority);
-            if ((err = re__exec_nfa_run(&exec->nfa, (mn_char)exec->prev_sym, 0, assert_ctx))) {
+            if ((err = re__exec_nfa_run(&exec->nfa, (mn_uint8)exec->prev_sym, 0, assert_ctx))) {
                 return err;
             }
         }
