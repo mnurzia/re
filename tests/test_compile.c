@@ -595,27 +595,33 @@ TEST(t_compile_assert) {
 }
 
 /* 509 characters?? Really??? */
-char* t_compile_any_char_text = 
+char* t_compile_any_char_text0 = 
     "(prog "
     "    (fail)"
     "    (split 2 3)"
-    "    (byte_range 0x0 0x7F 20)"
+    "    (byte_range 0x0 0x7F 25)"
     "    (split 4 6)"
     "    (byte_range 0xC2 0xDF 5)"
-    "    (byte_range 0x80 0xBF 20)"
+    "    (byte_range 0x80 0xBF 25)"
     "    (split 7 9)"
     "    (byte 0xE0 8)"
     "    (byte_range 0xA0 0xBF 5)"
     "    (split 10 12)"
-    "    (byte_range 0xE1 0xEF 11)"
+    "    (byte_range 0xE1 0xEC 11)"
     "    (byte_range 0x80 0xBF 5)"
-    "    (split 13 15)"
-    "    (byte 0xF0 14)"
+    "    (split 13 15)";
+char* t_compile_any_char_text1 = 
+    "    (byte 0xED 14)"
+    "    (byte_range 0x80 0x9F 5)"
+    "    (split 16 17)"
+    "    (byte_range 0xEE 0xEF 11)"
+    "    (split 18 20)"
+    "    (byte 0xF0 19)"
     "    (byte_range 0x90 0xBF 11)"
-    "    (split 16 18)"
-    "    (byte_range 0xF1 0xF3 17)"
+    "    (split 21 23)"
+    "    (byte_range 0xF1 0xF3 22)"
     "    (byte_range 0x80 0xBF 11)"
-    "    (byte 0xF4 19)"
+    "    (byte 0xF4 24)"
     "    (byte_range 0x80 0x8F 11)"
     "    (match 1 0))";
 
@@ -623,14 +629,18 @@ TEST(t_compile_any_char) {
     re__ast_root ast_root;
     re__prog prog_actual;
     re__compile compile;
+    mn__str cmpstr;
     SYM(re__ast_root,
         "(ast"
         "    (any_char))", &ast_root);
     re__compile_init(&compile);
     re__prog_init(&prog_actual);
     ASSERT(!re__compile_regex(&compile, &ast_root, &prog_actual, 0));
+    mn__str_init_s(&cmpstr, t_compile_any_char_text0);
+    mn__str_cat_s(&cmpstr, t_compile_any_char_text1);
     ASSERT_SYMEQ(re__prog, prog_actual,
-        t_compile_any_char_text);
+        mn__str_get_data(&cmpstr));
+    mn__str_destroy(&cmpstr);
     re__compile_destroy(&compile);
     re__prog_destroy(&prog_actual);
     re__ast_root_destroy(&ast_root);
