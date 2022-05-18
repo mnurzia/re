@@ -35,6 +35,13 @@ re__byte_range re__byte_range_intersection(re__byte_range range, re__byte_range 
 re__byte_range re__byte_range_merge(re__byte_range range, re__byte_range other);
 
 
+#if MN_DEBUG
+
+void re__byte_debug_dump(mn_uint8 byte);
+void re__byte_range_debug_dump(re__byte_range br);
+
+#endif
+
 /* ---------------------------------------------------------------------------
  * Rune ranges (re_range.c)
  * ------------------------------------------------------------------------ */
@@ -57,6 +64,12 @@ int re__rune_range_intersects(re__rune_range range, re__rune_range clip);
  * re__rune_range_intersects(range, clip) == 1) */
 re__rune_range re__rune_range_clamp(re__rune_range range, re__rune_range bounds);
 
+#if MN_DEBUG
+
+void re__rune_debug_dump(re_rune rune);
+void re__rune_range_debug_dump(re__rune_range rr);
+
+#endif
 
 /* ---------------------------------------------------------------------------
  * Character class (re_charclass.c)
@@ -1163,7 +1176,7 @@ MN_INTERNAL re_error re__exec_save_do_save(re__exec_save* save, mn_int32* slots_
 /* Execution context. */
 typedef struct re__exec_nfa {
     const re__prog* prog;
-    re_match_groups_type num_groups;
+    mn_uint32 num_groups;
     re__exec_thrd_set set_a;
     re__exec_thrd_set set_b;
     re__exec_thrd_set set_c;
@@ -1183,6 +1196,12 @@ MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type 
 MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__ast_assert_type assert_ctx);
 MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
+
+#if MN_DEBUG
+
+MN_INTERNAL void re__exec_nfa_debug_dump(const re__exec_nfa* exec, int with_save);
+
+#endif
 
 
 /* ---------------------------------------------------------------------------
@@ -1260,6 +1279,7 @@ MN_INTERNAL re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym);
 MN_INTERNAL mn_uint32 re__exec_dfa_get_match_index(re__exec_dfa* exec);
 MN_INTERNAL mn_uint32 re__exec_dfa_get_match_priority(re__exec_dfa* exec);
 MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec);
+MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
 
 /* ---------------------------------------------------------------------------
  * Top-level data (re_re.c)

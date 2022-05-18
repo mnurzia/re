@@ -372,15 +372,24 @@ MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec) {
 
 MN_INTERNAL void re__exec_dfa_debug_dump_state_idx(int sym) {
     if (sym < RE__EXEC_DFA_SYM_EOT) {
-        printf("0x%02X", sym);
+        re__byte_debug_dump((mn_uint8)sym);
     } else {
         printf("<max>");
     }
 }
 
-MN_INTERNAL void re__exec_dfa_debug_dump_state(const re__exec_dfa_state* state, re__exec_dfa* exec) {
+MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec) {
+    const re__exec_dfa_state* state = exec->current_state;
     printf("---------------------------------\n");
     printf("DFA State Debug Dump (%p, dfa: %p):\n", (void*)state, (void*)exec);
+    if (state == MN_NULL) {
+        printf("  NULL STATE\n");
+        return;
+    }
+    if (state == (re__exec_dfa_state*)RE__EXEC_DFA_STATE_INVALID) {
+        printf("  INVALID STATE\n");
+        return;
+    }
     printf("  Flags: 0x%04X\n", state->flags);
     printf("  Match Index: %i\n", state->match_index);
     printf("  Match Priority: %i\n", state->match_priority);

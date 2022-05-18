@@ -47,3 +47,53 @@ re__rune_range re__rune_range_clamp(re__rune_range range, re__rune_range bounds)
     }
     return out;
 }
+
+#if MN_DEBUG
+
+#include <stdio.h>
+
+void re__byte_debug_dump(mn_uint8 byte) {
+    if ((byte >= ' ') && (byte < 0x7F)) {
+        printf("0x%02X ('%c')", byte, byte);
+    } else {
+        printf("0x%02X", byte);
+    }
+}
+
+void re__rune_debug_dump(re_rune rune) {
+    mn_uint8 utf_buf[5];
+    int nchar;
+    if ((rune >= ' ') && (rune < 0x7F)) {
+        printf("0x%02X ('%c')", rune, rune);
+    } else {
+        printf("0x%02X", rune);
+    }
+    nchar = re__compile_gen_utf8(rune, utf_buf);
+    if (nchar != 0) {
+        int i;
+        printf(" {");
+        for (i = 0; i < nchar; i++) {
+            printf("%02X", utf_buf[i]);
+        }
+        printf("}");
+    }
+}
+
+void re__byte_range_debug_dump(re__byte_range br) {
+    printf("[");
+    re__byte_debug_dump(br.min);
+    printf(" - ");
+    re__byte_debug_dump(br.max);
+    printf("]");
+}
+
+
+void re__rune_range_debug_dump(re__rune_range rr) {
+    printf("[");
+    re__rune_debug_dump(rr.min);
+    printf(" - ");
+    re__rune_debug_dump(rr.max);
+    printf("]");
+}
+
+#endif

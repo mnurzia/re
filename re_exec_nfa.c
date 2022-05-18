@@ -194,24 +194,24 @@ MN_INTERNAL int re__exec_thrd_set_ismemb(re__exec_thrd_set* set, re__exec_thrd t
 
 #include <stdio.h>
 
-MN_INTERNAL void re__exec_thrd_set_dump(const re__exec_thrd_set* set, const re__exec_nfa* exec, int with_save) {
-    printf("n: %u\n", set->n);
-    printf("s: %u\n", set->size);
-    printf("match: %u\n", set->match_index);
-    printf("match_priority: %u\n", set->match_priority);
+MN_INTERNAL void re__exec_nfa_debug_dump(const re__exec_nfa* exec, int with_save) {
+    printf("n: %u\n", exec->set_a.n);
+    printf("s: %u\n", exec->set_a.size);
+    printf("match: %u\n", exec->set_a.match_index);
+    printf("match_priority: %u\n", exec->set_a.match_priority);
     printf("memb:\n");
     {
         mn_uint32 i;
-        for (i = 0; i < set->n; i++) {
-            printf("  %04X, %i\n", set->dense[i].loc, set->dense[i].save_slot);
+        for (i = 0; i < exec->set_a.n; i++) {
+            printf("  %04X, %i\n", exec->set_a.dense[i].loc, exec->set_a.dense[i].save_slot);
         }
     }
     if (with_save) {
         printf("slots:\n");
         {
             mn_uint32 i;
-            for (i = 0; i < set->n; i++) {
-                mn_int32 slot_ref = set->dense[i].save_slot;
+            for (i = 0; i < exec->set_a.n; i++) {
+                mn_int32 slot_ref = exec->set_a.dense[i].save_slot;
                 const mn_size* slots;
                 mn_uint32 j;
                 if (slot_ref == RE__EXEC_SAVE_REF_NONE) {
@@ -236,7 +236,7 @@ MN__VEC_IMPL_FUNC(re__exec_thrd, pop)
 MN__VEC_IMPL_FUNC(re__exec_thrd, clear)
 MN__VEC_IMPL_FUNC(re__exec_thrd, size)
 
-MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, const re__prog* prog, re_match_groups_type num_groups) {
+MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, const re__prog* prog, mn_uint32 num_groups) {
     exec->prog = prog;
     exec->num_groups = num_groups;
     re__exec_thrd_set_init(&exec->set_a);
