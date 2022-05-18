@@ -280,7 +280,7 @@ re__ast_assert_type re__exec_dfa_get_assert_ctx(mn_uint32 left_char, mn_uint32 r
 
 re_error re__exec_dfa_start(re__exec_dfa* exec, re__prog_entry entry, re__exec_dfa_start_state_flags start_state_flags) {
     re_error err = RE_ERROR_NONE;
-    unsigned int start_state_idx = start_state_flags + entry * RE__EXEC_DFA_START_STATE_COUNT;
+    unsigned int start_state_idx = start_state_flags + (entry * RE__EXEC_DFA_START_STATE_COUNT);
     re__exec_dfa_state** start_state = &exec->start_states[start_state_idx];
     MN_ASSERT(entry < RE__PROG_ENTRY_MAX);
     if (*start_state == MN_NULL) {
@@ -310,7 +310,7 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
     /* for now, ensure it's not null */
     MN_ASSERT(current_state != MN_NULL);
     MN_ASSERT(next_sym <= RE__EXEC_DFA_SYM_EOT);
-    next_state = current_state->next[next_sym];
+    next_state = current_state->next[exec->prev_sym];
     if (next_state == MN_NULL) {
         re__ast_assert_type assert_ctx = 0;
         if (current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD) {
@@ -347,7 +347,7 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
         if ((err = re__exec_dfa_get_state(exec, 0, &next_state))) {
             return err;
         }
-        current_state->next[next_sym] = next_state;
+        current_state->next[exec->prev_sym] = next_state;
     }
     exec->prev_sym = next_sym;
     exec->current_state = next_state;
