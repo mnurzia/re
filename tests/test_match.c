@@ -322,14 +322,13 @@ TEST(t_match_dot_groups_none) {
 }
 
 TEST(t_match_begin_text_groups_none) {
-    ASSERT(test_match("^a", "a", 'E'));
-
     ASSERT(test_match("^a", "a", 'S'));
     ASSERT(test_match("^a", "aa", 'S'));
     ASSERT(test_match("^a", "ab", 'S'));
     ASSERT(!test_match("^a", "", 'S'));
     ASSERT(!test_match("^a", "ba", 'S'));
 
+    ASSERT(test_match("^a", "a", 'E'));
     ASSERT(!test_match("^a", "aa", 'E'));
     ASSERT(!test_match("^a", "ab", 'E'));
     ASSERT(!test_match("^a", "", 'E'));
@@ -350,9 +349,35 @@ TEST(t_match_begin_text_groups_none) {
     PASS();
 }
 
-SUITE(s_match) {
-    RUN_TEST(t_match_begin_text_groups_none);
+TEST(t_match_end_text_groups_none) {
+    ASSERT(test_match("a$", "a", 'S'));
+    ASSERT(!test_match("a$", "aa", 'S'));
+    ASSERT(!test_match("a$", "ab", 'S'));
+    ASSERT(!test_match("a$", "", 'S'));
+    ASSERT(!test_match("a$", "ba", 'S'));
 
+    ASSERT(test_match("a$", "a", 'E'));
+    ASSERT(test_match("a$", "aa", 'E'));
+    ASSERT(!test_match("a$", "ab", 'E'));
+    ASSERT(!test_match("a$", "", 'E'));
+    ASSERT(test_match("a$", "ba", 'E'));
+
+    ASSERT(test_match("a$", "a", 'B'));
+    ASSERT(!test_match("a$", "aa", 'B'));
+    ASSERT(!test_match("a$", "ab", 'B'));
+    ASSERT(!test_match("a$", "", 'B'));
+    ASSERT(!test_match("a$", "ba", 'B'));
+
+    ASSERT(test_match("a$", "a", 'U'));
+    ASSERT(test_match("a$", "aa", 'U'));
+    ASSERT(!test_match("a$", "ab", 'U'));
+    ASSERT(!test_match("a$", "", 'U'));
+    ASSERT(test_match("a$", "ba", 'U'));
+
+    PASS();
+}
+
+SUITE(s_match) {
     RUN_TEST(t_match_one_char_groups_none);
     RUN_TEST(t_match_two_chars_groups_none);
     RUN_TEST(t_match_alt_groups_none);
@@ -361,4 +386,6 @@ SUITE(s_match) {
     RUN_TEST(t_match_question_groups_none);
     RUN_TEST(t_match_quantifier_groups_none);
     RUN_TEST(t_match_dot_groups_none);
+    RUN_TEST(t_match_begin_text_groups_none);
+    RUN_TEST(t_match_end_text_groups_none);
 }

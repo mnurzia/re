@@ -1225,7 +1225,9 @@ typedef enum re__exec_dfa_flags {
     RE__EXEC_DFA_FLAG_FROM_WORD = 1,
     RE__EXEC_DFA_FLAG_START_STATE = 2,
     RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT = 4,
-    RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE = 8
+    RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE = 8,
+    RE__EXEC_DFA_FLAG_MATCH = 16,
+    RE__EXEC_DFA_FLAG_MATCH_PRIORITY = 32
 } re__exec_dfa_flags;
 
 /* DFA state. */
@@ -1303,3 +1305,31 @@ MN_INTERNAL void re__set_error_str(re* re, const mn__str* error_str);
 MN_INTERNAL void re__set_error_generic(re* re, re_error err);
 
 #endif
+
+/* NFA */
+/*   "": Empty
+ *  "a": Empty Byte Empty
+ * "aa": Empty Byte Empty Byte Empty */
+/*   EOT -> Empty
+ *     A -> Empty Byte */
+/* DFA */
+/*   "": EOT
+ *  "a": A EOT
+ * "aa": A A EOT
+ *   EOT -> Empty
+ *     A -> Empty Byte */
+
+/* nfa_run_byte(empty, byte) */
+/* nfa_run_empty(empty) */
+
+/* pick start state, sets state */
+/* dfa_run_byte(byte) */
+/* sets state->next[byte] */
+/* dfa_run_empty() */
+/* sets state->eof */
+
+typedef unsigned int re__exec_sym;
+
+MN_INTERNAL re_error re__exec_nfa_start_new(re__exec_nfa* exec, re__prog_entry entry);
+MN_INTERNAL re_error re__exec_nfa_run_byte_new(re__exec_nfa* exec, re__assert_type assert_type, re__exec_sym symbol, mn_size pos);
+MN_INTERNAL re_error re__exec_nfa_run_eof_new(re__exec_nfa* exec, re__assert_type assert_type, mn_size pos);

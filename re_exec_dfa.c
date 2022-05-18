@@ -172,6 +172,12 @@ re_error re__exec_dfa_get_state(re__exec_dfa* exec, re__exec_dfa_flags flags, re
     mn_uint32 match_index = re__exec_nfa_get_match_index(&exec->nfa);
     mn_uint32 match_priority = re__exec_nfa_get_match_priority(&exec->nfa);
     mn_uint32 hash = 0;
+    if (match_index) {
+        flags |= RE__EXEC_DFA_FLAG_MATCH;
+    }
+    if (match_priority) {
+        flags |= RE__EXEC_DFA_FLAG_MATCH_PRIORITY;
+    }
     /* ok to cast to uint8, no ambiguous padding inside of flags */
     hash = mn__murmurhash3_32(hash, (const mn_uint8*)&flags, sizeof(flags));
     {
@@ -294,6 +300,9 @@ re_error re__exec_dfa_start(re__exec_dfa* exec, re__prog_entry entry, re__exec_d
         if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT) {
             dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT;
         }
+        if ((err = re__exec_nfa_start_new(&exec->nfa, entry))) {
+            return err;
+        }
         if ((err = re__exec_dfa_get_state(exec, dfa_flags, start_state))) {
             return err;
         }
@@ -310,7 +319,7 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
     /* for now, ensure it's not null */
     MN_ASSERT(current_state != MN_NULL);
     MN_ASSERT(next_sym <= RE__EXEC_DFA_SYM_EOT);
-    next_state = current_state->next[exec->prev_sym];
+    next_state = current_state->next[next_sym];
     if (next_state == MN_NULL) {
         re__assert_type assert_ctx = 0;
         if (current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD) {
@@ -318,36 +327,28 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
         }
         if (next_sym == RE__EXEC_DFA_SYM_EOT) {
             assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
+            assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
         }
-        if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE) {
-            /* need to call nfa_start */
-            if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE) {
-                assert_ctx |= RE__ASSERT_TYPE_TEXT_START;
-            }
-            if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT) {
-                assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
-            }
-            if ((
-                err = re__exec_nfa_start(&exec->nfa, assert_ctx, 
-                re__prog_get_entry(exec->nfa.prog, current_state->start_entry)))) {
-                return err;
-            }
-        } else {
-            re__exec_nfa_set_thrds(
-                &exec->nfa, current_state->thrd_locs_begin, 
-                (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin)
-            );
-            re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
-            re__exec_nfa_set_match_priority(&exec->nfa, current_state->match_priority);
-            if ((err = re__exec_nfa_run(&exec->nfa, (mn_uint8)exec->prev_sym, 0, assert_ctx))) {
-                return err;
-            }
+        if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE) {
+            assert_ctx |= RE__ASSERT_TYPE_TEXT_START;
+        }
+        if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT) {
+            assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
+        }
+        re__exec_nfa_set_thrds(
+            &exec->nfa, current_state->thrd_locs_begin, 
+            (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin)
+        );
+        re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
+        re__exec_nfa_set_match_priority(&exec->nfa, current_state->match_priority);
+        if ((err = re__exec_nfa_run_byte_new(&exec->nfa, assert_ctx, next_sym, 0))) {
+            return err;
         }
         /* if (is_word_char(sym)) dfa_flags |= from_word */
         if ((err = re__exec_dfa_get_state(exec, 0, &next_state))) {
             return err;
         }
-        current_state->next[exec->prev_sym] = next_state;
+        current_state->next[next_sym] = next_state;
     }
     exec->prev_sym = next_sym;
     exec->current_state = next_state;
