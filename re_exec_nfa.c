@@ -405,7 +405,7 @@ MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type 
     return err;
 }
 
-MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_char ch, mn_size pos, re__ast_assert_type assert_ctx) {
+MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__ast_assert_type assert_ctx) {
     mn_size j;
     re_error err = RE_ERROR_NONE;
     for (j = 0; j < exec->set_a.n; j++) {
@@ -452,7 +452,7 @@ MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_si
         if (top_thrd.save_slot != RE__EXEC_SAVE_REF_NONE) {
             mn_size* slots = re__exec_save_get_slots(&exec->save_slots, top_thrd.save_slot);
             re_span out_span;
-            re_match_groups_type i;
+            mn_uint32 i;
             /* Set first span (match boundaries) */
             out_span.begin = 0;
             out_span.end = pos;
