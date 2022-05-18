@@ -1,3 +1,6 @@
+# quick (actually not quick) 'n' dirty code to generate optimized dfa for utf8
+# charclasses
+
 import itertools
 
 ACCEPT = True
@@ -200,9 +203,12 @@ def encode_insts(insts):
 
 if __name__ == "__main__":
     import sys
+    av = sys.argv
+    if len(sys.argv) == 1:
+        av = ["", "fwd", "0-D7FF", "E000-10FFFF"]
     ranges = []
-    forwards = sys.argv[1] == "fwd"
-    for arg in sys.argv[2:]:
+    forwards = av[1] == "fwd"
+    for arg in av[2:]:
         spl = arg.split("-")
         if len(spl) == 0:
             ranges.append((int(spl[0], 16), int(spl[0], 16) + 1))

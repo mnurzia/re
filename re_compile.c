@@ -622,10 +622,10 @@ MN_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_fra
 MN_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
     /* Generates a sequence of instructions corresponding to a single
      * UTF-8 codepoint. */
-    re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_ACCSURR;
+    re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_REJSURR;
     MN__UNUSED(ast);
     if (compile->reversed) {
-        id = RE__PROG_DATA_ID_DOT_REV_ACCSURR;
+        id = RE__PROG_DATA_ID_DOT_REV_REJSURR;
     }
 return re__prog_data_decompress(prog, re__prog_data[id], re__prog_data_size[id], &frame->patches);
 }
@@ -799,12 +799,12 @@ error:
 MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed) {
     re__compile_patches patches;
     re__prog_loc entry = re__prog_size(prog);
-    re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_ACCSURR;
+    re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_REJSURR;
     re__prog_inst inst;
     re_error err = RE_ERROR_NONE;
     MN_ASSERT(re__prog_get_entry(prog, RE__PROG_ENTRY_DOTSTAR) == RE__PROG_LOC_INVALID);
     if (reversed) {
-        id = RE__PROG_DATA_ID_DOT_REV_ACCSURR;
+        id = RE__PROG_DATA_ID_DOT_REV_REJSURR;
     }
     re__prog_inst_init_split(&inst, re__prog_get_entry(prog, RE__PROG_ENTRY_DEFAULT), entry + 1);
     if ((err = re__prog_add(prog, inst))) {
