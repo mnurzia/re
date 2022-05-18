@@ -14,7 +14,7 @@
 int main(void) {
     printf("\x1b[3J");
     MPTEST_MAIN_BEGIN();
-    MPTEST_ENABLE_LEAK_CHECKING();
+    /*MPTEST_ENABLE_LEAK_CHECKING();*/
     RUN_SUITE(s_match);
     RUN_SUITE(s_ast);
     RUN_SUITE(s_ast_root);
