@@ -28,7 +28,7 @@ int re__prog_inst_to_sym(sym_build* parent, re__prog_inst prog_inst) {
     } else if (inst_type == RE__PROG_INST_TYPE_SAVE) {
         SYM_PUT_NUM(&build, (mn_int32)re__prog_inst_get_save_idx(&prog_inst));
     } else if (inst_type == RE__PROG_INST_TYPE_ASSERT) {
-        re__ast_assert_type_to_sym(&build, re__prog_inst_get_assert_ctx(&prog_inst));
+        re__assert_type_to_sym(&build, re__prog_inst_get_assert_ctx(&prog_inst));
     }
     if (inst_type == RE__PROG_INST_TYPE_BYTE ||
         inst_type == RE__PROG_INST_TYPE_BYTE_RANGE ||
@@ -87,8 +87,8 @@ int re__prog_inst_from_sym(sym_walk* parent, re__prog_inst* prog_inst) {
         SYM_GET_NUM(&walk, &save_idx);
         re__prog_inst_init_save(prog_inst, (mn_uint32)save_idx);
     } else if (inst_type == RE__PROG_INST_TYPE_ASSERT) {
-        re__ast_assert_type assert_ctx;
-        SYM_GET_SUB(&walk, re__ast_assert_type, &assert_ctx);
+        re__assert_type assert_ctx;
+        SYM_GET_SUB(&walk, re__assert_type, &assert_ctx);
         re__prog_inst_init_assert(prog_inst, (mn_uint32)assert_ctx);
     }
      if (inst_type == RE__PROG_INST_TYPE_BYTE ||
@@ -182,7 +182,7 @@ TEST(t_prog_inst_init_fail) {
 
 TEST(t_prog_inst_init_assert) {
     re__prog_inst inst;
-    mn_uint32 assert_ctx = (mn_uint32)RAND_PARAM(RE__AST_ASSERT_TYPE_MAX);
+    mn_uint32 assert_ctx = (mn_uint32)RAND_PARAM(RE__ASSERT_TYPE_MAX);
     re__prog_inst_init_assert(&inst, assert_ctx);
     ASSERT_EQ(re__prog_inst_get_type(&inst), RE__PROG_INST_TYPE_ASSERT);
     ASSERT_EQ(re__prog_inst_get_assert_ctx(&inst), assert_ctx);
@@ -221,7 +221,7 @@ void re__inst_random(re__prog_inst* inst) {
     } else if (inst_type == RE__PROG_INST_TYPE_SAVE) {
         re__prog_inst_init_save(inst, (mn_uint32)RAND_PARAM(256));
     } else if (inst_type == RE__PROG_INST_TYPE_ASSERT) {
-        re__prog_inst_init_assert(inst, (re__ast_assert_type)RAND_PARAM(RE__AST_ASSERT_TYPE_MAX - 1));
+        re__prog_inst_init_assert(inst, (re__assert_type)RAND_PARAM(RE__ASSERT_TYPE_MAX - 1));
     }
 }
 

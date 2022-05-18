@@ -312,20 +312,20 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
     MN_ASSERT(next_sym <= RE__EXEC_DFA_SYM_EOT);
     next_state = current_state->next[exec->prev_sym];
     if (next_state == MN_NULL) {
-        re__ast_assert_type assert_ctx = 0;
+        re__assert_type assert_ctx = 0;
         if (current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD) {
-            assert_ctx |= RE__AST_ASSERT_TYPE_WORD;
+            assert_ctx |= RE__ASSERT_TYPE_WORD;
         }
         if (next_sym == RE__EXEC_DFA_SYM_EOT) {
-            assert_ctx |= RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE;
+            assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
         }
         if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE) {
             /* need to call nfa_start */
             if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE) {
-                assert_ctx |= RE__AST_ASSERT_TYPE_TEXT_START;
+                assert_ctx |= RE__ASSERT_TYPE_TEXT_START;
             }
             if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT) {
-                assert_ctx |= RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE;
+                assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
             }
             if ((
                 err = re__exec_nfa_start(&exec->nfa, assert_ctx, 

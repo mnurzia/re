@@ -322,13 +322,14 @@ TEST(t_match_dot_groups_none) {
 }
 
 TEST(t_match_begin_text_groups_none) {
+    ASSERT(test_match("^a", "a", 'E'));
+
     ASSERT(test_match("^a", "a", 'S'));
     ASSERT(test_match("^a", "aa", 'S'));
     ASSERT(test_match("^a", "ab", 'S'));
     ASSERT(!test_match("^a", "", 'S'));
     ASSERT(!test_match("^a", "ba", 'S'));
 
-    ASSERT(test_match("^a", "a", 'E'));
     ASSERT(!test_match("^a", "aa", 'E'));
     ASSERT(!test_match("^a", "ab", 'E'));
     ASSERT(!test_match("^a", "", 'E'));

@@ -91,13 +91,13 @@ mn_uint32 re_get_max_groups(const re* reg) {
     return re__ast_root_get_num_groups(&reg->data->ast_root);
 }
 
-MN_INTERNAL re__ast_assert_type re__match_next_assert_ctx(mn_size pos, mn_size len) {
-    re__ast_assert_type out = 0;
+MN_INTERNAL re__assert_type re__match_next_assert_ctx(mn_size pos, mn_size len) {
+    re__assert_type out = 0;
     if (pos == 0) {
-        out |= RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_START;
+        out |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE | RE__ASSERT_TYPE_TEXT_START;
     }
     if (pos == len) {
-        out |= RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE | RE__AST_ASSERT_TYPE_TEXT_END;
+        out |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE | RE__ASSERT_TYPE_TEXT_END;
     }
     return out;
 }
@@ -426,7 +426,7 @@ re_error re_match_groups(re* reg, const char* text, mn_size text_size, re_anchor
         mn__str_view_init_n(&string_view, text, text_size);
         {
             mn_size pos;
-            re__ast_assert_type assert_ctx = RE__AST_ASSERT_TYPE_TEXT_START | RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE;
+            re__assert_type assert_ctx = RE__ASSERT_TYPE_TEXT_START | RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
             if ((err = re__exec_nfa_start(&exec_nfa, assert_ctx, 1))) {
                 goto error;
             }

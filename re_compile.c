@@ -606,10 +606,27 @@ MN_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_fra
     re_error err = RE_ERROR_NONE;
     re__prog_inst new_inst;
     re__prog_loc assert_pc = re__prog_size(prog);
+    re__assert_type assert_type = re__ast_get_assert_type(ast);
     MN__UNUSED(compile);
+    if (compile->reversed) {
+        re__assert_type new_assert_type = 0;
+        if (assert_type & RE__ASSERT_TYPE_TEXT_START) {
+            new_assert_type |= RE__ASSERT_TYPE_TEXT_END;
+        }
+        if (assert_type & RE__ASSERT_TYPE_TEXT_END) {
+            new_assert_type |= RE__ASSERT_TYPE_TEXT_START;
+        }
+        if (assert_type & RE__ASSERT_TYPE_TEXT_START_ABSOLUTE) {
+            new_assert_type |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
+        }
+        if (assert_type & RE__ASSERT_TYPE_TEXT_END_ABSOLUTE) {
+            new_assert_type |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
+        }
+        assert_type = new_assert_type;
+    }
     re__prog_inst_init_assert(
         &new_inst,
-        (mn_uint32)re__ast_get_assert_type(ast)
+        (mn_uint32)assert_type
     ); /* Creates unpatched branch (1) */
     if ((err = re__prog_add(prog, new_inst))) {
         return err;

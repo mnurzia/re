@@ -233,24 +233,24 @@ typedef struct re__ast_quantifier_info {
 } re__ast_quantifier_info;
 
 /* Assert types, as they are represented in the AST. */
-typedef enum re__ast_assert_type {
+typedef enum re__assert_type {
     /* Minimum value */
-    RE__AST_ASSERT_TYPE_MIN = 1,
+    RE__ASSERT_TYPE_MIN = 1,
     /* Text/Line start */
-    RE__AST_ASSERT_TYPE_TEXT_START = 1,
+    RE__ASSERT_TYPE_TEXT_START = 1,
     /* Text/Line start */
-    RE__AST_ASSERT_TYPE_TEXT_END = 2,
+    RE__ASSERT_TYPE_TEXT_END = 2,
     /* Text start */
-    RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE = 4,
+    RE__ASSERT_TYPE_TEXT_START_ABSOLUTE = 4,
     /* Text end */
-    RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE = 8,
+    RE__ASSERT_TYPE_TEXT_END_ABSOLUTE = 8,
     /* Word character (one-character lookaround) */
-    RE__AST_ASSERT_TYPE_WORD = 16,
+    RE__ASSERT_TYPE_WORD = 16,
     /* Not a word character */
-    RE__AST_ASSERT_TYPE_WORD_NOT = 32,
+    RE__ASSERT_TYPE_WORD_NOT = 32,
     /* Maximum value (non-inclusive) */
-    RE__AST_ASSERT_TYPE_MAX = 64
-} re__ast_assert_type;
+    RE__ASSERT_TYPE_MAX = 64
+} re__assert_type;
 
 /* Group flags */
 typedef enum re__ast_group_flags {
@@ -291,7 +291,7 @@ typedef union re__ast_data {
     /* RE__AST_TYPE_QUANTIFIER: minimum/maximum/greediness */
     re__ast_quantifier_info quantifier_info;
     /* RE__AST_TYPE_ASSERT: type(s) of assert present */
-    re__ast_assert_type assert_type;
+    re__assert_type assert_type;
 } re__ast_data;
 
 /* AST node */
@@ -341,7 +341,7 @@ MN_INTERNAL void re__ast_init_group(re__ast* ast, mn_uint32 group_idx, re__ast_g
 
 /* Initialize the given node as a RE__AST_TYPE_ASSERT with the given assert
  * type */
-MN_INTERNAL void re__ast_init_assert(re__ast* ast, re__ast_assert_type assert_type);
+MN_INTERNAL void re__ast_init_assert(re__ast* ast, re__assert_type assert_type);
 
 /* Initialize the given node as a RE__AST_TYPE_ANY_CHAR (.) */
 MN_INTERNAL void re__ast_init_any_char(re__ast* ast);
@@ -374,7 +374,7 @@ MN_INTERNAL re__ast_group_flags re__ast_get_group_flags(const re__ast* ast);
 MN_INTERNAL mn_uint32 re__ast_get_group_idx(const re__ast* ast);
 
 /* Get the given node's assert bits (node must be RE__AST_TYPE_ASSERT) */
-MN_INTERNAL re__ast_assert_type re__ast_get_assert_type(const re__ast* ast);
+MN_INTERNAL re__assert_type re__ast_get_assert_type(const re__ast* ast);
 
 /* Get the reference to the node's string in ast_root (node must be 
  * RE__AST_TYPE_STR) */
@@ -757,7 +757,7 @@ MN_INTERNAL void re__prog_inst_set_split_secondary(re__prog_inst* inst, re__prog
 
 /* Get an instruction's assert context (instruction must be 
  * RE__PROG_INST_TYPE_ASSERT) */
-MN_INTERNAL re__ast_assert_type re__prog_inst_get_assert_ctx(const re__prog_inst* inst);
+MN_INTERNAL re__assert_type re__prog_inst_get_assert_ctx(const re__prog_inst* inst);
 
 /* Get an instruction's match index (instruction must be 
  * RE__PROG_INST_TYPE_MATCH) */
@@ -1192,8 +1192,8 @@ MN_INTERNAL mn_uint32 re__exec_nfa_get_match_index(re__exec_nfa* exec);
 MN_INTERNAL mn_uint32 re__exec_nfa_get_match_priority(re__exec_nfa* exec);
 MN_INTERNAL void re__exec_nfa_set_match_index(re__exec_nfa* exec, mn_uint32 match_index);
 MN_INTERNAL void re__exec_nfa_set_match_priority(re__exec_nfa* exec, mn_uint32 match_priority);
-MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type assert_ctx, re__prog_entry entry);
-MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__ast_assert_type assert_ctx);
+MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__assert_type assert_ctx, re__prog_entry entry);
+MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__assert_type assert_ctx);
 MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec);
 

@@ -83,12 +83,12 @@ static const char* assert_type_sym_types[] = {
     "word_not"
 };
 
-int re__ast_assert_type_to_sym(sym_build* parent, re__ast_assert_type assert_type) {
+int re__assert_type_to_sym(sym_build* parent, re__assert_type assert_type) {
     sym_build build;
     int i = 0;
-    re__ast_assert_type cur_flag = RE__AST_ASSERT_TYPE_MIN;
+    re__assert_type cur_flag = RE__ASSERT_TYPE_MIN;
     SYM_PUT_EXPR(parent, &build);
-    while (cur_flag != RE__AST_ASSERT_TYPE_MAX) {
+    while (cur_flag != RE__ASSERT_TYPE_MAX) {
         if (cur_flag & assert_type) {
             SYM_PUT_STR(&build, assert_type_sym_types[i]);
         }
@@ -98,7 +98,7 @@ int re__ast_assert_type_to_sym(sym_build* parent, re__ast_assert_type assert_typ
     return SYM_OK;
 }
 
-int re__ast_assert_type_from_sym(sym_walk* parent, re__ast_assert_type* assert_type) {
+int re__assert_type_from_sym(sym_walk* parent, re__assert_type* assert_type) {
     sym_walk walk;
     *assert_type = 0;
     SYM_GET_EXPR(parent, &walk);
@@ -106,11 +106,11 @@ int re__ast_assert_type_from_sym(sym_walk* parent, re__ast_assert_type* assert_t
         const char* str;
         mptest_size str_size;
         mn__str_view view_a, view_b;
-        re__ast_assert_type cur_flag = RE__AST_ASSERT_TYPE_MIN;
+        re__assert_type cur_flag = RE__ASSERT_TYPE_MIN;
         int i = 0;
         SYM_GET_STR(&walk, &str, &str_size);
         mn__str_view_init_n(&view_a, str, str_size);
-        while (cur_flag != RE__AST_ASSERT_TYPE_MAX) {
+        while (cur_flag != RE__ASSERT_TYPE_MAX) {
             mn__str_view_init_s(&view_b, assert_type_sym_types[i]);
             if (mn__str_view_cmp(&view_a, &view_b) == 0) {
                 *assert_type |= cur_flag;
@@ -159,8 +159,8 @@ int re__ast_root_to_sym_r(sym_build* parent, re__ast_root* ast_root, re__ast* as
             }
         }
     } else if (type == RE__AST_TYPE_ASSERT) {
-        re__ast_assert_type atype = re__ast_get_assert_type(ast);
-        SYM_PUT_SUB(&build, re__ast_assert_type, atype);
+        re__assert_type atype = re__ast_get_assert_type(ast);
+        SYM_PUT_SUB(&build, re__assert_type, atype);
     }
     if (type == RE__AST_TYPE_CONCAT || type == RE__AST_TYPE_ALT) {
         sym_build children;
@@ -307,8 +307,8 @@ int re__ast_root_from_sym_r(sym_walk* parent, re__ast_root* ast_root, mn_int32 p
             re__ast_root_add_group(ast_root, str_view);
         }
     } else if (type == RE__AST_TYPE_ASSERT) {
-        re__ast_assert_type assert_type;
-        SYM_GET_SUB(&walk, re__ast_assert_type, &assert_type);
+        re__assert_type assert_type;
+        SYM_GET_SUB(&walk, re__assert_type, &assert_type);
         re__ast_init_assert(&ast, assert_type);
     } else if (type == RE__AST_TYPE_ANY_CHAR) {
         re__ast_init_any_char(&ast);
@@ -439,7 +439,7 @@ TEST(t_ast_init_group_named) {
 
 TEST(t_ast_init_assert) {
     re__ast ast;
-    re__ast_assert_type atype = (re__ast_assert_type)RAND_PARAM(RE__AST_ASSERT_TYPE_MAX);
+    re__assert_type atype = (re__assert_type)RAND_PARAM(RE__ASSERT_TYPE_MAX);
     re__ast_init_assert(&ast, atype);
     ASSERT_EQ(ast.type, RE__AST_TYPE_ASSERT);
     re__ast_destroy(&ast);
@@ -523,7 +523,7 @@ TEST(t_ast_get_rune) {
 
 TEST(t_ast_assert_type) {
     re__ast ast;
-    re__ast_assert_type atype = RAND_PARAM(RE__AST_ASSERT_TYPE_MAX);
+    re__assert_type atype = RAND_PARAM(RE__ASSERT_TYPE_MAX);
     re__ast_init_assert(&ast, atype);
     ASSERT_EQ(re__ast_get_assert_type(&ast), atype);
     re__ast_destroy(&ast);

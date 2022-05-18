@@ -295,7 +295,7 @@ MN_INTERNAL void re__exec_nfa_swap(re__exec_nfa* exec) {
     exec->set_b = temp;
 }
 
-MN_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__exec_thrd thrd, re__ast_assert_type assert_context, mn_size pos) {
+MN_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__exec_thrd thrd, re__assert_type assert_context, mn_size pos) {
     re_error err = RE_ERROR_NONE;
     re__exec_thrd_vec_clear(&exec->thrd_stk);
     re__exec_thrd_set_clear(&exec->set_c);
@@ -361,7 +361,7 @@ MN_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__exec_thrd thrd, re_
             }
         } else if (inst_type == RE__PROG_INST_TYPE_ASSERT) {
             re__exec_thrd primary_thrd;
-            re__ast_assert_type required_ctx = re__prog_inst_get_assert_ctx(inst);
+            re__assert_type required_ctx = re__prog_inst_get_assert_ctx(inst);
             re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(inst), top.save_slot);
             if ((required_ctx & assert_context) == required_ctx) {
                 if ((err = re__exec_thrd_vec_push(&exec->thrd_stk, primary_thrd))) {
@@ -377,7 +377,7 @@ MN_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__exec_thrd thrd, re_
     return err;
 }
 
-MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type assert_ctx, re__prog_loc start_loc) {
+MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__assert_type assert_ctx, re__prog_loc start_loc) {
     re_error err = RE_ERROR_NONE;
     re__prog_loc set_size = re__prog_size(exec->prog);
     re__exec_thrd initial;
@@ -406,7 +406,7 @@ MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__ast_assert_type 
     return err;
 }
 
-MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__ast_assert_type assert_ctx) {
+MN_INTERNAL re_error re__exec_nfa_run(re__exec_nfa* exec, mn_uint8 ch, mn_size pos, re__assert_type assert_ctx) {
     mn_size j;
     re_error err = RE_ERROR_NONE;
     for (j = 0; j < exec->set_a.n; j++) {

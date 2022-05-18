@@ -670,7 +670,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_finish(parse));
             } else if (ch == '$') {
                 /* $: Text end assert. */
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_END));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_END));
             } else if (ch == '(') {
                 /* (: Begin a group. */
                 parse->group_flags_new = parse->group_flags;
@@ -703,7 +703,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 parse->state = RE__PARSE_STATE_ESCAPE;  
             } else if (ch == '^') {
                 /* ^: Text start assert. */
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_START));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_START));
             } else if (ch == '{') {
                 /* {: Start of counting form. */
                 re__parse_radix_clear(parse);
@@ -745,12 +745,12 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
                 /* Return to GND or calling state */
                 re__parse_pop_frame(parse);
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_START_ABSOLUTE));
             } else if (ch == 'B') {
                 /* \B: Not a word boundary */
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
                 re__parse_pop_frame(parse);
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_WORD_NOT));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_WORD_NOT));
             } else if (ch == 'C') {
                 /* \C: Any *byte* (NOT any char) */
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
@@ -864,7 +864,7 @@ RE_INTERNAL re_error re__parse_regex(re__parse* parse, re_size regex_size, const
                 /* \z: Absolute text end */
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
                 re__parse_pop_frame(parse);
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_END_ABSOLUTE));
             } else {
                 /* All other characters */
                 re__parse_pop_frame(parse);

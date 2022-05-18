@@ -651,7 +651,7 @@ destroy_err_str:
 }
 
 /* Create a new assert */
-MN_INTERNAL re_error re__parse_create_assert(re__parse* parse, re__ast_assert_type assert_type) {
+MN_INTERNAL re_error re__parse_create_assert(re__parse* parse, re__assert_type assert_type) {
     re__ast new_node;
     re__ast_init_assert(&new_node, assert_type);
     return re__parse_add_new_node(parse, new_node);
@@ -947,7 +947,7 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
                 RE__TRY(re__parse_finish(parse));
             } else if (ch == '$') {
                 /* $: Text end assert. */
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_END));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_END));
             } else if (ch == '(') {
                 /* (: Begin a group. */
                 re__parse_str_clear(parse, current);
@@ -981,7 +981,7 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
                 parse->state = RE__PARSE_STATE_ESCAPE;  
             } else if (ch == '^') {
                 /* ^: Text start assert. */
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_START));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_START));
             } else if (ch == '{') {
                 /* {: Start of counting form. */
                 re__parse_radix_clear(parse);
@@ -1023,12 +1023,12 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
                 /* Return to GND or calling state */
                 re__parse_frame_pop(parse);
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_START_ABSOLUTE));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_START_ABSOLUTE));
             } else if (ch == 'B') {
                 /* \B: Not a word boundary */
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
                 re__parse_frame_pop(parse);
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_WORD_NOT));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_WORD_NOT));
             } else if (ch == 'C') {
                 /* \C: Any *byte* (NOT any char) */
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
@@ -1075,7 +1075,7 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
                 /* \b: Word boundary */
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
                 re__parse_frame_pop(parse);
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_WORD));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_WORD));
             } else if (ch == 'c') {
                 /* \c: Invalid */
                 RE__TRY(re__parse_error_invalid_escape(parse, ch));
@@ -1130,7 +1130,7 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
                 /* \z: Absolute text end */
                 RE__TRY(re__parse_disallow_escape_in_charclass(parse, ch));
                 re__parse_frame_pop(parse);
-                RE__TRY(re__parse_create_assert(parse, RE__AST_ASSERT_TYPE_TEXT_END_ABSOLUTE));
+                RE__TRY(re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_END_ABSOLUTE));
             } else {
                 /* All other characters */
                 RE__TRY(re__parse_finish_escape_char(parse, ch));
