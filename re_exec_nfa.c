@@ -152,17 +152,17 @@ MN_INTERNAL re_error re__exec_thrd_set_alloc(re__exec_thrd_set* set, re__prog_lo
     re_error err = RE_ERROR_NONE;
     set->size = size;
     if (!set->dense) {
-        set->dense = (re__exec_thrd*)MN_MALLOC(sizeof(re__prog_loc) * size);
+        set->dense = (re__exec_thrd*)MN_MALLOC(sizeof(re__exec_thrd) * size);
     } else {
-        set->dense = (re__exec_thrd*)MN_REALLOC(set->dense, sizeof(re__prog_loc) * size);
+        set->dense = (re__exec_thrd*)MN_REALLOC(set->dense, sizeof(re__exec_thrd) * size);
     }
     if (set->dense == MN_NULL) {
         return RE_ERROR_NOMEM;
     }
     if (!set->sparse) {
-        set->sparse = (re__prog_loc*)MN_MALLOC(sizeof(re__exec_thrd) * size);
+        set->sparse = (re__prog_loc*)MN_MALLOC(sizeof(re__prog_loc) * size);
     } else {
-        set->sparse = (re__prog_loc*)MN_REALLOC(set->sparse, sizeof(re__exec_thrd) * size);   
+        set->sparse = (re__prog_loc*)MN_REALLOC(set->sparse, sizeof(re__prog_loc) * size);   
     }
     if (set->sparse == MN_NULL) {
         return RE_ERROR_NOMEM;
@@ -172,6 +172,7 @@ MN_INTERNAL re_error re__exec_thrd_set_alloc(re__exec_thrd_set* set, re__prog_lo
 
 MN_INTERNAL void re__exec_thrd_set_add(re__exec_thrd_set* set, re__exec_thrd thrd) {
     MN_ASSERT(thrd.loc < set->size);
+    MN_ASSERT(set->n < set->size);
     set->dense[set->n] = thrd;
     set->sparse[thrd.loc] = set->n;
     set->n++;
