@@ -361,8 +361,9 @@ MN_INTERNAL re_error re__exec_follow(re__exec_nfa* exec, re__exec_thrd thrd, re_
             }
         } else if (inst_type == RE__PROG_INST_TYPE_ASSERT) {
             re__exec_thrd primary_thrd;
+            re__ast_assert_type required_ctx = re__prog_inst_get_assert_ctx(inst);
             re__exec_thrd_init(&primary_thrd, re__prog_inst_get_primary(inst), top.save_slot);
-            if ((assert_context & re__prog_inst_get_assert_ctx(inst)) == assert_context) {
+            if ((required_ctx & assert_context) == required_ctx) {
                 if ((err = re__exec_thrd_vec_push(&exec->thrd_stk, primary_thrd))) {
                     return err;
                 }
