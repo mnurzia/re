@@ -29,6 +29,7 @@
         "internal": [ "re_internal.h" ],
         "impl": [
             "re_ast.c",
+            "re_api.c",
             "re_charclass.c",
             "re_compile_charclass.c",
             "re_compile.c",
@@ -37,8 +38,7 @@
             "re_parse.c",
             "re_prog.c",
             "re_prog_data.c",
-            "re_range.c",
-            "re_re.c"
+            "re_range.c"
         ],
         "tests_impl": [
             "tests/test_ast.c",
