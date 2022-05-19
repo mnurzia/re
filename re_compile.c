@@ -622,6 +622,13 @@ MN_INTERNAL re_error re__compile_do_assert(re__compile* compile, re__compile_fra
         if (assert_type & RE__ASSERT_TYPE_TEXT_END_ABSOLUTE) {
             new_assert_type |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
         }
+        /* word boundaries are symmetric */
+        if (assert_type & RE__ASSERT_TYPE_WORD) {
+            new_assert_type |= RE__ASSERT_TYPE_WORD;
+        }
+        if (assert_type & RE__ASSERT_TYPE_WORD_NOT) {
+            new_assert_type |= RE__ASSERT_TYPE_WORD_NOT;
+        }
         assert_type = new_assert_type;
     }
     re__prog_inst_init_assert(
