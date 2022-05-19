@@ -506,6 +506,32 @@ TEST(t_parse_charclass_named_inverted) {
     PASS();
 }
 
+TEST(t_parse_word_boundary) {
+    re reg;
+    ASSERT(!re_init(&reg, "\\b"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "  (assert (word)))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_word_boundary_not) {
+    re reg;
+    ASSERT(!re_init(&reg, "\\B"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "  (assert (word_not)))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
 TEST(t_parse_opt_fuse_rune_rune) {
     re reg;
     re_rune first = re_rune_rand();
@@ -584,6 +610,8 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_charclass_inverted);
     RUN_TEST(t_parse_charclass_named);
     RUN_TEST(t_parse_charclass_named_inverted);
+    RUN_TEST(t_parse_word_boundary);
+    RUN_TEST(t_parse_word_boundary_not);
     FUZZ_TEST(t_parse_opt_fuse_rune_rune);
     FUZZ_TEST(t_parse_opt_fuse_str_rune);
 }
