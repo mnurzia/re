@@ -322,8 +322,17 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
     next_state = current_state->next[next_sym];
     if (next_state == MN_NULL) {
         re__assert_type assert_ctx = 0;
-        if (current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD) {
+        int is_word_boundary;
+        re__exec_dfa_flags new_flags = 0;
+        if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE) {
+            is_word_boundary = re__is_word_boundary_start(next_sym);
+        } else {
+            is_word_boundary = re__is_word_boundary(!!(current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD), next_sym);
+        }
+        if (is_word_boundary) {
             assert_ctx |= RE__ASSERT_TYPE_WORD;
+        } else {
+            assert_ctx |= RE__ASSERT_TYPE_WORD_NOT;
         }
         if (next_sym == RE__EXEC_SYM_EOT) {
             assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
@@ -344,8 +353,11 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym) {
         if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, next_sym, 0))) {
             return err;
         }
+        if (re__is_word_char(next_sym)) {
+            new_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
+        }
         /* if (is_word_char(sym)) dfa_flags |= from_word */
-        if ((err = re__exec_dfa_get_state(exec, 0, &next_state))) {
+        if ((err = re__exec_dfa_get_state(exec, new_flags, &next_state))) {
             return err;
         }
         current_state->next[next_sym] = next_state;
