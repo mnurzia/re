@@ -295,36 +295,6 @@ MN_INTERNAL void re__exec_nfa_swap(re__exec_nfa* exec) {
     exec->set_b = temp;
 }
 
-MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos) {
-    /* check if there are any threads left */
-    if (exec->set_a.n) {
-        /* extract matches from the top thread */
-        re__exec_thrd top_thrd = exec->set_a.dense[0];
-        /* check if the top thread has save slots */
-        if (top_thrd.save_slot != RE__EXEC_SAVE_REF_NONE) {
-            mn_size* slots = re__exec_save_get_slots(&exec->save_slots, top_thrd.save_slot);
-            re_span out_span;
-            mn_uint32 i;
-            /* Set first span (match boundaries) */
-            out_span.begin = 0;
-            out_span.end = pos;
-            *(out++) = out_span;
-            /* Write all other groups */
-            for (i = 0; i < exec->num_groups; i++) {
-                out_span.begin = slots[i*2];
-                out_span.end = slots[i*2 + 1];
-                *(out++) = out_span;
-            }
-            return RE_MATCH;
-        } else {
-            MN_ASSERT(exec->num_groups == 0);
-            return RE_MATCH;
-        }
-    } else {
-        return RE_NOMATCH;
-    }
-}
-
 MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__prog_entry entry) {
     re_error err = RE_ERROR_NONE;
     re__prog_loc set_size = re__prog_size(exec->prog);
@@ -353,7 +323,7 @@ MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__prog_entry entry
     return err;
 }
 
-MN_INTERNAL re_error re__exec_nfa_run_follow_new(re__exec_nfa* exec, re__assert_type assert_type, mn_size pos) {
+MN_INTERNAL re_error re__exec_nfa_run_follow(re__exec_nfa* exec, re__assert_type assert_type, mn_size pos) {
     re_error err = RE_ERROR_NONE;
     re__prog_loc i;
     re__exec_thrd_vec_clear(&exec->thrd_stk);
@@ -439,7 +409,7 @@ MN_INTERNAL re_error re__exec_nfa_run_follow_new(re__exec_nfa* exec, re__assert_
 MN_INTERNAL re_error re__exec_nfa_run_byte(re__exec_nfa* exec, re__assert_type assert_type, unsigned int ch, mn_size pos) {
     re_error err = RE_ERROR_NONE;
     re__prog_loc i;
-    if ((err = re__exec_nfa_run_follow_new(exec, assert_type, pos))) {
+    if ((err = re__exec_nfa_run_follow(exec, assert_type, pos))) {
         return err;
     }
     for (i = 0; i < exec->set_b.n; i++) {
@@ -474,4 +444,57 @@ MN_INTERNAL re_error re__exec_nfa_run_byte(re__exec_nfa* exec, re__assert_type a
         }
     }
     return err;
+}
+
+MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos) {
+    /* check if there are any threads left */
+    if (exec->set_a.n) {
+        /* extract matches from the top thread */
+        re__exec_thrd top_thrd = exec->set_a.dense[0];
+        /* check if the top thread has save slots */
+        if (top_thrd.save_slot != RE__EXEC_SAVE_REF_NONE) {
+            mn_size* slots = re__exec_save_get_slots(&exec->save_slots, top_thrd.save_slot);
+            re_span out_span;
+            mn_uint32 i;
+            /* Set first span (match boundaries) */
+            out_span.begin = 0;
+            out_span.end = pos;
+            *(out++) = out_span;
+            /* Write all other groups */
+            for (i = 0; i < exec->num_groups; i++) {
+                out_span.begin = slots[i*2];
+                out_span.end = slots[i*2 + 1];
+                *(out++) = out_span;
+            }
+            return RE_MATCH;
+        } else {
+            MN_ASSERT(exec->num_groups == 0);
+            return RE_MATCH;
+        }
+    } else {
+        return RE_NOMATCH;
+    }
+}
+
+MN_INTERNAL int re__is_word_char(re__exec_sym ch) {
+    return ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z'))
+        || ((ch >= '0') && (ch <= '9')) || ch == '_'; 
+}
+
+MN_INTERNAL int re__is_word_boundary_start(re__exec_sym right) {
+    if (re__is_word_char(right)) {
+        return 1;
+    } else if (right == RE__EXEC_SYM_EOT) {
+        return 0;
+    } else {
+        return 0;
+    }
+}
+
+MN_INTERNAL int re__is_word_boundary(int left_is_word, re__exec_sym right) {
+    if (left_is_word) {
+        return (!re__is_word_char(right)) || right == RE__EXEC_SYM_EOT;
+    } else {
+        return re__is_word_char(right);
+    }
 }

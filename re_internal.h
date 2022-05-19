@@ -1201,6 +1201,10 @@ MN_INTERNAL re_error re__exec_nfa_start(re__exec_nfa* exec, re__prog_entry entry
 MN_INTERNAL re_error re__exec_nfa_run_byte(re__exec_nfa* exec, re__assert_type assert_type, re__exec_sym symbol, mn_size pos);
 MN_INTERNAL re_error re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 
+MN_INTERNAL int re__is_word_char(re__exec_sym ch);
+MN_INTERNAL int re__is_word_boundary_start(re__exec_sym right);
+MN_INTERNAL int re__is_word_boundary(int left_is_word, re__exec_sym right);
+
 #if MN_DEBUG
 
 MN_INTERNAL void re__exec_nfa_debug_dump(const re__exec_nfa* exec, int with_save);
@@ -1304,25 +1308,3 @@ MN_INTERNAL void re__set_error_str(re* re, const mn__str* error_str);
 MN_INTERNAL void re__set_error_generic(re* re, re_error err);
 
 #endif
-
-/* NFA */
-/*   "": Empty
- *  "a": Empty Byte Empty
- * "aa": Empty Byte Empty Byte Empty */
-/*   EOT -> Empty
- *     A -> Empty Byte */
-/* DFA */
-/*   "": EOT
- *  "a": A EOT
- * "aa": A A EOT
- *   EOT -> Empty
- *     A -> Empty Byte */
-
-/* nfa_run_byte(empty, byte) */
-/* nfa_run_empty(empty) */
-
-/* pick start state, sets state */
-/* dfa_run_byte(byte) */
-/* sets state->next[byte] */
-/* dfa_run_empty() */
-/* sets state->eof */
