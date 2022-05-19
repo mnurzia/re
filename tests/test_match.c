@@ -377,6 +377,50 @@ TEST(t_match_end_text_groups_none) {
     PASS();
 }
 
+TEST(t_match_word_char_groups_none) {
+    ASSERT(!test_match("\\b", "", 'S'));
+    ASSERT(test_match("\\b", "a", 'S'));
+    ASSERT(!test_match("\\b", " ", 'S'));
+    ASSERT(!test_match("\\b", "#", 'S'));
+    ASSERT(test_match("a\\b", "a", 'S'));
+    ASSERT(!test_match("a\\b", "aa", 'S'));
+    ASSERT(test_match("a\\b", "a ", 'S'));
+    ASSERT(test_match("a\\b", "a#", 'S'));
+    ASSERT(!test_match("a\\b", "", 'S'));
+
+    ASSERT(!test_match("\\b", "", 'E'));
+    ASSERT(test_match("\\b", "a", 'E'));
+    ASSERT(!test_match("\\b", " ", 'E'));
+    ASSERT(!test_match("\\b", "#", 'E'));
+    ASSERT(test_match("a\\b", "a", 'E'));
+    ASSERT(test_match("a\\b", "aa", 'E'));
+    ASSERT(!test_match("a\\b", "a ", 'E'));
+    ASSERT(!test_match("a\\b", "a#", 'E'));
+    ASSERT(!test_match("a\\b", "", 'E'));
+
+    ASSERT(!test_match("\\b", "", 'B'));
+    ASSERT(!test_match("\\b", "a", 'B'));
+    ASSERT(!test_match("\\b", " ", 'B'));
+    ASSERT(!test_match("\\b", "#", 'B'));
+    ASSERT(test_match("a\\b", "a", 'B'));
+    ASSERT(!test_match("a\\b", "aa", 'B'));
+    ASSERT(!test_match("a\\b", "a ", 'B'));
+    ASSERT(!test_match("a\\b", "a#", 'B'));
+    ASSERT(!test_match("a\\b", "", 'B'));
+
+    ASSERT(!test_match("\\b", "", 'U'));
+    ASSERT(test_match("\\b", "a", 'U'));
+    ASSERT(!test_match("\\b", " ", 'U'));
+    ASSERT(!test_match("\\b", "#", 'U'));
+    ASSERT(test_match("a\\b", "a", 'U'));
+    ASSERT(test_match("a\\b", "aa", 'U'));
+    ASSERT(test_match("a\\b", "a ", 'U'));
+    ASSERT(test_match("a\\b", "a#", 'U'));
+    ASSERT(!test_match("a\\b", "", 'U'));
+
+    PASS();
+}
+
 SUITE(s_match) {
     RUN_TEST(t_match_one_char_groups_none);
     RUN_TEST(t_match_two_chars_groups_none);
@@ -388,4 +432,5 @@ SUITE(s_match) {
     RUN_TEST(t_match_dot_groups_none);
     RUN_TEST(t_match_begin_text_groups_none);
     RUN_TEST(t_match_end_text_groups_none);
+    RUN_TEST(t_match_word_char_groups_none);
 }
