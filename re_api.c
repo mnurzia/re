@@ -170,7 +170,7 @@ re_error re__match_dfa_driver(
     mn_size text_size,
     mn_uint32* out_match,
     mn_size* out_pos) {
-    mn_size pos = start_pos;
+    mn_size pos;
     re_error err = RE_ERROR_NONE;
     re__exec_dfa exec_dfa;
     re__exec_dfa_start_state_flags start_state_flags =
@@ -179,11 +179,16 @@ re_error re__match_dfa_driver(
     mn_size last_found_pos = 0;
     mn_uint32 last_found_match = 0;
     mn_uint32 match_status = 0;
-    MN_ASSERT(pos <= text_size);
     re__exec_dfa_init(&exec_dfa, program);
     if ((err = re__exec_dfa_start(&exec_dfa, entry, start_state_flags))) {
         return err;
     }
+    if (!reversed) {
+        pos = start_pos;
+    } else {
+        pos = text_size - start_pos;
+    }
+    MN_ASSERT(pos <= text_size);
     MN_ASSERT(MN__IMPLIES(request, out_match != MN_NULL));
     MN_ASSERT(MN__IMPLIES(request, out_pos != MN_NULL));
     while (pos < text_size) {
@@ -223,6 +228,14 @@ re_error re__match_dfa_driver(
     }
     if ((last_found_match = re__exec_dfa_get_match_index(&exec_dfa))) {
         last_found_pos = pos;
+        if (request) {
+            MN_ASSERT(last_found_pos <= text_size);
+            if (!reversed) {
+                *out_pos = last_found_pos;
+            } else {
+                *out_pos = text_size - last_found_pos;
+            }
+        }
     } else {
         err = RE_NOMATCH;
     }
@@ -288,7 +301,7 @@ re_error re_is_match(re* reg, const char* text, mn_size text_size, re_anchor_typ
         return re__match_dfa_driver(
             &reg->data->program_reverse,
             RE__PROG_ENTRY_DEFAULT,
-            0, 1, 1, 0,
+            0, 1, 1, text_size,
             text,
             text_size,
             MN_NULL,
@@ -371,7 +384,7 @@ re_error re_match_groups(re* reg, const char* text, mn_size text_size, re_anchor
             match_err = re__match_dfa_driver(
                 &reg->data->program_reverse,
                 RE__PROG_ENTRY_DEFAULT,
-                1, 0, 1, 0,
+                1, 0, 1, text_size,
                 text,
                 text_size,
                 &out_match,
