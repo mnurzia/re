@@ -349,11 +349,11 @@ typedef unsigned long mptest_rand;
 typedef enum mptest__result
 {
     MPTEST__RESULT_PASS = 0,
-    MPTEST__RESULT_FAIL = 1,
+    MPTEST__RESULT_FAIL = -1,
     /* an uncaught error that caused a `longjmp()` out of the test */
     /* or a miscellaneous error like a sym syntax error */
-    MPTEST__RESULT_ERROR = 2,
-    MPTEST__RESULT_SKIPPED = 3
+    MPTEST__RESULT_ERROR = -2,
+    MPTEST__RESULT_SKIPPED = -3
 } mptest__result;
 
 /* The different ways a test can fail. */
