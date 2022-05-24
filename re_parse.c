@@ -311,6 +311,17 @@ MN_INTERNAL re_error re__parse_add_new_node(re__parse* parse, re__ast new_ast) {
     return re__parse_link_new_node(parse, new_ast, &dummy);
 }
 
+
+MN_INTERNAL re_error re__parse_finish_alt(re__parse* parse) {
+    MN_ASSERT(re__parse_get_frame(parse)->type == RE__AST_TYPE_ALT);
+    if (re__parse_frame_is_empty(parse)) {
+        re__ast new_concat;
+        re__ast_init_concat(&new_concat);
+        return re__parse_add_new_node(parse, new_concat);
+    }
+    return RE_ERROR_NONE;
+}
+
 MN_INTERNAL re_error re__parse_finish(re__parse* parse) {
     re_error err = RE_ERROR_NONE;
     /* Pop frames until frame_ptr == 0. */
@@ -329,17 +340,14 @@ MN_INTERNAL re_error re__parse_finish(re__parse* parse) {
              * run into an error. */
             break;
         }
-        if (peek_type == RE__AST_TYPE_CONCAT || peek_type == RE__AST_TYPE_ALT) {
-            /* These operators are binary and can be popped, but only if they
-             * have more than one node. */
-            /* Currently, we disallow unary alternations and concatenations. */
-            /*if (re__ast_get_children_count(frame) == 1) {
-                if (peek_type == RE__AST_TYPE_ALT) {
-                    return re__parse_error(parse, "cannot use '|' operator with only one value");
-                } else if (peek_type == RE__AST_TYPE_CONCAT) {
-                    return re__parse_error(parse, "cannot concatenate only one value");
-                }
-            }*/
+        if (peek_type == RE__AST_TYPE_CONCAT) {
+            /* Just pop concatenations */
+            re__parse_frame_pop(parse);
+        } else if (peek_type == RE__AST_TYPE_ALT) {
+            /* Finish alternations and then pop */
+            if ((err = re__parse_finish_alt(parse))) {
+                return err;
+            }
             re__parse_frame_pop(parse);
         } else if (peek_type == RE__AST_TYPE_GROUP) {
             /* If we find a group, that means it has not been closed. */
@@ -438,6 +446,14 @@ MN_INTERNAL re_error re__parse_alt(re__parse* parse) {
             re__ast new_alt;
             mn_int32 new_alt_ref;
             re__ast_init_alt(&new_alt);
+            if (re__parse_frame_is_empty(parse)) {
+                /* Empty frame -- null alteration. */
+                re__ast new_concat;
+                re__ast_init_concat(&new_concat);
+                if ((err = re__parse_add_new_node(parse, new_concat))) {
+                    return err;
+                }
+            }
             if ((err = re__parse_link_wrap_node(parse, new_alt, &new_alt_ref))) {
                 return err;
             }
@@ -919,7 +935,7 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
     parse->depth = 0; /* 1 because of initial group */
     parse->depth_max = 0;
     parse->depth_max_prev = 0; /* same as parse->depth */
-    while (current <= end) {
+    while (current <= end || parse->defer) {
         if (parse->defer) {
             parse->defer -= 1;
         } else {
@@ -1639,6 +1655,7 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
     /* Parse state must equal ground when done. Other states must either defer
      * to ground or create errors. */
     MN_ASSERT(parse->state == RE__PARSE_STATE_GND);
+
     MN_ASSERT(re__parse_frame_vec_size(&parse->frames) == 0);
     parse->ast_root->depth_max = parse->depth_max + 1;
 #if RE_DEBUG

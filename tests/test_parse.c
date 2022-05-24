@@ -45,7 +45,7 @@ TEST(t_parse_group) {
     PASS();
 }
 
-TEST(t_parse_group_unfinished) {
+TEST(t_parse_err_group_unfinished) {
     re reg;
     ASSERT_EQm(re_init(&reg, "("), RE_ERROR_PARSE,
         "error for unfinished group");
@@ -62,7 +62,7 @@ TEST(t_parse_group_unfinished) {
     PASS();
 }
 
-TEST(t_parse_group_unmatched) {
+TEST(t_parse_err_group_unmatched) {
     re reg;
     ASSERT_EQm(re_init(&reg, ")"), RE_ERROR_PARSE,
         "error for unmatched )");
@@ -195,6 +195,23 @@ TEST(t_parse_star) {
     PASS();
 }
 
+TEST(t_parse_err_star_nostart) {
+    re reg;
+    ASSERT_EQ(re_init(&reg, "*"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(*)"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(?:*)"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "*?"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(*?)"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(?:*?)"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    PASS();
+}
+
 TEST(t_parse_question) {
     re reg;
     ASSERT(!re_init(&reg, "a?"));
@@ -218,6 +235,21 @@ TEST(t_parse_question) {
     PASS();
 }
 
+TEST(t_parse_err_question_nostart) {
+    re reg;
+    ASSERT_EQ(re_init(&reg, "?"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(?:?)"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "??"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(?" "?)"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(?:?" "?)"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    PASS();
+}
+
 TEST(t_parse_plus) {
     re reg;
     ASSERT(!re_init(&reg, "a+"));
@@ -237,6 +269,17 @@ TEST(t_parse_plus) {
         "   (quantifier 1 inf nongreedy"
         "       (rune 'a')))"
     );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_err_plus_nostart) {
+    re reg;
+    ASSERT_EQ(re_init(&reg, "+"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(+)"), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    ASSERT_EQ(re_init(&reg, "(?:+)"), RE_ERROR_PARSE);
     re_destroy(&reg);
     PASS();
 }
@@ -339,7 +382,7 @@ TEST(t_parse_charclass_hyphen) {
     PASS();
 }
 
-TEST(t_parse_charclass_unfinished) {
+TEST(t_parse_err_charclass_unfinished) {
     re reg;
     /* RE__PARSE_STATE_CHARCLASS_INITIAL */
     ASSERT_EQm(re_init(&reg, "["), RE_ERROR_PARSE,
@@ -590,23 +633,126 @@ TEST(t_parse_opt_fuse_str_rune) {
     PASS();
 }
 
+TEST(t_parse_end_maybe_question) {
+    re reg;
+    ASSERT_EQ(re_init_sz_flags(&reg, "(\x00\x00?", 4, 0), RE_ERROR_PARSE);
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_alt) {
+    re reg;
+    ASSERT(!re_init(&reg, "a|b"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "    (alt"
+        "        ((rune 0x61)"
+        "         (rune 0x62)))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_err_alt_nostartend) {
+    re reg;
+    ASSERT(!re_init(&reg, "|"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "    (alt ("
+        "       (concat ())"
+        "       (concat ()))))"
+    );
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "|a|"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "    (alt ("
+        "       (concat ())"
+        "       (rune 0x61)"
+        "       (concat ()))))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_err_alt_nostart) {
+    re reg;
+    ASSERT(!re_init(&reg, "|a"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "    (alt ("
+        "       (concat ())"
+        "       (rune 0x61))))"
+    );
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "|a|a"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "    (alt ("
+        "       (concat ())"
+        "       (rune 0x61)"
+        "       (rune 0x61))))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_err_alt_noend) {
+    re reg;
+    ASSERT(!re_init(&reg, "a|"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "    (alt ("
+        "       (rune 0x61)"
+        "       (concat ())))))"
+    );
+    re_destroy(&reg);
+    ASSERT(!re_init(&reg, "a|a|"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "    (alt ("
+        "       (rune 0x61)"
+        "       (rune 0x61)"
+        "       (concat ())))))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
 SUITE(s_parse) {
     RUN_TEST(t_parse_empty);
     RUN_TEST(t_parse_text_end);
     RUN_TEST(t_parse_group);
-    RUN_TEST(t_parse_group_unfinished);
-    RUN_TEST(t_parse_group_unmatched);
+    RUN_TEST(t_parse_err_group_unfinished);
+    RUN_TEST(t_parse_err_group_unmatched);
     FUZZ_TEST(t_parse_group_balance);
     RUN_TEST(t_parse_group_named);
     RUN_TEST(t_parse_groups);
     RUN_TEST(t_parse_star);
+    RUN_TEST(t_parse_err_star_nostart);
     RUN_TEST(t_parse_question);
+    RUN_TEST(t_parse_err_question_nostart);
     RUN_TEST(t_parse_plus);
+    RUN_TEST(t_parse_err_plus_nostart);
     RUN_TEST(t_parse_any_char);
     RUN_TEST(t_parse_charclass_one);
     RUN_TEST(t_parse_charclass_rbracket);
     RUN_TEST(t_parse_charclass_hyphen);
-    RUN_TEST(t_parse_charclass_unfinished);
+    RUN_TEST(t_parse_err_charclass_unfinished);
     RUN_TEST(t_parse_charclass_inverted);
     RUN_TEST(t_parse_charclass_named);
     RUN_TEST(t_parse_charclass_named_inverted);
@@ -614,4 +760,8 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_word_boundary_not);
     FUZZ_TEST(t_parse_opt_fuse_rune_rune);
     FUZZ_TEST(t_parse_opt_fuse_str_rune);
+    RUN_TEST(t_parse_end_maybe_question);
+    RUN_TEST(t_parse_alt);
+    RUN_TEST(t_parse_err_alt_nostartend);
+    RUN_TEST(t_parse_err_alt_nostart);
 }
