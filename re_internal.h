@@ -208,7 +208,7 @@ typedef enum re__ast_type {
     RE__AST_TYPE_ANY_CHAR,
     /* Any byte (\C) */
     RE__AST_TYPE_ANY_BYTE,
-    /* RE__AST_TYPE_BACKREFERENCE */ /* <- haha, you wish */
+    /* RE__AST_TYPE_BACKREF */ /* <- haha, you wish */
     RE__AST_TYPE_MAX
 } re__ast_type;
 
