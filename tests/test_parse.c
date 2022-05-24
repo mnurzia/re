@@ -549,6 +549,22 @@ TEST(t_parse_charclass_named_inverted) {
     PASS();
 }
 
+TEST(t_parse_charclass_double_inverted) {
+    re reg;
+    ASSERT(!re_init(&reg, "[^\\W]"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast (charclass "
+        "   ((rune_range '0' '9')"
+        "    (rune_range 'A' 'Z')"
+        "    (rune_range '_' '_')"
+        "    (rune_range 'a' 'z')))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
 TEST(t_parse_charclass_reversed) {
     re reg;
     ASSERT(!re_init(&reg, "[z-a]"));
@@ -847,6 +863,7 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_charclass_inverted);
     RUN_TEST(t_parse_charclass_named);
     RUN_TEST(t_parse_charclass_named_inverted);
+    RUN_TEST(t_parse_charclass_double_inverted);
     RUN_TEST(t_parse_charclass_reversed);
     RUN_TEST(t_parse_word_boundary);
     RUN_TEST(t_parse_word_boundary_not);

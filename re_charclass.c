@@ -297,8 +297,8 @@ MN_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder
                     if ((err = re__charclass_push(charclass, new_range))) {
                         goto destroy_out;
                     }
-                    last_temp_max = temp_max;
                 }
+                last_temp_max = temp_max;
             }
             temp_min = cur.min;
             temp_max = cur.max;
@@ -341,7 +341,7 @@ MN_INTERNAL re_error re__charclass_builder_finish(re__charclass_builder* builder
         }
         /* Add the final inverted range, the one that goes from the maximum non-
          * inverted range to infinity (RE_RUNE_MAX) */
-        if (new_range.max < RE_RUNE_MAX) {
+        if (new_range.max < RE_RUNE_MAX && temp_max < RE_RUNE_MAX) {
             if (temp_max == -1) {
                 /* empty class */
                 new_range.min = 0;
@@ -407,6 +407,19 @@ MN_INTERNAL int re__charclass_verify(const re__charclass* charclass) {
         last = rr;
     }
     return 1;
+}
+
+void re__charclass_builder_dump(const re__charclass_builder* builder) {
+    mn_size i;
+    printf("Charclass Builder %p:\n", (void*)builder);
+    printf("  Highest Rune: %i\n", builder->highest);
+    printf("  Should Invert: %i\n", builder->should_invert);
+    for (i = 0; i < re__rune_range_vec_size(&builder->ranges); i++) {
+        re__rune_range r = re__rune_range_vec_get(&builder->ranges, i);
+        printf("  [%u]: ", (unsigned int)i);
+        re__rune_range_debug_dump(r);
+        printf("\n");
+    }
 }
 
 #endif
