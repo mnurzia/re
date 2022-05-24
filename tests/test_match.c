@@ -28,6 +28,7 @@ static mptest__result test_match2(const char* regex, const char* text, re_anchor
     mn__str_view text_view;
     re reg;
     re_error rv = 0;
+    re_error rv2 = 0;
     re_span out_groups;
     mn__str_view_init_s(&text_view, text);
     ASSERT(!re_init(&reg, regex));
@@ -35,8 +36,9 @@ static mptest__result test_match2(const char* regex, const char* text, re_anchor
     if (rv != RE_MATCH) {
         ASSERT(rv == RE_NOMATCH);
     }
-    rv = re_match_groups(&reg, text, mn__str_view_size(&text_view), anchor_type, 1, &out_groups);
-    if (rv != RE_MATCH) {
+    rv2 = re_match_groups(&reg, text, mn__str_view_size(&text_view), anchor_type, 1, &out_groups);
+    ASSERT(rv == rv2);
+    if (rv2 != RE_MATCH) {
         ASSERT(rv == RE_NOMATCH);
         ASSERT_EQ(bound_start, -1);
         ASSERT_EQ(bound_end, -1);
@@ -77,344 +79,344 @@ TEST(t_match_one_char_groups_none) {
 }
 
 TEST(t_match_two_chars_groups_none) {
-    ASSERT_MATCH(test_match("ab", "ab", 'S'));
-    ASSERT_MATCH(test_match("ab", "abc", 'S'));
-    ASSERT_NOMATCH(test_match("ab", "bac", 'S'));
-    ASSERT_NOMATCH(test_match("ab", "babc", 'S'));
-    ASSERT_NOMATCH(test_match("ab", "", 'S'));
+    ASSERT_MATCH(test_match2("ab", "ab", 'S', 0, 2));
+    ASSERT_MATCH(test_match2("ab", "abc", 'S', 0, 2));
+    ASSERT_NOMATCH(test_match2("ab", "bac", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "babc", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "", 'S', -1, -1));
 
-    ASSERT_MATCH(test_match("ab", "ab", 'E'));
-    ASSERT_MATCH(test_match("ab", "bab", 'E'));
-    ASSERT_MATCH(test_match("ab", "cbab", 'E'));
-    ASSERT_NOMATCH(test_match("ab", "b", 'E'));
-    ASSERT_NOMATCH(test_match("ab", "ba", 'E'));
-    ASSERT_NOMATCH(test_match("ab", "", 'E'));
-    ASSERT_NOMATCH(test_match("ab", "abc", 'E'));
+    ASSERT_MATCH(test_match2("ab", "ab", 'E', 0, 2));
+    ASSERT_MATCH(test_match2("ab", "bab", 'E', 1, 3));
+    ASSERT_MATCH(test_match2("ab", "cbab", 'E', 2, 4));
+    ASSERT_NOMATCH(test_match2("ab", "b", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "ba", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "abc", 'E', -1, -1));
 
-    ASSERT_MATCH(test_match("ab", "ab", 'B'));
-    ASSERT_NOMATCH(test_match("ab", "bab", 'B'));
-    ASSERT_NOMATCH(test_match("ab", "abb", 'B'));
-    ASSERT_NOMATCH(test_match("ab", "abab", 'B'));
-    ASSERT_NOMATCH(test_match("ab", "a", 'B'));
-    ASSERT_NOMATCH(test_match("ab", "", 'B'));
+    ASSERT_MATCH(test_match2("ab", "ab", 'B', 0, 2));
+    ASSERT_NOMATCH(test_match2("ab", "bab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "abb", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "abab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "a", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "", 'B', -1, -1));
 
-    ASSERT_MATCH(test_match("ab", "ab", 'U'));
-    ASSERT_MATCH(test_match("ab", "abab", 'U'));
-    ASSERT_MATCH(test_match("ab", "ccabcc", 'U'));
-    ASSERT_MATCH(test_match("ab", "cbabc", 'U'));
-    ASSERT_NOMATCH(test_match("ab", "a", 'U'));
-    ASSERT_NOMATCH(test_match("ab", "", 'U'));
-    ASSERT_NOMATCH(test_match("ab", "cbac", 'U'));
+    ASSERT_MATCH(test_match2("ab", "ab", 'U', 0, 2));
+    ASSERT_MATCH(test_match2("ab", "abab", 'U', 0, 2));
+    ASSERT_MATCH(test_match2("ab", "ccabcc", 'U', 2, 4));
+    ASSERT_MATCH(test_match2("ab", "cbabc", 'U', 2, 4));
+    ASSERT_NOMATCH(test_match2("ab", "a", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2("ab", "cbac", 'U', -1, -1));
 
     PASS();
 }
 
 TEST(t_match_alt_groups_none) {
-    ASSERT_MATCH(test_match("a|b", "a", 'S'));
-    ASSERT_MATCH(test_match("a|b", "b", 'S'));
-    ASSERT_MATCH(test_match("a|b", "aa", 'S'));
-    ASSERT_MATCH(test_match("a|b", "ab", 'S'));
-    ASSERT_MATCH(test_match("a|b", "ba", 'S'));
-    ASSERT_MATCH(test_match("a|b", "bb", 'S'));
-    ASSERT_NOMATCH(test_match("a|b", "c", 'S'));
-    ASSERT_NOMATCH(test_match("a|b", "ca", 'S'));
-    ASSERT_NOMATCH(test_match("a|b", "caa", 'S'));
-    ASSERT_NOMATCH(test_match("a|b", "cbb", 'S'));
-    ASSERT_NOMATCH(test_match("a|b", "", 'S'));
+    ASSERT_MATCH(test_match2("a|b", "a", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "b", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "aa", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "ab", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "ba", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "bb", 'S', 0, 1));
+    ASSERT_NOMATCH(test_match2("a|b", "c", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "ca", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "caa", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "cbb", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "", 'S', -1, -1));
 
-    ASSERT_MATCH(test_match("a|b", "a", 'E'));
-    ASSERT_MATCH(test_match("a|b", "b", 'E'));
-    ASSERT_MATCH(test_match("a|b", "aa", 'E'));
-    ASSERT_MATCH(test_match("a|b", "ba", 'E'));
-    ASSERT_MATCH(test_match("a|b", "bb", 'E'));
-    ASSERT_MATCH(test_match("a|b", "ba", 'E'));
-    ASSERT_NOMATCH(test_match("a|b", "ac", 'E'));
-    ASSERT_NOMATCH(test_match("a|b", "bc", 'E'));
-    ASSERT_NOMATCH(test_match("a|b", "", 'E'));
+    ASSERT_MATCH(test_match2("a|b", "a", 'E', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "b", 'E', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "aa", 'E', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "ba", 'E', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "bb", 'E', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "ba", 'E', 1, 2));
+    ASSERT_NOMATCH(test_match2("a|b", "ac", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "bc", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "", 'E', -1, -1));
 
-    ASSERT_MATCH(test_match("a|b", "a", 'B'));
-    ASSERT_MATCH(test_match("a|b", "b", 'B'));
-    ASSERT_NOMATCH(test_match("a|b", "", 'B'));
-    ASSERT_NOMATCH(test_match("a|b", "c", 'B'));
-    ASSERT_NOMATCH(test_match("a|b", "ca", 'B'));
-    ASSERT_NOMATCH(test_match("a|b", "cb", 'B'));
-    ASSERT_NOMATCH(test_match("a|b", "ac", 'B'));
-    ASSERT_NOMATCH(test_match("a|b", "bc", 'B'));
-    ASSERT_NOMATCH(test_match("a|b", "cc", 'B'));
+    ASSERT_MATCH(test_match2("a|b", "a", 'B', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "b", 'B', 0, 1));
+    ASSERT_NOMATCH(test_match2("a|b", "", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "c", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "ca", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "cb", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "ac", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "bc", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "cc", 'B', -1, -1));
 
-    ASSERT_MATCH(test_match("a|b", "a", 'U'));
-    ASSERT_MATCH(test_match("a|b", "b", 'U'));
-    ASSERT_MATCH(test_match("a|b", "ca", 'U'));
-    ASSERT_MATCH(test_match("a|b", "cb", 'U'));
-    ASSERT_MATCH(test_match("a|b", "ac", 'U'));
-    ASSERT_MATCH(test_match("a|b", "cac", 'U'));
-    ASSERT_MATCH(test_match("a|b", "cbc", 'U'));
-    ASSERT_MATCH(test_match("a|b", "cabc", 'U'));
-    ASSERT_MATCH(test_match("a|b", "cbac", 'U'));
-    ASSERT_MATCH(test_match("a|b", "ccccbaabc", 'U'));
-    ASSERT_MATCH(test_match("a|b", "aaccbecc", 'U'));
-    ASSERT_NOMATCH(test_match("a|b", "", 'U'));
-    ASSERT_NOMATCH(test_match("a|b", "c", 'U'));
-    ASSERT_NOMATCH(test_match("a|b", "cd", 'U'));
-    ASSERT_NOMATCH(test_match("a|b", "cdef", 'U'));
+    ASSERT_MATCH(test_match2("a|b", "a", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "b", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "ca", 'U', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "cb", 'U', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "ac", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a|b", "cac", 'U', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "cbc", 'U', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "cabc", 'U', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "cbac", 'U', 1, 2));
+    ASSERT_MATCH(test_match2("a|b", "ccccbaabc", 'U', 4, 5));
+    ASSERT_MATCH(test_match2("a|b", "aaccbecc", 'U', 0, 1));
+    ASSERT_NOMATCH(test_match2("a|b", "", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "c", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "cd", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2("a|b", "cdef", 'U', -1, -1));
 
     PASS();
 }
 
 TEST(t_match_star_groups_none) {
-    ASSERT_MATCH(test_match("a*", "", 'S'));
-    ASSERT_MATCH(test_match("a*", "a", 'S'));
-    ASSERT_MATCH(test_match("a*", "aa", 'S'));
-    ASSERT_MATCH(test_match("a*", "aab", 'S'));
-    ASSERT_MATCH(test_match("a*", "b", 'S'));
+    ASSERT_MATCH(test_match2("a*", "", 'S', 0, 0));
+    ASSERT_MATCH(test_match2("a*", "a", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a*", "aa", 'S', 0, 2));
+    ASSERT_MATCH(test_match2("a*", "aab", 'S', 0, 2));
+    ASSERT_MATCH(test_match2("a*", "b", 'S', 0, 0));
 
-    ASSERT_MATCH(test_match("a*", "", 'E'));
-    ASSERT_MATCH(test_match("a*", "a", 'E'));
-    ASSERT_MATCH(test_match("a*", "aa", 'E'));
-    ASSERT_MATCH(test_match("a*", "aab", 'E'));
-    ASSERT_MATCH(test_match("a*", "b", 'E'));
+    ASSERT_MATCH(test_match2("a*", "", 'E', 0, 0));
+    ASSERT_MATCH(test_match2("a*", "a", 'E', 0, 1));
+    ASSERT_MATCH(test_match2("a*", "aa", 'E', 0, 2));
+    ASSERT_MATCH(test_match2("a*", "aab", 'E', 3, 3));
+    ASSERT_MATCH(test_match2("a*", "b", 'E', 1, 1));
 
-    ASSERT_MATCH(test_match("a*", "", 'B'));
-    ASSERT_MATCH(test_match("a*", "a", 'B'));
-    ASSERT_MATCH(test_match("a*", "aa", 'B'));
-    ASSERT_NOMATCH(test_match("a*", "aab", 'B'));
-    ASSERT_NOMATCH(test_match("a*", "b", 'B'));
+    ASSERT_MATCH(test_match2("a*", "", 'B', 0, 0));
+    ASSERT_MATCH(test_match2("a*", "a", 'B', 0, 1));
+    ASSERT_MATCH(test_match2("a*", "aa", 'B', 0, 2));
+    ASSERT_NOMATCH(test_match2("a*", "aab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a*", "b", 'B', -1, -1));
 
-    ASSERT_MATCH(test_match("a*", "", 'U'));
-    ASSERT_MATCH(test_match("a*", "a", 'U'));
-    ASSERT_MATCH(test_match("a*", "aa", 'U'));
-    ASSERT_MATCH(test_match("a*", "aab", 'U'));
-    ASSERT_MATCH(test_match("a*", "b", 'U'));
+    ASSERT_MATCH(test_match2("a*", "", 'U', 0, 0));
+    ASSERT_MATCH(test_match2("a*", "a", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a*", "aa", 'U', 0, 2));
+    ASSERT_MATCH(test_match2("a*", "aab", 'U', 0, 2));
+    ASSERT_MATCH(test_match2("a*", "b", 'U', 0, 0));
 
     PASS();
 }
 
 TEST(t_match_plus_groups_none) {
-    ASSERT_MATCH(test_match("a+", "a", 'S'));
-    ASSERT_MATCH(test_match("a+", "aa", 'S'));
-    ASSERT_MATCH(test_match("a+", "aab", 'S'));
-    ASSERT_NOMATCH(test_match("a+", "baa", 'S'));
-    ASSERT_NOMATCH(test_match("a+", "", 'S'));
-    ASSERT_NOMATCH(test_match("a+", "b", 'S'));
+    ASSERT_MATCH(test_match2("a+", "a", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a+", "aa", 'S', 0, 2));
+    ASSERT_MATCH(test_match2("a+", "aab", 'S', 0, 2));
+    ASSERT_NOMATCH(test_match2("a+", "baa", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a+", "", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a+", "b", 'S', -1, -1));
 
-    ASSERT_MATCH(test_match("a+", "a", 'E'));
-    ASSERT_MATCH(test_match("a+", "aa", 'E'));
-    ASSERT_NOMATCH(test_match("a+", "aab", 'E'));
-    ASSERT_MATCH(test_match("a+", "baa", 'E'));
-    ASSERT_NOMATCH(test_match("a+", "", 'E'));
-    ASSERT_NOMATCH(test_match("a+", "b", 'E'));
+    ASSERT_MATCH(test_match2("a+", "a", 'E', 0, 1));
+    ASSERT_MATCH(test_match2("a+", "aa", 'E', 0, 2));
+    ASSERT_NOMATCH(test_match2("a+", "aab", 'E', -1, -1));
+    ASSERT_MATCH(test_match2("a+", "baa", 'E', 1, 3));
+    ASSERT_NOMATCH(test_match2("a+", "", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("a+", "b", 'E', -1, -1));
 
-    ASSERT_MATCH(test_match("a+", "a", 'B'));
-    ASSERT_MATCH(test_match("a+", "aa", 'B'));
-    ASSERT_NOMATCH(test_match("a+", "aab", 'B'));
-    ASSERT_NOMATCH(test_match("a+", "baa", 'B'));
-    ASSERT_NOMATCH(test_match("a+", "", 'B'));
-    ASSERT_NOMATCH(test_match("a+", "b", 'B'));
+    ASSERT_MATCH(test_match2("a+", "a", 'B', 0, 1));
+    ASSERT_MATCH(test_match2("a+", "aa", 'B', 0, 2));
+    ASSERT_NOMATCH(test_match2("a+", "aab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a+", "baa", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a+", "", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a+", "b", 'B', -1, -1));
 
-    ASSERT_MATCH(test_match("a+", "a", 'U'));
-    ASSERT_MATCH(test_match("a+", "aa", 'U'));
-    ASSERT_MATCH(test_match("a+", "aab", 'U'));
-    ASSERT_MATCH(test_match("a+", "baa", 'U'));
-    ASSERT_NOMATCH(test_match("a+", "", 'U'));
-    ASSERT_NOMATCH(test_match("a+", "b", 'U'));
+    ASSERT_MATCH(test_match2("a+", "a", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a+", "aa", 'U', 0, 2));
+    ASSERT_MATCH(test_match2("a+", "aab", 'U', 0, 2));
+    ASSERT_MATCH(test_match2("a+", "baa", 'U', 1, 3));
+    ASSERT_NOMATCH(test_match2("a+", "", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2("a+", "b", 'U', -1, -1));
 
     PASS();
 }
 
 TEST(t_match_question_groups_none) {
-    ASSERT_MATCH(test_match("a?", "", 'S'));
-    ASSERT_MATCH(test_match("a?", "a", 'S'));
-    ASSERT_MATCH(test_match("a?", "aa", 'S'));
-    ASSERT_MATCH(test_match("a?", "b", 'S'));
-    ASSERT_MATCH(test_match("a?", "ba", 'S'));
-    ASSERT_MATCH(test_match("a?", "ab", 'S'));
-    ASSERT_MATCH(test_match("a?", "baa", 'S'));
-    ASSERT_MATCH(test_match("a?", "aab", 'S'));
+    ASSERT_MATCH(test_match2("a?", "", 'S', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "a", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a?", "aa", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a?", "b", 'S', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "ba", 'S', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "ab", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a?", "baa", 'S', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "aab", 'S', 0, 1));
 
-    ASSERT_MATCH(test_match("a?", "", 'E'));
-    ASSERT_MATCH(test_match("a?", "a", 'E'));
-    ASSERT_MATCH(test_match("a?", "aa", 'E'));
-    ASSERT_MATCH(test_match("a?", "b", 'E'));
-    ASSERT_MATCH(test_match("a?", "ba", 'E'));
-    ASSERT_MATCH(test_match("a?", "ab", 'E'));
-    ASSERT_MATCH(test_match("a?", "baa", 'E'));
-    ASSERT_MATCH(test_match("a?", "aab", 'E'));
+    ASSERT_MATCH(test_match2("a?", "", 'E', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "a", 'E', 0, 1));
+    ASSERT_MATCH(test_match2("a?", "aa", 'E', 1, 2));
+    ASSERT_MATCH(test_match2("a?", "b", 'E', 1, 1));
+    ASSERT_MATCH(test_match2("a?", "ba", 'E', 1, 2));
+    ASSERT_MATCH(test_match2("a?", "ab", 'E', 2, 2));
+    ASSERT_MATCH(test_match2("a?", "baa", 'E', 2, 3));
+    ASSERT_MATCH(test_match2("a?", "aab", 'E', 3, 3));
 
-    ASSERT_MATCH(test_match("a?", "", 'B'));
-    ASSERT_MATCH(test_match("a?", "a", 'B'));
-    ASSERT_MATCH(test_match("a?", "aa", 'B'));
-    ASSERT_NOMATCH(test_match("a?", "b", 'B'));
-    ASSERT_NOMATCH(test_match("a?", "ba", 'B'));
-    ASSERT_NOMATCH(test_match("a?", "ab", 'B'));
-    ASSERT_NOMATCH(test_match("a?", "baa", 'B'));
-    ASSERT_NOMATCH(test_match("a?", "aab", 'B'));
+    ASSERT_MATCH(test_match2("a?", "", 'B', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "a", 'B', 0, 1));
+    ASSERT_NOMATCH(test_match2("a?", "aa", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a?", "b", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a?", "ba", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a?", "ab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a?", "baa", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a?", "aab", 'B', -1, -1));
 
-    ASSERT_MATCH(test_match("a?", "", 'U'));
-    ASSERT_MATCH(test_match("a?", "a", 'U'));
-    ASSERT_MATCH(test_match("a?", "aa", 'U'));
-    ASSERT_MATCH(test_match("a?", "b", 'U'));
-    ASSERT_MATCH(test_match("a?", "ba", 'U'));
-    ASSERT_MATCH(test_match("a?", "ab", 'U'));
-    ASSERT_MATCH(test_match("a?", "baa", 'U'));
-    ASSERT_MATCH(test_match("a?", "aab", 'U'));
+    ASSERT_MATCH(test_match2("a?", "", 'U', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "a", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a?", "aa", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a?", "b", 'U', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "ba", 'U', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "ab", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a?", "baa", 'U', 0, 0));
+    ASSERT_MATCH(test_match2("a?", "aab", 'U', 0, 1));
 
     PASS();
 }
 
 TEST(t_match_quantifier_groups_none) {
-    ASSERT_MATCH(test_match("a{1,2}", "a", 'S'));
-    ASSERT_MATCH(test_match("a{1,2}", "aa", 'S'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "", 'S'));
-    ASSERT_MATCH(test_match("a{1,2}", "ab", 'S'));
-    ASSERT_MATCH(test_match("a{1,2}", "aab", 'S'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "ba", 'S'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "baa", 'S'));
+    ASSERT_MATCH(test_match2("a{1,2}", "a", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a{1,2}", "aa", 'S', 0, 2));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "", 'S', -1, -1));
+    ASSERT_MATCH(test_match2("a{1,2}", "ab", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a{1,2}", "aab", 'S', 0, 2));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "ba", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "baa", 'S', -1, -1));
 
-    ASSERT_MATCH(test_match("a{1,2}", "a", 'E'));
-    ASSERT_MATCH(test_match("a{1,2}", "aa", 'E'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "", 'E'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "ab", 'E'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "aab", 'E'));
-    ASSERT_MATCH(test_match("a{1,2}", "ba", 'E'));
-    ASSERT_MATCH(test_match("a{1,2}", "baa", 'E'));
+    ASSERT_MATCH(test_match2("a{1,2}", "a", 'E', 0, 1));
+    ASSERT_MATCH(test_match2("a{1,2}", "aa", 'E', 0, 2));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "ab", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "aab", 'E', -1, -1));
+    ASSERT_MATCH(test_match2("a{1,2}", "ba", 'E', 1, 2));
+    ASSERT_MATCH(test_match2("a{1,2}", "baa", 'E', 1, 3));
 
-    ASSERT_MATCH(test_match("a{1,2}", "a", 'B'));
-    ASSERT_MATCH(test_match("a{1,2}", "aa", 'B'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "", 'B'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "ab", 'B'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "aab", 'B'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "ba", 'B'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "baa", 'B'));
+    ASSERT_MATCH(test_match2("a{1,2}", "a", 'B', 0, 1));
+    ASSERT_MATCH(test_match2("a{1,2}", "aa", 'B', 0, 2));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "ab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "aab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "ba", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "baa", 'B', -1, -1));
 
-    ASSERT_MATCH(test_match("a{1,2}", "a", 'U'));
-    ASSERT_MATCH(test_match("a{1,2}", "aa", 'U'));
-    ASSERT_NOMATCH(test_match("a{1,2}", "", 'U'));
-    ASSERT_MATCH(test_match("a{1,2}", "ab", 'U'));
-    ASSERT_MATCH(test_match("a{1,2}", "aab", 'U'));
-    ASSERT_MATCH(test_match("a{1,2}", "ba", 'U'));
-    ASSERT_MATCH(test_match("a{1,2}", "baa", 'U'));
+    ASSERT_MATCH(test_match2("a{1,2}", "a", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a{1,2}", "aa", 'U', 0, 2));
+    ASSERT_NOMATCH(test_match2("a{1,2}", "", 'U', -1, -1));
+    ASSERT_MATCH(test_match2("a{1,2}", "ab", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a{1,2}", "aab", 'U', 0, 2));
+    ASSERT_MATCH(test_match2("a{1,2}", "ba", 'U', 1, 2));
+    ASSERT_MATCH(test_match2("a{1,2}", "baa", 'U', 1, 3));
 
     PASS();
 }
 
 TEST(t_match_dot_groups_none) {
-    ASSERT_MATCH(test_match(".", "a", 'S'));
-    ASSERT_MATCH(test_match(".", "aa", 'S'));
-    ASSERT_MATCH(test_match(".", "z", 'S'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_1, 'S'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_2, 'S'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_3, 'S'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_4, 'S'));
-    ASSERT_NOMATCH(test_match(".", "", 'S'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_OVERLONG, 'S'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_TOOBIG, 'S'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_SURROGATE, 'S'));
+    ASSERT_MATCH(test_match2(".", "a", 'S', 0, 1));
+    ASSERT_MATCH(test_match2(".", "aa", 'S', 0, 1));
+    ASSERT_MATCH(test_match2(".", "z", 'S', 0, 1));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_1, 'S', 0, 1));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_2, 'S', 0, 2));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_3, 'S', 0, 3));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_4, 'S', 0, 4));
+    ASSERT_NOMATCH(test_match2(".", "", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_OVERLONG, 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_TOOBIG, 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_SURROGATE, 'S', -1, -1));
 
-    ASSERT_MATCH(test_match(".", "a", 'E'));
-    ASSERT_MATCH(test_match(".", "aa", 'E'));
-    ASSERT_MATCH(test_match(".", "z", 'E'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_1, 'E'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_2, 'E'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_3, 'E'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_4, 'E'));
-    ASSERT_NOMATCH(test_match(".", "", 'E'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_OVERLONG, 'E'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_TOOBIG, 'E'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_SURROGATE, 'E'));
+    ASSERT_MATCH(test_match2(".", "a", 'E', 0, 1));
+    ASSERT_MATCH(test_match2(".", "aa", 'E', 1, 2));
+    ASSERT_MATCH(test_match2(".", "z", 'E', 0, 1));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_1, 'E', 0, 1));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_2, 'E', 0, 2));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_3, 'E', 0, 3));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_4, 'E', 0, 4));
+    ASSERT_NOMATCH(test_match2(".", "", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_OVERLONG, 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_TOOBIG, 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_SURROGATE, 'E', -1, -1));
 
-    ASSERT_MATCH(test_match(".", "a", 'B'));
-    ASSERT_NOMATCH(test_match(".", "aa", 'B'));
-    ASSERT_MATCH(test_match(".", "z", 'B'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_1, 'B'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_2, 'B'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_3, 'B'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_4, 'B'));
-    ASSERT_NOMATCH(test_match(".", "", 'B'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_OVERLONG, 'B'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_TOOBIG, 'B'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_SURROGATE, 'B'));
+    ASSERT_MATCH(test_match2(".", "a", 'B', 0, 1));
+    ASSERT_NOMATCH(test_match2(".", "aa", 'B', -1, -1));
+    ASSERT_MATCH(test_match2(".", "z", 'B', 0, 1));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_1, 'B', 0, 1));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_2, 'B', 0, 2));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_3, 'B', 0, 3));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_4, 'B', 0, 4));
+    ASSERT_NOMATCH(test_match2(".", "", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_OVERLONG, 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_TOOBIG, 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_SURROGATE, 'B', -1, -1));
 
-    ASSERT_MATCH(test_match(".", "a", 'U'));
-    ASSERT_MATCH(test_match(".", "aa", 'U'));
-    ASSERT_MATCH(test_match(".", "z", 'U'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_1, 'U'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_2, 'U'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_3, 'U'));
-    ASSERT_MATCH(test_match(".", EX_UTF8_VALID_4, 'U'));
-    ASSERT_NOMATCH(test_match(".", "", 'U'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_OVERLONG, 'U'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_TOOBIG, 'U'));
-    ASSERT_NOMATCH(test_match(".", EX_UTF8_INVALID_SURROGATE, 'U'));
+    ASSERT_MATCH(test_match2(".", "a", 'U', 0, 1));
+    ASSERT_MATCH(test_match2(".", "aa", 'U', 0, 1));
+    ASSERT_MATCH(test_match2(".", "z", 'U', 0, 1));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_1, 'U', 0, 1));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_2, 'U', 0, 2));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_3, 'U', 0, 3));
+    ASSERT_MATCH(test_match2(".", EX_UTF8_VALID_4, 'U', 0, 4));
+    ASSERT_NOMATCH(test_match2(".", "", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_OVERLONG, 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_TOOBIG, 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2(".", EX_UTF8_INVALID_SURROGATE, 'U', -1, -1));
 
     PASS();
 }
 
 TEST(t_match_begin_text_groups_none) {
-    ASSERT_MATCH(test_match("^a", "a", 'S'));
-    ASSERT_MATCH(test_match("^a", "aa", 'S'));
-    ASSERT_MATCH(test_match("^a", "ab", 'S'));
-    ASSERT_NOMATCH(test_match("^a", "", 'S'));
-    ASSERT_NOMATCH(test_match("^a", "ba", 'S'));
+    ASSERT_MATCH(test_match2("^a", "a", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("^a", "aa", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("^a", "ab", 'S', 0, 1));
+    ASSERT_NOMATCH(test_match2("^a", "", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("^a", "ba", 'S', -1, -1));
 
-    ASSERT_MATCH(test_match("^a", "a", 'E'));
-    ASSERT_NOMATCH(test_match("^a", "aa", 'E'));
-    ASSERT_NOMATCH(test_match("^a", "ab", 'E'));
-    ASSERT_NOMATCH(test_match("^a", "", 'E'));
-    ASSERT_NOMATCH(test_match("^a", "ba", 'E'));
+    ASSERT_MATCH(test_match2("^a", "a", 'E', 0, 1));
+    ASSERT_NOMATCH(test_match2("^a", "aa", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("^a", "ab", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("^a", "", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("^a", "ba", 'E', -1, -1));
 
-    ASSERT_MATCH(test_match("^a", "a", 'B'));
-    ASSERT_NOMATCH(test_match("^a", "aa", 'B'));
-    ASSERT_NOMATCH(test_match("^a", "ab", 'B'));
-    ASSERT_NOMATCH(test_match("^a", "", 'B'));
-    ASSERT_NOMATCH(test_match("^a", "ba", 'B'));
+    ASSERT_MATCH(test_match2("^a", "a", 'B', 0, 1));
+    ASSERT_NOMATCH(test_match2("^a", "aa", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("^a", "ab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("^a", "", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("^a", "ba", 'B', -1, -1));
 
-    ASSERT_MATCH(test_match("^a", "a", 'U'));
-    ASSERT_MATCH(test_match("^a", "aa", 'U'));
-    ASSERT_MATCH(test_match("^a", "ab", 'U'));
-    ASSERT_NOMATCH(test_match("^a", "", 'U'));
-    ASSERT_NOMATCH(test_match("^a", "ba", 'U'));
+    ASSERT_MATCH(test_match2("^a", "a", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("^a", "aa", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("^a", "ab", 'U', 0, 1));
+    ASSERT_NOMATCH(test_match2("^a", "", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2("^a", "ba", 'U', -1, -1));
 
     PASS();
 }
 
 TEST(t_match_end_text_groups_none) {
-    ASSERT_MATCH(test_match("a$", "a", 'S'));
-    ASSERT_NOMATCH(test_match("a$", "aa", 'S'));
-    ASSERT_NOMATCH(test_match("a$", "ab", 'S'));
-    ASSERT_NOMATCH(test_match("a$", "", 'S'));
-    ASSERT_NOMATCH(test_match("a$", "ba", 'S'));
+    ASSERT_MATCH(test_match2("a$", "a", 'S', 0, 1));
+    ASSERT_NOMATCH(test_match2("a$", "aa", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a$", "ab", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a$", "", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("a$", "ba", 'S', -1, -1));
 
-    ASSERT_MATCH(test_match("a$", "a", 'E'));
-    ASSERT_MATCH(test_match("a$", "aa", 'E'));
-    ASSERT_NOMATCH(test_match("a$", "ab", 'E'));
-    ASSERT_NOMATCH(test_match("a$", "", 'E'));
-    ASSERT_MATCH(test_match("a$", "ba", 'E'));
+    ASSERT_MATCH(test_match2("a$", "a", 'E', 0, 1));
+    ASSERT_MATCH(test_match2("a$", "aa", 'E', 1, 2));
+    ASSERT_NOMATCH(test_match2("a$", "ab", 'E', -1, -1));
+    ASSERT_NOMATCH(test_match2("a$", "", 'E', -1, -1));
+    ASSERT_MATCH(test_match2("a$", "ba", 'E', 1, 2));
 
-    ASSERT_MATCH(test_match("a$", "a", 'B'));
-    ASSERT_NOMATCH(test_match("a$", "aa", 'B'));
-    ASSERT_NOMATCH(test_match("a$", "ab", 'B'));
-    ASSERT_NOMATCH(test_match("a$", "", 'B'));
-    ASSERT_NOMATCH(test_match("a$", "ba", 'B'));
+    ASSERT_MATCH(test_match2("a$", "a", 'B', 0, 1));
+    ASSERT_NOMATCH(test_match2("a$", "aa", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a$", "ab", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a$", "", 'B', -1, -1));
+    ASSERT_NOMATCH(test_match2("a$", "ba", 'B', -1, -1));
 
-    ASSERT_MATCH(test_match("a$", "a", 'U'));
-    ASSERT_MATCH(test_match("a$", "aa", 'U'));
-    ASSERT_NOMATCH(test_match("a$", "ab", 'U'));
-    ASSERT_NOMATCH(test_match("a$", "", 'U'));
-    ASSERT_MATCH(test_match("a$", "ba", 'U'));
+    ASSERT_MATCH(test_match2("a$", "a", 'U', 0, 1));
+    ASSERT_MATCH(test_match2("a$", "aa", 'U', 1, 2));
+    ASSERT_NOMATCH(test_match2("a$", "ab", 'U', -1, -1));
+    ASSERT_NOMATCH(test_match2("a$", "", 'U', -1, -1));
+    ASSERT_MATCH(test_match2("a$", "ba", 'U', 1, 2));
 
     PASS();
 }
 
 TEST(t_match_word_bound_groups_none) {
-    ASSERT_NOMATCH(test_match("\\b", "", 'S'));
-    ASSERT_MATCH(test_match("\\b", "a", 'S'));
-    ASSERT_NOMATCH(test_match("\\b", " ", 'S'));
-    ASSERT_NOMATCH(test_match("\\b", "#", 'S'));
-    ASSERT_MATCH(test_match("a\\b", "a", 'S'));
-    ASSERT_NOMATCH(test_match("a\\b", "aa", 'S'));
-    ASSERT_MATCH(test_match("a\\b", "a ", 'S'));
-    ASSERT_MATCH(test_match("a\\b", "a#", 'S'));
-    ASSERT_NOMATCH(test_match("a\\b", "", 'S'));
+    ASSERT_NOMATCH(test_match2("\\b", "", 'S', -1, -1));
+    ASSERT_MATCH(test_match2("\\b", "a", 'S', 0, 0));
+    ASSERT_NOMATCH(test_match2("\\b", " ", 'S', -1, -1));
+    ASSERT_NOMATCH(test_match2("\\b", "#", 'S', -1, -1));
+    ASSERT_MATCH(test_match2("a\\b", "a", 'S', 0, 1));
+    ASSERT_NOMATCH(test_match2("a\\b", "aa", 'S', -1, -1));
+    ASSERT_MATCH(test_match2("a\\b", "a ", 'S', 0, 1));
+    ASSERT_MATCH(test_match2("a\\b", "a#", 'S', 0, 1));
+    ASSERT_NOMATCH(test_match2("a\\b", "", 'S', -1, -1));
 
     ASSERT_NOMATCH(test_match("\\b", "", 'E'));
     ASSERT_MATCH(test_match("\\b", "a", 'E'));

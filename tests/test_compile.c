@@ -313,7 +313,7 @@ TEST(t_compile_question) {
     re__compile compile;
     SYM(re__ast_root,
         "(ast"
-        "    (quantifier 0 1 greedy"
+        "    (quantifier 0 2 greedy"
         "        (rune 'a')))", &ast_root);
     SYM(re__prog,
         "(prog"
@@ -338,7 +338,7 @@ TEST(t_compile_question_nongreedy) {
     re__compile compile;
     SYM(re__ast_root,
         "(ast"
-        "    (quantifier 0 1 nongreedy"
+        "    (quantifier 0 2 nongreedy"
         "        (rune 'a')))", &ast_root);
     SYM(re__prog,
         "(prog"
@@ -467,7 +467,7 @@ TEST(t_compile_quantifier_minmax) {
     re__compile compile;
     SYM(re__ast_root,
         "(ast"
-        "    (quantifier 3 5 greedy"
+        "    (quantifier 3 6 greedy"
         "        (rune 'a')))", &ast_root);
     SYM(re__prog,
         "(prog"
@@ -497,7 +497,7 @@ TEST(t_compile_quantifier_minmax_nongreedy) {
     re__compile compile;
     SYM(re__ast_root,
         "(ast"
-        "    (quantifier 3 5 nongreedy"
+        "    (quantifier 3 6 nongreedy"
         "        (rune 'a')))", &ast_root);
     SYM(re__prog,
         "(prog"
