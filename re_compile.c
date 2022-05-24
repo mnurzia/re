@@ -246,8 +246,7 @@ MN_INTERNAL re_error re__compile_do_rune(re__compile* compile, re__compile_frame
 }
 
 MN_INTERNAL re_error re__compile_do_str(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
-    /* Generates a single Byte or series of Byte instructions for a
-     * string. */
+    /* Generates a single Byte or series of Byte instructions for a string. */
     /*    +0
      * ~~~+-------+~~~
      * .. | Byte  | ..
@@ -286,8 +285,8 @@ MN_INTERNAL re_error re__compile_do_str(re__compile* compile, re__compile_frame*
 }
 
 MN_INTERNAL re_error re__compile_do_charclass(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
-    /* Generates a character class, which is a complex series of Byte
-     * and Split instructions. */
+    /* Generates a character class, which is a complex series of Byte and Split
+     * instructions. */
     const re__charclass* charclass = re__ast_root_get_charclass(compile->ast_root,
         ast->_data.charclass_ref);
     return re__compile_charclass_gen(
@@ -297,8 +296,8 @@ MN_INTERNAL re_error re__compile_do_charclass(re__compile* compile, re__compile_
 }
 
 MN_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
-    /* Generates each child node, and patches them all together,
-     * leaving the final child's outgoing branch targets unpatched. */
+    /* Generates each child node, and patches them all together, leaving the
+     * final child's outgoing branch targets unpatched. */
     /*    +0        +L(C0)          ...
      * ~~~+--.....--+--.....--+.....+--.....--+~~~
      * .. | Child 0 | Child 1 |.....| Child n | ..
@@ -354,12 +353,11 @@ MN_INTERNAL re_error re__compile_do_concat(re__compile* compile, re__compile_fra
 }
 
 MN_INTERNAL re_error re__compile_do_alt(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
-    /* For each child node except for the last one, generates a SPLIT 
-     * instruction, and then the instructions of the child.
-     * Each split instruction's primary branch target is patched to the
-     * next child, and the secondary branch targets are patched to the 
-     * next split instruction. Leaves each child's outgoing branch
-     * targets unpatched. */
+    /* For each child node except for the last one, generates a SPLIT
+     * instruction, and then the instructions of the child. Each split
+     * instruction's primary branch target is patched to the next child, and the
+     * secondary branch targets are patched to the next split instruction.
+     * Leaves each child's outgoing branch targets unpatched. */
     /*    +0      +1        +L(C0)+1                ...
      * ~~~+-------+--.....--+-------+--.....--+.....+--.....--+~~~
      * .. | Split | Child 0 | Split | Child 1 |.....| Child n | ..
@@ -519,7 +517,7 @@ MN_INTERNAL re_error re__compile_do_quantifier(re__compile* compile, re__compile
                 }
             }
         } else {
-            if (int_idx <= max - 1) {
+            if (int_idx < max - 1) {
                 re__prog_inst new_spl;
                 if (int_idx > 0) {
                     re__compile_patches_patch(&compile->returned_frame.patches, prog, this_start_pc);
@@ -651,7 +649,7 @@ MN_INTERNAL re_error re__compile_do_any_char(re__compile* compile, re__compile_f
     if (compile->reversed) {
         id = RE__PROG_DATA_ID_DOT_REV_REJSURR;
     }
-return re__prog_data_decompress(prog, re__prog_data[id], re__prog_data_size[id], &frame->patches);
+    return re__prog_data_decompress(prog, re__prog_data[id], re__prog_data_size[id], &frame->patches);
 }
 
 MN_INTERNAL re_error re__compile_do_any_byte(re__compile* compile, re__compile_frame* frame, const re__ast* ast, re__prog* prog) {
