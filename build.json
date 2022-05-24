@@ -21,6 +21,7 @@
         "bits/util/debug",
         "bits/util/exports",
         "bits/util/preproc/stringify",
+        "bits/util/swap",
         "bits/util/unreached",
         "bits/util/unused"
     ],
@@ -51,7 +52,11 @@
             "tests/test_match.c",
             "tests/test_parse.c",
             "tests/test_prog.c",
+            "tests/test_regr.c",
             "tests/test_range.c"
+        ],
+        "tests_fuzz_impl": [
+            "tests/test_fuzz.c"
         ]
     },
     "version": "0.1.0"
