@@ -72,6 +72,9 @@ int mn__str_view_cmp(const mn__str_view* a, const mn__str_view* b);
 /* bits/hooks/memset */
 void mn__memset(void* ptr, int value, mn_size count);
 
+/* bits/util/swap */
+#define MN__SWAP(a, b, T) { T swap_temp_ = b; b = a; a = swap_temp_; }
+
 /* bits/util/unreached */
 #define MN__ASSERT_UNREACHED() MN_ASSERT(0)
 
