@@ -208,6 +208,7 @@ typedef enum re__ast_type {
     RE__AST_TYPE_ANY_CHAR,
     /* Any byte (\C) */
     RE__AST_TYPE_ANY_BYTE,
+    /* RE__AST_TYPE_BACKREFERENCE */ /* <- haha, you wish */
     RE__AST_TYPE_MAX
 } re__ast_type;
 
@@ -217,7 +218,7 @@ MN__VEC_DECL(re__ast);
  * One of a few mechanisms in place to prevent diabolical program growth. */
 #define RE__AST_QUANTIFIER_MAX 2000
 
-/* Signifies infinite repetitions (*, +) */
+/* Signifies infinite repetitions (*, +, {x,}) */
 #define RE__AST_QUANTIFIER_INFINITY RE__AST_QUANTIFIER_MAX+2
 
 /* Quantifier info. */
