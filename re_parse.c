@@ -716,6 +716,10 @@ MN_INTERNAL re_error re__parse_charclass_addhi(re__parse* parse, re_rune ch) {
     new_range.min = parse->charclass_lo_rune;
     new_range.max = ch;
     parse->charclass_lo_rune = -1;
+    /* Account for swapped ranges, they are legal */
+    if (new_range.min > new_range.max) {
+        MN__SWAP(new_range.min, new_range.max, re_rune);
+    }
     if ((err = re__charclass_builder_insert_range(&parse->charclass_builder, new_range))) {
         return err;
     }
@@ -1380,7 +1384,11 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
                 parse->state = RE__PARSE_STATE_QUOTE_ESCAPE;
             } else {
                 /* Otherwise, add char */
+                /* hack to work around ret_state, because of a prickly bit of
+                 * the parser */
+                parse->state = RE__PARSE_STATE_GND;
                 RE__TRY(re__parse_rune(parse, ch));
+                parse->state = RE__PARSE_STATE_QUOTE;
             }
         } else if (parse->state == RE__PARSE_STATE_QUOTE_ESCAPE) {
             /* Quote escape: \Q...\ */
@@ -1392,7 +1400,9 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex) 
                 parse->state = RE__PARSE_STATE_GND;
             } else {
                 /* Otherwise, add escaped char */
+                parse->state = RE__PARSE_STATE_GND;
                 RE__TRY(re__parse_rune(parse, ch));
+                parse->state = RE__PARSE_STATE_QUOTE;
             }
         } else if (parse->state == RE__PARSE_STATE_COUNTING_FIRST_NUM_INITIAL) {
             /* First number in a counting expression */
