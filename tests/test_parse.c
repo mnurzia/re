@@ -549,6 +549,21 @@ TEST(t_parse_charclass_named_inverted) {
     PASS();
 }
 
+TEST(t_parse_charclass_reversed) {
+    re reg;
+    ASSERT(!re_init(&reg, "[z-a]"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast "
+        "  (charclass "
+        "    ("
+        "      (rune_range 97 122))))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
 TEST(t_parse_word_boundary) {
     re reg;
     ASSERT(!re_init(&reg, "\\b"));
@@ -733,6 +748,82 @@ TEST(t_parse_err_alt_noend) {
     PASS();
 }
 
+TEST(t_parse_quote_empty) {
+    re reg;
+    ASSERT(!re_init(&reg, "\\Q\\E"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast)"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_quote_empty_unfinished) {
+    re reg;
+    ASSERT(!re_init(&reg, "\\Q"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast)"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_quote_text) {
+    re reg;
+    ASSERT(!re_init(&reg, "\\Qabc\\E"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast"
+        "    (str \"abc\"))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_quote_text_unfinished) {
+    re reg;
+    ASSERT(!re_init(&reg, "\\Qabc"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast"
+        "    (str \"abc\"))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_quote_escape) {
+    re reg;
+    ASSERT(!re_init(&reg, "\\Q\\\\\\E"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast"
+        "    (rune 0x5C))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
+TEST(t_parse_quote_escape_unfinished) {
+    re reg;
+    ASSERT(!re_init(&reg, "\\Q\\\\"));
+    ASSERT_SYMEQ(
+        re__ast_root,
+        reg.data->ast_root,
+        "(ast"
+        "    (rune 0x5C))"
+    );
+    re_destroy(&reg);
+    PASS();
+}
+
 SUITE(s_parse) {
     RUN_TEST(t_parse_empty);
     RUN_TEST(t_parse_text_end);
@@ -756,6 +847,7 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_charclass_inverted);
     RUN_TEST(t_parse_charclass_named);
     RUN_TEST(t_parse_charclass_named_inverted);
+    RUN_TEST(t_parse_charclass_reversed);
     RUN_TEST(t_parse_word_boundary);
     RUN_TEST(t_parse_word_boundary_not);
     FUZZ_TEST(t_parse_opt_fuse_rune_rune);
@@ -764,4 +856,10 @@ SUITE(s_parse) {
     RUN_TEST(t_parse_alt);
     RUN_TEST(t_parse_err_alt_nostartend);
     RUN_TEST(t_parse_err_alt_nostart);
+    RUN_TEST(t_parse_quote_empty);
+    RUN_TEST(t_parse_quote_empty_unfinished);
+    RUN_TEST(t_parse_quote_text);
+    RUN_TEST(t_parse_quote_text_unfinished);
+    RUN_TEST(t_parse_quote_escape);
+    RUN_TEST(t_parse_quote_escape_unfinished);
 }
