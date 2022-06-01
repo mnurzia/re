@@ -147,52 +147,65 @@ mn_uint32 mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_le
 
 #define MN__VEC_GROW_ONE(T, vec) \
     do { \
-        vec->_size += 1; \
-        if (vec->_size > vec->_alloc) { \
+        void* new_ptr; \
+        mn_size new_alloc; \
+        if (vec->_size + 1 > vec->_alloc) { \
             if (vec->_data == MN_NULL) { \
-                vec->_alloc = 1; \
-                vec->_data = (T*)MN_MALLOC(sizeof(T) * vec->_alloc); \
-                if (vec->_data == MN_NULL) { \
-                    return -1; \
-                } \
+                new_alloc = 1; \
+                new_ptr = (T*)MN_MALLOC(sizeof(T) * new_alloc); \
             } else { \
-                vec->_alloc *= 2; \
-                vec->_data = (T*)MN_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
-                if (vec->_data == MN_NULL) { \
-                    return -1; \
-                } \
+                new_alloc = vec->_alloc * 2; \
+                new_ptr = (T*)MN_REALLOC(vec->_data, sizeof(T) * new_alloc); \
             } \
+            if (new_ptr == MN_NULL) { \
+                return -1; \
+            } \
+            vec->_alloc = new_alloc; \
+            vec->_data = new_ptr; \
         } \
+        vec->_size = vec->_size + 1; \
     } while (0)
 
 #define MN__VEC_GROW(T, vec, n) \
     do { \
-        vec->_size += n; \
-        if (vec->_size > vec->_alloc) { \
-            vec->_alloc = vec->_size + (vec->_size >> 1); \
-            if (vec->_data == MN_NULL) { \
-                vec->_data = (T*)MN_MALLOC(sizeof(T) * vec->_alloc); \
-            } else { \
-                vec->_data = (T*)MN_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
+        void* new_ptr; \
+        mn_size new_alloc = vec->_alloc; \
+        mn_size new_size = vec->_size + n; \
+        if (new_size > new_alloc) { \
+            if (new_alloc == 0) { \
+                new_alloc = 1; \
+            } \
+            while (new_alloc < new_size) { \
+                new_alloc *= 2; \
             } \
             if (vec->_data == MN_NULL) { \
+                new_ptr = (T*)MN_MALLOC(sizeof(T) * new_alloc); \
+            } else { \
+                new_ptr = (T*)MN_REALLOC(vec->_data, sizeof(T) * new_alloc); \
+            } \
+            if (new_ptr == MN_NULL) { \
                 return -1; \
             } \
+            vec->_alloc = new_alloc; \
+            vec->_data = new_ptr; \
         } \
+        vec->_size += n; \
     } while (0)
 
 #define MN__VEC_SETSIZE(T, vec, n) \
     do { \
+        void* new_ptr; \
         if (vec->_alloc < n) { \
-            vec->_alloc = n; \
             if (vec->_data == MN_NULL) { \
-                vec->_data = (T*)MN_MALLOC(sizeof(T) * vec->_alloc); \
+                new_ptr = (T*)MN_MALLOC(sizeof(T) * n); \
             } else { \
-                vec->_data = (T*)MN_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
+                new_ptr = (T*)MN_REALLOC(vec->_data, sizeof(T) * n); \
             } \
-            if (vec->_data == MN_NULL) { \
+            if (new_ptr == MN_NULL) { \
                 return -1; \
             } \
+            vec->_alloc = n; \
+            vec->_data = new_ptr; \
         } \
     } while (0)
 
