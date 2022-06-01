@@ -57,6 +57,9 @@
         ],
         "tests_fuzz_impl": [
             "tests/test_fuzz.c"
+        ],
+        "tests_config": [
+            "tests/test_config.h"
         ]
     },
     "version": "0.1.0"

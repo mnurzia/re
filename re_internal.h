@@ -465,8 +465,8 @@ MN_INTERNAL mn_uint32 re__ast_root_get_num_groups(re__ast_root* ast_root);
 
 #if MN_DEBUG
 
-MN_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, mn_int32 root_ref, mn_int32 lvl);
-MN_INTERNAL int re__ast_root_verify(re__ast_root* ast_root);
+MN_INTERNAL void re__ast_root_debug_dump(const re__ast_root* ast_root, mn_int32 root_ref, mn_int32 lvl);
+MN_INTERNAL int re__ast_root_verify(const re__ast_root* ast_root);
 
 #endif
 

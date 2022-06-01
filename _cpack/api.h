@@ -1,6 +1,7 @@
 #if !defined(MN__RE_API_H)
 #define MN__RE_API_H
 
+#include "../tests/test_config.h"
 #include "config.h"
 
 /* bits/types/size */

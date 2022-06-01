@@ -1,3 +1,4 @@
+#include "../tests/test_config.h"
 #include "internal.h"
 
 /* bits/types/char */
@@ -334,6 +335,7 @@ int mn__str_view_cmp(const mn__str_view* view_a, const mn__str_view* view_b) {
 /* If this fails, you need to define MN_INT32_TYPE to a signed integer type
  * that is 32 bits wide. */
 MN__STATIC_ASSERT(mn__int32_is_4_bytes, sizeof(mn_int32) == 4);
+
 /* bits/types/fixed/uint32 */
 /* If this fails, you need to define MN_UINT32_TYPE to a unsigned integer type
  * that is 32 bits wide. */

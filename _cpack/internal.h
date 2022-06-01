@@ -1,6 +1,7 @@
 #if !defined(MN__RE_INTERNAL_H)
 #define MN__RE_INTERNAL_H
 
+#include "../tests/test_config.h"
 #include "api.h"
 
 /* bits/math/implies */
@@ -217,7 +218,7 @@ mn_uint32 mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_le
 
 #else
 
-#define MN__VEC_CHECK_POP(vec) MN_UNUSED(vec)
+#define MN__VEC_CHECK_POP(vec) MN__UNUSED(vec)
 
 #endif
 
@@ -305,8 +306,8 @@ mn_uint32 mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_le
 
 #define MN__VEC_CHECK_BOUNDS(vec, idx) \
     do { \
-        MN_UNUSED(vec); \
-        MN_UNUSED(idx); \
+        MN__UNUSED(vec); \
+        MN__UNUSED(idx); \
     } while (0) 
 
 #endif
