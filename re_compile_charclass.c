@@ -266,6 +266,7 @@ void re__compile_charclass_hash_tree(re__compile_charclass* char_comp, mn_uint32
         child->sibling_ref = sibling_ref;
         re__compile_charclass_hash_tree(char_comp, child_ref);
         if (sibling_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
+            sibling = re__compile_charclass_tree_get(char_comp, sibling_ref);
             if (re__byte_range_adjacent(child->byte_range, sibling->byte_range)) {
                 if (sibling->child_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
                     if (child->child_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
@@ -298,6 +299,7 @@ void re__compile_charclass_hash_tree(re__compile_charclass* char_comp, mn_uint32
                  * actually good value is unknown. */
                 hash_obj.next_hash = 0x0F0F0F0F;
             } else {
+                sibling = re__compile_charclass_tree_get(char_comp, sibling_ref);
                 hash_obj.next_hash = sibling->aux;
             }
             if (child->child_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
