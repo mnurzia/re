@@ -371,12 +371,16 @@ MN_INTERNAL re_error re__parse_group_begin(re__parse* parse) {
         } else {
             mn__str_view_init_n(&group_name, parse->str_begin, (mn_size)(parse->str_end - parse->str_begin));
             new_group_idx = re__ast_root_get_num_groups(parse->ast_root);
-            re__ast_root_add_group(parse->ast_root, group_name);
+            if ((err = re__ast_root_add_group(parse->ast_root, group_name))) {
+                return err;
+            }
         }
     } else if (!(parse->group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
         mn__str_view_init_null(&group_name);
         new_group_idx = re__ast_root_get_num_groups(parse->ast_root);
-        re__ast_root_add_group(parse->ast_root, group_name);
+        if ((err = re__ast_root_add_group(parse->ast_root, group_name))) {
+            return err;
+        }
     }
     re__ast_init_group(&new_group, new_group_idx, parse->group_flags);
     if ((err = re__parse_link_new_node(parse, new_group, &new_group_ref))) {
