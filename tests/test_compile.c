@@ -5,6 +5,31 @@
 #include "test_prog.h"
 #include "test_range.h"
 
+TEST(t_compile_empty) {
+    re__ast_root ast_root;
+    re__prog prog;
+    re__compile compile;
+    SYM(
+        re__ast_root,
+        "(ast)",
+        &ast_root
+    );
+    re__prog_init(&prog);
+    re__compile_init(&compile);
+    ASSERT(!re__compile_regex(&compile, &ast_root, &prog, 0));
+    ASSERT_SYMEQ(
+        re__prog,
+        prog,
+        "(prog"
+        "  (fail)"
+        "  (match 1 0))"
+    );
+    re__compile_destroy(&compile);
+    re__prog_destroy(&prog);
+    re__ast_root_destroy(&ast_root);
+    PASS();
+}
+
 TEST(t_compile_rune_ascii) {
     re__ast_root ast_root;
     re__prog prog;
@@ -648,6 +673,7 @@ TEST(t_compile_any_char) {
 }
 
 SUITE(s_compile) {
+    RUN_TEST(t_compile_empty);
     RUN_TEST(t_compile_rune_ascii);
     RUN_TEST(t_compile_rune_ascii_reversed);
     FUZZ_TEST(t_compile_rune_unicode);
