@@ -277,3 +277,7 @@ cython_debug/
 # End of https://www.toptal.com/developers/gitignore/api/macos,cmake,c,c++,python
 
 .vscode/
+
+tests/fuzz_bad/
+tests/fuzz_potench/
+tests/fuzz_samples/
