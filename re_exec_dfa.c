@@ -45,6 +45,12 @@ void re__exec_dfa_destroy(re__exec_dfa* exec) {
         }
     }
     mn_uint32_ptr_vec_destroy(&exec->thrd_loc_pages);
+    {
+        mn_size i;
+        for (i = 0; i < re__exec_dfa_state_ptr_vec_size(&exec->state_pages); i++) {
+            MN_FREE(re__exec_dfa_state_ptr_vec_get(&exec->state_pages, i));
+        }
+    }
     re__exec_dfa_state_ptr_vec_destroy(&exec->state_pages);
 }
 
