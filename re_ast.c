@@ -218,7 +218,7 @@ MN_INTERNAL void re__ast_root_replace(re__ast_root* ast_root, mn_int32 ast_ref, 
     *loc = replacement;
 }
 
-MN_INTERNAL mn_int32 re__ast_root_size(re__ast_root* ast_root) {
+MN_INTERNAL mn_int32 re__ast_root_size(const re__ast_root* ast_root) {
     return (mn_int32)re__ast_vec_size(&ast_root->ast_vec);
 }
 
@@ -461,10 +461,10 @@ MN_INTERNAL void re__ast_root_debug_dump_sexpr(re__ast_root* ast_root, re__debug
 
 #include <stdio.h>
 
-MN_INTERNAL void re__ast_root_debug_dump(re__ast_root* ast_root, mn_int32 root_ref, mn_int32 lvl) {
+MN_INTERNAL void re__ast_root_debug_dump(const re__ast_root* ast_root, mn_int32 root_ref, mn_int32 lvl) {
     mn_int32 i;
     while (root_ref != RE__AST_NONE) {
-        const re__ast* ast = re__ast_root_get(ast_root, root_ref);
+        const re__ast* ast = re__ast_root_get_const(ast_root, root_ref);
         for (i = 0; i < lvl; i++) {
             printf("  ");
         }
@@ -551,8 +551,8 @@ MN__VEC_IMPL_FUNC(mn_int32, push)
 MN__VEC_IMPL_FUNC(mn_int32, size)
 MN__VEC_IMPL_FUNC(mn_int32, get)
 
-MN_INTERNAL int re__ast_root_verify_depth(re__ast_root* ast_root, mn_int32 start_ref, mn_int32 depth) {
-    re__ast* cur_node;
+MN_INTERNAL int re__ast_root_verify_depth(const re__ast_root* ast_root, mn_int32 start_ref, mn_int32 depth) {
+    const re__ast* cur_node;
     if (depth == 0) {
         if (start_ref == RE__AST_NONE) {
             return 1;
@@ -561,7 +561,7 @@ MN_INTERNAL int re__ast_root_verify_depth(re__ast_root* ast_root, mn_int32 start
         }
     } else {
         while (start_ref != RE__AST_NONE) {
-            cur_node = re__ast_root_get(ast_root, start_ref);
+            cur_node = re__ast_root_get_const(ast_root, start_ref);
             if (!re__ast_root_verify_depth(ast_root, cur_node->first_child_ref, depth - 1)) {
                 return 0;
             }
@@ -571,7 +571,7 @@ MN_INTERNAL int re__ast_root_verify_depth(re__ast_root* ast_root, mn_int32 start
     return 1;
 }
 
-MN_INTERNAL int re__ast_root_verify(re__ast_root* ast_root) {
+MN_INTERNAL int re__ast_root_verify(const re__ast_root* ast_root) {
     mn_int32_vec removed_list;
     mn_int32_vec_init(&removed_list);
     if (ast_root->last_empty_ref != RE__AST_NONE) {
@@ -594,7 +594,7 @@ MN_INTERNAL int re__ast_root_verify(re__ast_root* ast_root) {
                 }
             }
             {
-                re__ast* empty = re__ast_root_get(ast_root,empty_ref);
+                const re__ast* empty = re__ast_root_get_const(ast_root,empty_ref);
                 mn_int32_vec_push(&removed_list, empty_ref);
                 empty_ref = empty->next_sibling_ref;
             }
@@ -611,7 +611,7 @@ MN_INTERNAL int re__ast_root_verify(re__ast_root* ast_root) {
                 }
             }
             {
-                re__ast* ast = re__ast_root_get(ast_root, i);
+                const re__ast* ast = re__ast_root_get_const(ast_root, i);
                 mn_int32 to_check[3];
                 mn_int32 k;
                 to_check[0] = ast->prev_sibling_ref;
