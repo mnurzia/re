@@ -12,10 +12,10 @@
 #include "test_range.h"
 #include "test_regr.h"
 
-int main(void) {
+int main(int argc, char** argv) {
     printf("\x1b[3J");
-    MPTEST_MAIN_BEGIN();
-    MPTEST_ENABLE_LEAK_CHECKING();
+    MPTEST_MAIN_BEGIN_ARGS(argc, argv);
+    RUN_SUITE(s_regr);
     RUN_SUITE(s_ast);
     RUN_SUITE(s_ast_root);
     RUN_SUITE(s_charclass);
@@ -27,7 +27,6 @@ int main(void) {
     RUN_SUITE(s_range);
     RUN_SUITE(s_parse);
     RUN_SUITE(s_prog_inst);
-    RUN_SUITE(s_regr);
     MPTEST_MAIN_END();
     return 0;
 }
