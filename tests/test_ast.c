@@ -547,6 +547,7 @@ TEST(t_ast_root_init) {
 }
 
 TEST(t_ast_root_addget) {
+    re_error err = RE_ERROR_NONE;
     re__ast_root ast_root;
     mn_int32 l = (mn_int32)RAND_PARAM(600);
     mn_int32 i;
@@ -559,7 +560,9 @@ TEST(t_ast_root_addget) {
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref);
+        if ((err = re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref))) {
+            goto error;
+        }
         refs[i] = prev_ref;
     }
     ast_root.depth_max = 1;
@@ -569,12 +572,14 @@ TEST(t_ast_root_addget) {
         ASSERT_EQ(re__ast_get_rune(ast), i);
     }
     ASSERT(re__ast_root_verify(&ast_root));
+error:
     re__ast_root_destroy(&ast_root);
     MN_FREE(refs);
     PASS();
 }
 
 TEST(t_ast_root_remove) {
+    re_error err = RE_ERROR_NONE;
     re__ast_root ast_root;
     mn_int32 l = (mn_int32)RAND_PARAM(600);
     mn_int32 i;
@@ -587,7 +592,9 @@ TEST(t_ast_root_remove) {
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref);
+        if ((err = re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref))) {
+            goto error;
+        }
         refs[i] = prev_ref;
     }
     for (i = l; i > 0; i--) {
@@ -595,6 +602,7 @@ TEST(t_ast_root_remove) {
     }
     ast_root.depth_max = 0;
     ASSERT(re__ast_root_verify(&ast_root));
+error:
     re__ast_root_destroy(&ast_root);
     MN_FREE(refs);
     PASS();
