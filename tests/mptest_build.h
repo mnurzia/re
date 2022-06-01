@@ -293,6 +293,7 @@ MPTEST_API void mptest__assert_fail(struct mptest__state* state, const char* msg
 MPTEST_API void mptest__assert_pass(struct mptest__state* state, const char* msg, const char* assert_expr, const char* file, int line);
 
 MPTEST_API void mptest_assert_fail_breakpoint(void);
+MPTEST_API void mptest_uncaught_assert_fail_breakpoint(void);
 
 MPTEST_API MPTEST_JMP_BUF* mptest__catch_assert_begin(struct mptest__state* state);
 MPTEST_API void mptest__catch_assert_end(struct mptest__state* state);
@@ -453,7 +454,7 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
         #define MPTEST_INJECT_ASSERTm(expr, msg)                               \
             do {                                                              \
                 if (!(expr)) {                                                \
-                    mptest_assert_fail_breakpoint(); \
+                    mptest_uncaught_assert_fail_breakpoint(); \
                     mptest__catch_assert_fail(&mptest__state_g, msg, #expr, __FILE__, __LINE__); \
                 }                                                             \
             } while (0)
@@ -465,7 +466,7 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
                 if (mptest__state_g.longjmp_checking                          \
                     & MPTEST__LONGJMP_REASON_ASSERT_FAIL) {                   \
                     if (!(expr)) {                                            \
-                        mptest_assert_fail_breakpoint(); \
+                        mptest_uncaught_assert_fail_breakpoint(); \
                         mptest__catch_assert_fail(&mptest__state_g, msg, #expr, __FILE__, __LINE__); \
                     }                                                         \
                 } else {                                                      \
@@ -764,8 +765,8 @@ const mptest_char* mptest__str_get_data(const mptest__str* str);
 int mptest__str_cmp(const mptest__str* str_a, const mptest__str* str_b);
 mptest_size mptest__str_slen(const mptest_char* chars);
 
-#if MPTEST_USE_SYM
 #if MPTEST_USE_DYN_ALLOC
+#if MPTEST_USE_SYM
 /* bits/container/str_view */
 typedef struct mptest__str_view {
     const mptest_char* _data;
@@ -779,8 +780,8 @@ void mptest__str_view_init_null(mptest__str_view* view);
 mptest_size mptest__str_view_size(const mptest__str_view* view);
 const mptest_char* mptest__str_view_get_data(const mptest__str_view* view);
 int mptest__str_view_cmp(const mptest__str_view* a, const mptest__str_view* b);
-#endif /* MPTEST_USE_SYM */
 #endif /* MPTEST_USE_DYN_ALLOC */
+#endif /* MPTEST_USE_SYM */
 
 #if MPTEST_USE_APARSE
 /* bits/util/ntstr/cmp_n */
@@ -924,8 +925,8 @@ MPTEST_INTERNAL aparse_error aparse__error_print_long_opt(aparse__state* state, 
 MPTEST_INTERNAL aparse_error aparse__error_print_sub_args(aparse__state* state, const aparse__arg* arg);
 #endif /* MPTEST_USE_APARSE */
 
-#if MPTEST_USE_SYM
 #if MPTEST_USE_DYN_ALLOC
+#if MPTEST_USE_SYM
 /* bits/container/vec */
 #define MPTEST__VEC_TYPE(T) \
     MPTEST__PASTE(T, _vec)
@@ -988,52 +989,65 @@ MPTEST_INTERNAL aparse_error aparse__error_print_sub_args(aparse__state* state, 
 
 #define MPTEST__VEC_GROW_ONE(T, vec) \
     do { \
-        vec->_size += 1; \
-        if (vec->_size > vec->_alloc) { \
+        void* new_ptr; \
+        mptest_size new_alloc; \
+        if (vec->_size + 1 > vec->_alloc) { \
             if (vec->_data == MPTEST_NULL) { \
-                vec->_alloc = 1; \
-                vec->_data = (T*)MPTEST_MALLOC(sizeof(T) * vec->_alloc); \
-                if (vec->_data == MPTEST_NULL) { \
-                    return -1; \
-                } \
+                new_alloc = 1; \
+                new_ptr = (T*)MPTEST_MALLOC(sizeof(T) * new_alloc); \
             } else { \
-                vec->_alloc *= 2; \
-                vec->_data = (T*)MPTEST_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
-                if (vec->_data == MPTEST_NULL) { \
-                    return -1; \
-                } \
+                new_alloc = vec->_alloc * 2; \
+                new_ptr = (T*)MPTEST_REALLOC(vec->_data, sizeof(T) * new_alloc); \
             } \
+            if (new_ptr == MPTEST_NULL) { \
+                return -1; \
+            } \
+            vec->_alloc = new_alloc; \
+            vec->_data = new_ptr; \
         } \
+        vec->_size = vec->_size + 1; \
     } while (0)
 
 #define MPTEST__VEC_GROW(T, vec, n) \
     do { \
-        vec->_size += n; \
-        if (vec->_size > vec->_alloc) { \
-            vec->_alloc = vec->_size + (vec->_size >> 1); \
-            if (vec->_data == MPTEST_NULL) { \
-                vec->_data = (T*)MPTEST_MALLOC(sizeof(T) * vec->_alloc); \
-            } else { \
-                vec->_data = (T*)MPTEST_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
+        void* new_ptr; \
+        mptest_size new_alloc = vec->_alloc; \
+        mptest_size new_size = vec->_size + n; \
+        if (new_size > new_alloc) { \
+            if (new_alloc == 0) { \
+                new_alloc = 1; \
+            } \
+            while (new_alloc < new_size) { \
+                new_alloc *= 2; \
             } \
             if (vec->_data == MPTEST_NULL) { \
+                new_ptr = (T*)MPTEST_MALLOC(sizeof(T) * new_alloc); \
+            } else { \
+                new_ptr = (T*)MPTEST_REALLOC(vec->_data, sizeof(T) * new_alloc); \
+            } \
+            if (new_ptr == MPTEST_NULL) { \
                 return -1; \
             } \
+            vec->_alloc = new_alloc; \
+            vec->_data = new_ptr; \
         } \
+        vec->_size += n; \
     } while (0)
 
 #define MPTEST__VEC_SETSIZE(T, vec, n) \
     do { \
+        void* new_ptr; \
         if (vec->_alloc < n) { \
-            vec->_alloc = n; \
             if (vec->_data == MPTEST_NULL) { \
-                vec->_data = (T*)MPTEST_MALLOC(sizeof(T) * vec->_alloc); \
+                new_ptr = (T*)MPTEST_MALLOC(sizeof(T) * n); \
             } else { \
-                vec->_data = (T*)MPTEST_REALLOC(vec->_data, sizeof(T) * vec->_alloc); \
+                new_ptr = (T*)MPTEST_REALLOC(vec->_data, sizeof(T) * n); \
             } \
-            if (vec->_data == MPTEST_NULL) { \
+            if (new_ptr == MPTEST_NULL) { \
                 return -1; \
             } \
+            vec->_alloc = n; \
+            vec->_data = new_ptr; \
         } \
     } while (0)
 
@@ -1228,8 +1242,8 @@ MPTEST_INTERNAL aparse_error aparse__error_print_sub_args(aparse__state* state, 
         MPTEST__VEC_SETSIZE(T, vec, cap); \
         return 0; \
     }
-#endif /* MPTEST_USE_SYM */
 #endif /* MPTEST_USE_DYN_ALLOC */
+#endif /* MPTEST_USE_SYM */
 
 /* mptest */
 #ifndef MPTEST_INTERNAL_H
@@ -1840,8 +1854,8 @@ int mptest__str_cmp(const mptest__str* str_a, const mptest__str* str_b) {
     return 0;
 }
 
-#if MPTEST_USE_SYM
 #if MPTEST_USE_DYN_ALLOC
+#if MPTEST_USE_SYM
 /* bits/container/str_view */
 void mptest__str_view_init(mptest__str_view* view, const mptest__str* other) {
     view->_size = mptest__str_size(other);
@@ -1893,8 +1907,8 @@ int mptest__str_view_cmp(const mptest__str_view* view_a, const mptest__str_view*
     }
     return 0;
 }
-#endif /* MPTEST_USE_SYM */
 #endif /* MPTEST_USE_DYN_ALLOC */
+#endif /* MPTEST_USE_SYM */
 
 #if MPTEST_USE_SYM
 /* bits/types/fixed/int32 */
@@ -4561,10 +4575,16 @@ MPTEST_API void mptest__assert_fail(struct mptest__state* state, const char* msg
     state->fail_data.string_data = assert_expr;
     state->fail_file   = file;
     state->fail_line   = line;
+    mptest_assert_fail_breakpoint();
 }
 
-/* Dummy function to break on for assert failures */
+/* Dummy function to break on for test assert failures */
 MPTEST_API void mptest_assert_fail_breakpoint() {
+    return;
+}
+
+/* Dummy function to break on for program assert failures */
+MPTEST_API void mptest_uncaught_assert_fail_breakpoint() {
     return;
 }
 
