@@ -69,6 +69,9 @@ re_error re_init_set(re* reg) {
 }
 
 void re_destroy(re* reg) {
+    if (reg->data == MN_NULL) {
+        return;
+    }
     re__compile_destroy(&reg->data->compile);
     re__prog_destroy(&reg->data->program);
     re__prog_destroy(&reg->data->program_reverse);
