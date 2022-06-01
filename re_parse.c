@@ -38,10 +38,13 @@ MN_INTERNAL re_error re__parse_error(re__parse* parse, const char* err_chars) {
     mn__str err_str;
     re_error err = mn__str_init_s(&err_str, (const mn_char*)err_chars);
     if (err) {
+        mn__str_destroy(&err_str);
         return err;
     }
-    re__set_error_str(parse->re, &err_str);
-    mn__str_destroy(&err_str);
+    if ((err = re__set_error_str(parse->re, &err_str))) {
+        mn__str_destroy(&err_str);
+        return err;
+    }
     return RE_ERROR_PARSE;
 }
 

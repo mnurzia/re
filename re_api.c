@@ -14,14 +14,16 @@ MN_INTERNAL void re__error_destroy(re* reg) {
  * the middle of cleaning up after an error */
 /* This is useful because it allows error_string to be a const pointer,
  * allowing error messages to be saved as just const strings */
-MN_INTERNAL void re__set_error_str(re* reg, const mn__str* error_str) {
+MN_INTERNAL re_error re__set_error_str(re* reg, const mn__str* error_str) {
     re_error err = RE_ERROR_NONE;
     /* Clear the last error */
     re__error_destroy(reg);
     if ((err = mn__str_init_copy(&reg->data->error_string, error_str))) {
         re__set_error_generic(reg, err);
+    } else {
+        mn__str_view_init(&reg->data->error_string_view, &reg->data->error_string);
     }
-    mn__str_view_init(&reg->data->error_string_view, &reg->data->error_string);
+    return err;
 }
 
 MN_INTERNAL void re__set_error_generic(re* reg, re_error err) {

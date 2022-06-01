@@ -1305,7 +1305,7 @@ struct re_data {
     mn__str_view error_string_view;
 };
 
-MN_INTERNAL void re__set_error_str(re* re, const mn__str* error_str);
+MN_INTERNAL re_error re__set_error_str(re* re, const mn__str* error_str);
 MN_INTERNAL void re__set_error_generic(re* re, re_error err);
 
 #endif
