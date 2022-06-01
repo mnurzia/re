@@ -551,6 +551,7 @@ MN__VEC_IMPL_FUNC(mn_int32, push)
 MN__VEC_IMPL_FUNC(mn_int32, size)
 MN__VEC_IMPL_FUNC(mn_int32, get)
 
+#if 0
 MN_INTERNAL int re__ast_root_verify_depth(const re__ast_root* ast_root, mn_int32 start_ref, mn_int32 depth) {
     const re__ast* cur_node;
     if (depth == 0) {
@@ -635,6 +636,19 @@ cont:
     }
     mn_int32_vec_destroy(&removed_list);
     return re__ast_root_verify_depth(ast_root, ast_root->root_ref, ast_root->depth_max);
+}
+#endif
+
+MN_INTERNAL int re__ast_root_verify_depth(const re__ast_root* ast_root, mn_int32 start_ref, mn_int32 depth) {
+    MN__UNUSED(ast_root);
+    MN__UNUSED(start_ref);
+    MN__UNUSED(depth);
+    return 1;
+}
+
+MN_INTERNAL int re__ast_root_verify(const re__ast_root* ast_root) {
+    MN__UNUSED(ast_root);
+    return 1;
 }
 
 #endif
