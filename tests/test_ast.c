@@ -552,6 +552,9 @@ TEST(t_ast_root_addget) {
     mn_int32 i;
     mn_int32* refs = MN_MALLOC(sizeof(mn_int32) * (mn_size)l);
     mn_int32 prev_ref = RE__AST_NONE;
+    if (refs == NULL) {
+        PASS();
+    }
     re__ast_root_init(&ast_root);
     for (i = 0; i < l; i++) {
         re__ast ast;
@@ -577,6 +580,9 @@ TEST(t_ast_root_remove) {
     mn_int32 i;
     mn_int32* refs = MN_MALLOC(sizeof(mn_int32) * (mn_size)l);
     mn_int32 prev_ref = RE__AST_NONE;
+    if (refs == NULL) {
+        PASS();
+    }
     re__ast_root_init(&ast_root);
     for (i = 0; i < l; i++) {
         re__ast ast;
@@ -600,6 +606,9 @@ TEST(t_ast_root_thrash) {
     mn_int32 i;
     mn_int32* refs = MN_MALLOC(sizeof(mn_int32) * (mn_size)l);
     mn_int32 prev_ref = RE__AST_NONE;
+    if (refs == NULL) {
+        PASS();
+    }
     re__ast_root_init(&ast_root);
     for (i = 0; i < l; i++) {
         re__ast ast;
