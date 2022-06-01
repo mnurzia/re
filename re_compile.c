@@ -694,12 +694,13 @@ MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
     /* Allocate memory for frames */
     /* depth_max + 1 because we include an extra frame for terminals within the
      * deepest multi-child node */
-    compile->frames_size = ast_root->depth_max;
+    compile->frames_size = ast_root->depth_max + 1;
     compile->frames = (re__compile_frame*)MN_MALLOC((sizeof(re__compile_frame)*((mn_size)compile->frames_size)));
     if (compile->frames == MN_NULL) {
         err = RE_ERROR_NOMEM;
         goto error;
     }
+    /* Can't run compiler twice */
     MN_ASSERT(re__prog_get_entry(prog, RE__PROG_ENTRY_DEFAULT) == RE__PROG_LOC_INVALID);
     /* Add the FAIL instruction to the program */
     re__prog_inst_init_fail(&fail_inst);
@@ -715,8 +716,16 @@ MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
     /* While there are nodes left to compile... */
     while (compile->frame_ptr != 0) {
         re__compile_frame top_frame = re__compile_frame_pop(compile);
-        const re__ast* top_node = re__ast_root_get_const(ast_root, top_frame.ast_base_ref);
-        re__ast_type top_node_type = top_node->type;
+        const re__ast* top_node;
+        re__ast_type top_node_type;
+        if (top_frame.ast_base_ref == RE__AST_NONE) {
+            /* empty regex */
+            top_node = MN_NULL;
+            top_node_type = RE__AST_TYPE_NONE;
+        } else {
+            top_node = re__ast_root_get_const(ast_root, top_frame.ast_base_ref);
+            top_node_type = top_node->type;
+        }
         compile->should_push_child = 0;
         compile->should_push_child_ref = top_frame.ast_child_ref;
         switch (top_node_type) {
@@ -749,6 +758,8 @@ MN_INTERNAL re_error re__compile_regex(re__compile* compile, const re__ast_root*
                 break;
             case RE__AST_TYPE_ANY_BYTE:
                 err = re__compile_do_any_byte(compile, &top_frame, top_node, prog);
+                break;
+            case RE__AST_TYPE_NONE:
                 break;
             default:
                 MN__ASSERT_UNREACHED();
