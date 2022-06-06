@@ -23,30 +23,30 @@ typedef mn_int32 re_rune;
 typedef struct re_data re_data;
 
 typedef struct re {
-    re_data* data;
+  re_data* data;
 } re;
 
 typedef struct re_span {
-    mn_size begin;
-    mn_size end;
+  mn_size begin;
+  mn_size end;
 } re_span;
 
 typedef enum re_anchor_type {
-    RE_ANCHOR_BOTH = 'B',
-    RE_ANCHOR_START = 'S',
-    RE_ANCHOR_END = 'E',
-    RE_UNANCHORED = 'U'
+  RE_ANCHOR_BOTH = 'B',
+  RE_ANCHOR_START = 'S',
+  RE_ANCHOR_END = 'E',
+  RE_UNANCHORED = 'U'
 } re_anchor_type;
 
 typedef enum re_syntax_flags {
-    RE_SYNTAX_FLAG_ASCII = 1,
-    RE_SYNTAX_FLAG_IGNORECASE = 2,
-    RE_SYNTAX_FLAG_MULTILINE = 4,
-    RE_SYNTAX_FLAG_DOTALL = 8
+  RE_SYNTAX_FLAG_ASCII = 1,
+  RE_SYNTAX_FLAG_IGNORECASE = 2,
+  RE_SYNTAX_FLAG_MULTILINE = 4,
+  RE_SYNTAX_FLAG_DOTALL = 8
 } re_syntax_flags;
 
 /* Comparison of different matching APIs:
- * PCRE2: 
+ * PCRE2:
  *   int pcre2_match(
  *     const pcre2_code *code,
  *     PCRE2_SPTR subject,
@@ -57,10 +57,10 @@ typedef enum re_syntax_flags {
  *     pcre2_match_context *mcontext);
  * POSIX:
  *   int regexec(
- *     const regex_t *restrict preg, 
+ *     const regex_t *restrict preg,
  *     const char *restrict string,
- *     size_t nmatch, 
- *     regmatch_t pmatch[restrict], 
+ *     size_t nmatch,
+ *     regmatch_t pmatch[restrict],
  *     int eflags);
  * GRegex:
  *   gboolean g_regex_match (
@@ -104,10 +104,10 @@ typedef enum re_syntax_flags {
  *   hs_error_t hs_scan_vector(const hs_database_t *db,
  *     const char *const *data,
  *     const unsigned int *length,
- *     unsigned int count, 
+ *     unsigned int count,
  *     unsigned int flags,
  *     hs_scratch_t *scratch,
- *     match_event_handler onEvent, 
+ *     match_event_handler onEvent,
  *     void *context);
  * RE2 is omitted because it takes advantage of C++ features.
  */
@@ -127,24 +127,34 @@ typedef enum re_syntax_flags {
  * Outputs:
  * Match result boolean -> whether or not the string matched
  * Match result boundaries -> the boundaries of the match
- * Match result some groups -> the boundaries of the match, and optionally group boundaries
- * Match result all groups -> the boundaries of the match and group boundaries
- * Match index -> which index regex was matched
- * Error value
- * 
+ * Match result some groups -> the boundaries of the match, and optionally group
+ * boundaries Match result all groups -> the boundaries of the match and group
+ * boundaries Match index -> which index regex was matched Error value
+ *
  */
 re_error re_init(re* reg, const char* regex_nt);
-re_error re_init_flags(re* reg, const char* regex_nt, re_syntax_flags syntax_flags);
-re_error re_init_sz_flags(re* reg, const char* regex, mn_size regex_size, re_syntax_flags syntax_flags);
+re_error
+re_init_flags(re* reg, const char* regex_nt, re_syntax_flags syntax_flags);
+re_error re_init_sz_flags(
+    re* reg, const char* regex, mn_size regex_size,
+    re_syntax_flags syntax_flags);
 re_error re_init_set(re* reg);
 
 re_error re_set_add(re* reg, const char* regex_nt);
-re_error re_set_add_flags(re* reg, const char* regex_nt, re_syntax_flags syntax_flags);
-re_error re_set_add_sz_flags(re* reg, const char* regex, mn_size regex_size, re_syntax_flags syntax_flags);
+re_error
+re_set_add_flags(re* reg, const char* regex_nt, re_syntax_flags syntax_flags);
+re_error re_set_add_sz_flags(
+    re* reg, const char* regex, mn_size regex_size,
+    re_syntax_flags syntax_flags);
 
-re_error re_is_match(re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type);
-re_error re_match_groups(re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type, mn_uint32 max_group, re_span* out_groups);
-re_error re_match_groups_set(re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type, mn_uint32 max_group, re_span* out_groups, mn_uint32* out_set_index);
+re_error re_is_match(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type);
+re_error re_match_groups(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
+    mn_uint32 max_group, re_span* out_groups);
+re_error re_match_groups_set(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
+    mn_uint32 max_group, re_span* out_groups, mn_uint32* out_set_index);
 
 const char* re_get_error(const re* reg, mn_size* error_len);
 mn_uint32 re_get_max_groups(const re* reg);
