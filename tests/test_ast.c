@@ -610,6 +610,7 @@ error:
 
 TEST(t_ast_root_thrash) {
     re__ast_root ast_root;
+    re_error err = RE_ERROR_NONE;
     mn_int32 l = (mn_int32)RAND_PARAM(600);
     mn_int32 i;
     mn_int32* refs = MN_MALLOC(sizeof(mn_int32) * (mn_size)l);
@@ -621,7 +622,9 @@ TEST(t_ast_root_thrash) {
     for (i = 0; i < l; i++) {
         re__ast ast;
         re__ast_init_rune(&ast, i);
-        re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref);
+        if ((err = re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &prev_ref))) {
+            goto error;
+        }
         refs[i] = prev_ref;
     }
     /* shuffle refs */
@@ -636,6 +639,7 @@ TEST(t_ast_root_thrash) {
         re__ast_root_remove(&ast_root, refs[i]);
     }
     ASSERT(re__ast_root_verify(&ast_root));
+error:
     re__ast_root_destroy(&ast_root);
     MN_FREE(refs);
     PASS();
