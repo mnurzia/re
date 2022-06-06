@@ -43,14 +43,14 @@ TEST(t_charclass_init) {
 
 TEST(t_charclass_init_from_class_alnum) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ALNUM, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ALNUM, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 48 57)"
         "    (rune_range 65 90)"
         "    (rune_range 97 122))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ALNUM, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ALNUM, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 47)"
@@ -63,13 +63,13 @@ TEST(t_charclass_init_from_class_alnum) {
 
 TEST(t_charclass_init_from_class_alpha) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ALPHA, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ALPHA, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 65 90)"
         "    (rune_range 97 122))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ALPHA, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ALPHA, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 64)"
@@ -81,12 +81,12 @@ TEST(t_charclass_init_from_class_alpha) {
 
 TEST(t_charclass_init_from_class_ascii) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ASCII, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ASCII, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 127))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ASCII, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_ASCII, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 128 0x10FFFF))");
@@ -96,13 +96,13 @@ TEST(t_charclass_init_from_class_ascii) {
 
 TEST(t_charclass_init_from_class_blank) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_BLANK, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_BLANK, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range '\t' '\t')"
         "    (rune_range ' ' ' '))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_BLANK, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_BLANK, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 8)"
@@ -114,13 +114,13 @@ TEST(t_charclass_init_from_class_blank) {
 
 TEST(t_charclass_init_from_class_cntrl) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_CNTRL, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_CNTRL, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 31)"
         "    (rune_range 127 127))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_CNTRL, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_CNTRL, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 32 126)"
@@ -131,12 +131,12 @@ TEST(t_charclass_init_from_class_cntrl) {
 
 TEST(t_charclass_init_from_class_digit) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_DIGIT, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_DIGIT, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range '0' '9'))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_DIGIT, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_DIGIT, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 47)"
@@ -147,12 +147,12 @@ TEST(t_charclass_init_from_class_digit) {
 
 TEST(t_charclass_init_from_class_graph) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_GRAPH, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_GRAPH, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 33 126))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_GRAPH, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_GRAPH, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 32)"
@@ -163,12 +163,12 @@ TEST(t_charclass_init_from_class_graph) {
 
 TEST(t_charclass_init_from_class_lower) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_LOWER, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_LOWER, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 'a' 'z'))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_LOWER, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_LOWER, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 96)"
@@ -179,14 +179,14 @@ TEST(t_charclass_init_from_class_lower) {
 
 TEST(t_charclass_init_from_class_perl_space) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 9 10)"
         "    (rune_range 12 13)"
         "    (rune_range 32 32))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 8)"
@@ -199,12 +199,12 @@ TEST(t_charclass_init_from_class_perl_space) {
 
 TEST(t_charclass_init_from_class_print) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PRINT, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PRINT, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range ' ' 126))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PRINT, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PRINT, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 31)"
@@ -215,7 +215,7 @@ TEST(t_charclass_init_from_class_print) {
 
 TEST(t_charclass_init_from_class_punct) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PUNCT, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PUNCT, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0x21 0x2F)"
@@ -223,7 +223,7 @@ TEST(t_charclass_init_from_class_punct) {
         "    (rune_range 0x5B 0x60)"
         "    (rune_range 0x7B 0x7E))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PUNCT, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_PUNCT, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 0x20)"
@@ -237,13 +237,13 @@ TEST(t_charclass_init_from_class_punct) {
 
 TEST(t_charclass_init_from_class_space) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_SPACE, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_SPACE, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0x09 0x0D)"
         "    (rune_range ' ' ' '))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_SPACE, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_SPACE, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 8)"
@@ -255,12 +255,12 @@ TEST(t_charclass_init_from_class_space) {
 
 TEST(t_charclass_init_from_class_upper) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_UPPER, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_UPPER, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 'A' 'Z'))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_UPPER, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_UPPER, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 64)"
@@ -271,7 +271,7 @@ TEST(t_charclass_init_from_class_upper) {
 
 TEST(t_charclass_init_from_class_word) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_WORD, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_WORD, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range '0' '9')"
@@ -279,7 +279,7 @@ TEST(t_charclass_init_from_class_word) {
         "    (rune_range '_' '_')"
         "    (rune_range 'a' 'z'))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_WORD, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_WORD, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 47)"
@@ -293,14 +293,14 @@ TEST(t_charclass_init_from_class_word) {
 
 TEST(t_charclass_init_from_class_xdigit) {
     re__charclass charclass;
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 0);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 0) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range '0' '9')"
         "    (rune_range 'A' 'F')"
         "    (rune_range 'a' 'f'))");
     re__charclass_destroy(&charclass);
-    re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 1);
+    if (re__charclass_init_from_class(&charclass, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 1) == RE_ERROR_NOMEM) { PASS(); }
     ASSERT_SYMEQ(re__charclass, charclass,
         "(charclass "
         "   ((rune_range 0 47)"
@@ -335,15 +335,19 @@ TEST(t_charclass_init_from_str_alnum) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"alnum");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALNUM, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALNUM, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -358,15 +362,19 @@ TEST(t_charclass_init_from_str_alpha) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"alpha");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALPHA, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALPHA, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -380,15 +388,19 @@ TEST(t_charclass_init_from_str_ascii) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"ascii");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ASCII, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ASCII, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -402,15 +414,19 @@ TEST(t_charclass_init_from_str_blank) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"blank");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_BLANK, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_BLANK, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -424,15 +440,19 @@ TEST(t_charclass_init_from_str_cntrl) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"cntrl");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_CNTRL, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_CNTRL, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -446,15 +466,19 @@ TEST(t_charclass_init_from_str_digit) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"digit");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_DIGIT, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_DIGIT, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -468,15 +492,19 @@ TEST(t_charclass_init_from_str_graph) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"graph");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_GRAPH, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_GRAPH, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -490,15 +518,19 @@ TEST(t_charclass_init_from_str_lower) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"lower");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_LOWER, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_LOWER, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -512,15 +544,19 @@ TEST(t_charclass_init_from_str_perl_space) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"perl_space");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -534,15 +570,19 @@ TEST(t_charclass_init_from_str_print) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"print");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PRINT, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PRINT, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -556,15 +596,19 @@ TEST(t_charclass_init_from_str_punct) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"punct");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PUNCT, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PUNCT, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -578,15 +622,19 @@ TEST(t_charclass_init_from_str_space) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"space");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_SPACE, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_SPACE, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -600,15 +648,19 @@ TEST(t_charclass_init_from_str_upper) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"upper");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_UPPER, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_UPPER, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -622,15 +674,19 @@ TEST(t_charclass_init_from_str_word) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"word");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_WORD, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_WORD, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -644,15 +700,19 @@ TEST(t_charclass_init_from_str_xdigit) {
     re_error err = RE_ERROR_NONE;
     mn__str_view_init_s(&name, (const mn_char*)"xdigit");
     err = re__charclass_init_from_str(&out, name, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 0);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
     re__charclass_destroy(&test);
     err = re__charclass_init_from_str(&out, name, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 1);
+    if (err == RE_ERROR_NOMEM) { PASS(); }
     ASSERT(err == RE_ERROR_NONE);
     ASSERT(re__charclass_equals(&out, &test));
     re__charclass_destroy(&out);
@@ -682,13 +742,17 @@ TEST(t_charclass_destroy) {
     mn_size l = RAND_PARAM(600);
     mn_size i;
     re__charclass cc;
+    re_error err = RE_ERROR_NONE;
     re__charclass_init(&cc);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
         rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((mn_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
-        re__charclass_push(&cc, rr);
+        if ((err = re__charclass_push(&cc, rr)) == RE_ERROR_NOMEM) {
+            goto error;
+        }
     }
+error:
     re__charclass_destroy(&cc);
     PASS();
 }
@@ -697,14 +761,18 @@ TEST(t_charclass_push) {
     mn_size l = RAND_PARAM(600);
     mn_size i;
     re__charclass cc;
+    re_error err = RE_ERROR_NONE;
     re__charclass_init(&cc);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
         rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((mn_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
-        re__charclass_push(&cc, rr);
+        if ((err = re__charclass_push(&cc, rr)) == RE_ERROR_NOMEM) {
+            goto error;
+        }
         ASSERT(re__rune_range_equals(re__charclass_get_ranges(&cc)[i], rr));
     }
+error:
     re__charclass_destroy(&cc);
     PASS();
 }
@@ -713,15 +781,19 @@ TEST(t_charclass_get_num_ranges) {
     mn_size l = RAND_PARAM(600);
     mn_size i;
     re__charclass cc;
+    re_error err = RE_ERROR_NONE;
     re__charclass_init(&cc);
     ASSERT_EQ(re__charclass_get_num_ranges(&cc), 0);
     for (i = 0; i < l; i++) {
         re__rune_range rr;
         rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((mn_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
-        re__charclass_push(&cc, rr);
+        if ((err = re__charclass_push(&cc, rr)) == RE_ERROR_NOMEM) {
+            goto error;
+        }
     }
     ASSERT_EQ(re__charclass_get_num_ranges(&cc), l);
+error:
     re__charclass_destroy(&cc);
     PASS();
 }
@@ -730,6 +802,7 @@ TEST(t_charclass_equals) {
     mn_size l = RAND_PARAM(600) + 1;
     mn_size i;
     re__charclass cc, ot, mt;
+    re_error err = RE_ERROR_NONE;
     re__charclass_init(&cc);
     re__charclass_init(&ot);
     re__charclass_init(&mt);
@@ -737,11 +810,16 @@ TEST(t_charclass_equals) {
         re__rune_range rr;
         rr.min = (re_rune)RAND_PARAM(0x10FFFF);
         rr.max = ((mn_int32)RAND_PARAM((mptest_rand)(0x10FFFF - rr.min))) + rr.min;
-        re__charclass_push(&cc, rr);
-        re__charclass_push(&ot, rr);
+        if ((err = re__charclass_push(&cc, rr)) == RE_ERROR_NOMEM) {
+            goto error;
+        }
+        if ((err = re__charclass_push(&ot, rr)) == RE_ERROR_NOMEM) {
+            goto error;
+        }
     }
     ASSERT(re__charclass_equals(&cc, &ot));
     ASSERT(!re__charclass_equals(&cc, &mt));
+error:
     re__charclass_destroy(&cc);
     re__charclass_destroy(&ot);
     re__charclass_destroy(&mt);
