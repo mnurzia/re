@@ -1876,6 +1876,8 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex)
 #endif
   return RE_ERROR_NONE;
 error:
+  re__ast_root_destroy(&parse->re->data->ast_root);
+  re__ast_root_init(&parse->re->data->ast_root);
   if (err == RE_ERROR_PARSE) {
     MN_ASSERT(mn__str_size(&parse->re->data->error_string));
   } else {
