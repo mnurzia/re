@@ -3,31 +3,6 @@
 #include "test_ast.h"
 #include "test_helpers.h"
 
-#define ASSERT_ERR_NOMEMm(expr, msg, lab)                                      \
-  do {                                                                         \
-    re_error _err = RE_ERROR_NONE;                                             \
-    if ((_err = expr) == RE_ERROR_NOMEM) {                                     \
-      goto lab;                                                                \
-    } else if (_err) {                                                         \
-      FAIL();                                                                  \
-    }                                                                          \
-  } while (0)
-
-#define ASSERT_ERR_NOMEM(expr, lab) ASSERT_ERR_NOMEMm(expr, #expr, lab)
-
-#define ASSERT_PARSE_ERR_NOMEMm(expr, msg, lab)                                \
-  do {                                                                         \
-    re_error _err = RE_ERROR_NONE;                                             \
-    if ((_err = expr) == RE_ERROR_NOMEM) {                                     \
-      goto lab;                                                                \
-    } else if (_err != RE_ERROR_PARSE) {                                       \
-      FAIL();                                                                  \
-    }                                                                          \
-  } while (0)
-
-#define ASSERT_PARSE_ERR_NOMEM(expr, lab)                                      \
-  ASSERT_PARSE_ERR_NOMEMm(expr, #expr, lab)
-
 TEST(t_parse_empty)
 {
   re reg;
@@ -696,7 +671,7 @@ TEST(t_parse_opt_fuse_str_rune)
     utf8_bytes_ptr += re__compile_gen_utf8(r, utf8_bytes + utf8_bytes_ptr);
     ASSERT_ERR_NOMEM(
         mn__str_cat_n(&in_str, (mn_char*)utf8_bytes, (mn_size)utf8_bytes_ptr),
-        error);
+        error_str_only);
   }
   ASSERT_ERR_NOMEM(re_init(&reg, mn__str_get_data(&in_str)), error);
   {
@@ -710,6 +685,7 @@ TEST(t_parse_opt_fuse_str_rune)
   }
 error:
   re_destroy(&reg);
+error_str_only:
   mn__str_destroy(&in_str);
   PASS();
 }

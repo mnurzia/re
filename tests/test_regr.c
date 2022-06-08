@@ -5,7 +5,6 @@ TEST(t_regr_parse_fuzz)
   re reg;
   /* 2022-06-06: libfuzzer */
   re_init_sz_flags(&reg, "\"*[\x0a", 4, 0);
-  re_is_match(&reg, "", 0, 'U');
   re_destroy(&reg);
   /* 2022-05-24: libfuzzer */
   re_init_sz_flags(&reg, "\x28\x00\x00\x3f", 4, 0);
