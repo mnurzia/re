@@ -911,7 +911,7 @@ typedef enum re__prog_data_id {
   RE__PROG_DATA_ID_DOT_REV_ACCSURR,
   /* dot, forward, reject surrogates */
   RE__PROG_DATA_ID_DOT_FWD_REJSURR,
-  /* dot, reverse, accept surrogates */
+  /* dot, reverse, reject surrogates */
   RE__PROG_DATA_ID_DOT_REV_REJSURR,
   RE__PROG_DATA_ID_MAX
 } re__prog_data_id;
