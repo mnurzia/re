@@ -749,6 +749,15 @@ TEST(t_parse_err_alt_nostartend)
       "       (concat ())"
       "       (concat ()))))");
   re_destroy(&reg);
+  ASSERT_ERR_NOMEM(re_init(&reg, "(|)"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast "
+      "    (group () 0"
+      "        (alt ("
+      "           (concat ())"
+      "           (concat ())))))");
+  re_destroy(&reg);
   ASSERT_ERR_NOMEM(re_init(&reg, "|a|"), error);
   ASSERT_SYMEQ(
       re__ast_root, reg.data->ast_root,

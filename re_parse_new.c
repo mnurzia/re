@@ -33,7 +33,7 @@ void re__parse_new_destroy(re__parse_new* parse)
 
 re__parse_new_frame* re__parse_new_get_frame(re__parse_new* parse)
 {
-  MN_ASSERT(re__parse_frame_vec_size(&parse->frames));
+  MN_ASSERT(re__parse_new_frame_vec_size(&parse->frames));
   return re__parse_new_frame_vec_getref(
       &parse->frames, re__parse_new_frame_vec_size(&parse->frames) - 1);
 }
@@ -58,9 +58,14 @@ re_error re__parse_new_push_frame(
   return re__parse_new_frame_vec_push(&parse->frames, new_frame);
 }
 
+void re__parse_new_pop_frame(re__parse_new* parse)
+{
+  re__parse_new_frame_vec_pop(&parse->frames);
+}
+
 int re__parse_new_frame_is_empty(re__parse_new* parse)
 {
-  return re__parse_new_get_frame(parse)->ast_prev_child_ref != RE__AST_NONE;
+  return re__parse_new_get_frame(parse)->ast_prev_child_ref == RE__AST_NONE;
 }
 
 /* Convenience function to set the error to a literal string. */
@@ -136,7 +141,7 @@ re_error re__parse_new_next_char(re__parse_new* parse, re_rune* ch)
     } else {
       mn_uint8 in_byte =
           (mn_uint8)(mn__str_view_get_data(&parse->str)[parse->str_pos]);
-      if (!re__parse_utf8_decode(&state, &codep, in_byte)) {
+      if (!re__parse_new_utf8_decode(&state, &codep, in_byte)) {
         parse->str_pos++;
         *ch = (re_rune)codep;
         return RE_ERROR_NONE;
@@ -188,7 +193,7 @@ MN_INTERNAL re_error re__parse_new_opt_fuse_concat(
     re__parse_new* parse, re__ast* next, int* did_fuse)
 {
   re__ast* prev;
-  mn_uint32 prev_child_ref;
+  mn_int32 prev_child_ref;
   re__ast_type t_prev, t_next;
   re_error err = RE_ERROR_NONE;
   MN_ASSERT(!re__parse_new_frame_is_empty(parse));
@@ -260,7 +265,7 @@ re__parse_new_link_node(re__parse_new* parse, re__ast new_ast)
   /* Firstly, attempt an optimization by fusing the nodes, if possible. */
   if (!re__parse_new_frame_is_empty(parse)) {
     int did_fuse;
-    if ((err = re__parse_opt_fuse_concat(parse, &new_ast, &did_fuse))) {
+    if ((err = re__parse_new_opt_fuse_concat(parse, &new_ast, &did_fuse))) {
       return err;
     }
     if (did_fuse) {
@@ -280,9 +285,6 @@ re__parse_new_link_node(re__parse_new* parse, re__ast new_ast)
       /* Push node, fallthrough */
     } else {
       re__ast new_concat;
-      mn_int32 old_inner = re__parse_new_get_frame(parse)->ast_prev_child_ref;
-      mn_int32 new_outer;
-      re__parse_new_frame new_frame;
       /* Wrap the last child(ren) in a concatenation */
       re__ast_init_concat(&new_concat);
       if ((err = re__parse_new_wrap_node(parse, new_concat))) {
@@ -303,7 +305,7 @@ re__parse_new_link_node(re__parse_new* parse, re__ast new_ast)
     MN__ASSERT_UNREACHED();
   }
   /* Add the new node to the frame. */
-  if ((err = re__parse_push_node(parse, new_ast))) {
+  if ((err = re__parse_new_push_node(parse, new_ast))) {
     return err;
   }
   return err;
@@ -316,14 +318,14 @@ re_error re__parse_new_group_begin(re__parse_new* parse)
   re_rune ch;
   mn_size begin_name_pos = 0;
   mn_size end_name_pos = 0;
+  re__ast_group_flags group_flags = re__parse_new_get_frame(parse)->group_flags;
+  mn_size saved_pos = parse->str_pos;
   if ((err = re__parse_new_next_char(parse, &ch))) {
     return err;
   }
   if (ch == RE__PARSE_NEW_EOF) {
     return re__parse_new_error(parse, "unmatched '('");
   } else if (ch == '?') {
-    re__ast_group_flags group_flags =
-        re__parse_new_get_frame(parse)->group_flags;
     int set_bit = 1;
     /* (? | Start of group flags/name */
     if ((err = re__parse_new_next_char(parse, &ch))) {
@@ -333,7 +335,7 @@ re_error re__parse_new_group_begin(re__parse_new* parse)
       if (ch == ')') {
         /* (?) | Go back to ground without creating a group, retain flags */
         re__parse_new_get_frame(parse)->group_flags = group_flags;
-        return;
+        return err;
       } else if (ch == '-') {
         /* (?- | Negate remaining flags */
         set_bit = 0;
@@ -342,7 +344,7 @@ re_error re__parse_new_group_begin(re__parse_new* parse)
         if (set_bit) {
           group_flags |= RE__AST_GROUP_FLAG_NONMATCHING;
         } else {
-          group_flags &= ~RE__AST_GROUP_FLAG_NONMATCHING;
+          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_NONMATCHING;
         }
         break;
       } else if (ch == 'U') {
@@ -350,28 +352,28 @@ re_error re__parse_new_group_begin(re__parse_new* parse)
         if (set_bit) {
           group_flags |= RE__AST_GROUP_FLAG_UNGREEDY;
         } else {
-          group_flags &= ~RE__AST_GROUP_FLAG_UNGREEDY;
+          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_UNGREEDY;
         }
       } else if (ch == 'i') {
         /* (?i: Case insensitive matching */
         if (set_bit) {
           group_flags |= RE__AST_GROUP_FLAG_CASE_INSENSITIVE;
         } else {
-          group_flags &= ~RE__AST_GROUP_FLAG_CASE_INSENSITIVE;
+          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_CASE_INSENSITIVE;
         }
       } else if (ch == 'm') {
         /* (?m: Multi-line mode: ^$ match line boundaries */
         if (set_bit) {
           group_flags |= RE__AST_GROUP_FLAG_MULTILINE;
         } else {
-          group_flags &= ~RE__AST_GROUP_FLAG_MULTILINE;
+          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_MULTILINE;
         }
       } else if (ch == 's') {
         /* (?s: Stream (?) mode: . matches \n */
         if (set_bit) {
           group_flags |= RE__AST_GROUP_FLAG_DOT_NEWLINE;
         } else {
-          group_flags &= ~RE__AST_GROUP_FLAG_DOT_NEWLINE;
+          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_DOT_NEWLINE;
         }
       } else if (ch == '<' || ch == 'P') {
         if (ch == 'P') {
@@ -411,32 +413,27 @@ re_error re__parse_new_group_begin(re__parse_new* parse)
         break;
       } else {
         /* Handles EOF */
-        return re__parse_error(
+        return re__parse_new_error(
             parse, "expected one of '-', ':', '<', 'P', 'U', 'i', 'm', 's' for "
                    "group flags or name");
       }
     }
-    {
-      mn_uint32 new_group_idx;
-      mn__str_view group_name;
-      re__ast new_group;
-      if (group_flags & RE__AST_GROUP_FLAG_NAMED) {
-        if (group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
-          return re__parse_error(
-              parse, "cannot have non-matching group with a name");
-        } else {
-          mn__str_view_init_n(
-              &group_name, mn__str_view_get_data(&parse->str) + begin_name_pos,
-              begin_name_pos - end_name_pos);
-          new_group_idx =
-              re__ast_root_get_num_groups(&parse->reg->data->ast_root);
-          if ((err = re__ast_root_add_group(
-                   &parse->reg->data->ast_root, group_name))) {
-            return err;
-          }
-        }
-      } else if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
-        mn__str_view_init_null(&group_name);
+  } else {
+    /* Rewind, we consumed an extra character */
+    parse->str_pos = saved_pos;
+  }
+  {
+    mn_uint32 new_group_idx = 0;
+    mn__str_view group_name;
+    re__ast new_group;
+    if (group_flags & RE__AST_GROUP_FLAG_NAMED) {
+      if (group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
+        return re__parse_new_error(
+            parse, "cannot have non-matching group with a name");
+      } else {
+        mn__str_view_init_n(
+            &group_name, mn__str_view_get_data(&parse->str) + begin_name_pos,
+            begin_name_pos - end_name_pos);
         new_group_idx =
             re__ast_root_get_num_groups(&parse->reg->data->ast_root);
         if ((err = re__ast_root_add_group(
@@ -444,40 +441,27 @@ re_error re__parse_new_group_begin(re__parse_new* parse)
           return err;
         }
       }
-      re__ast_init_group(&new_group, new_group_idx, group_flags);
-      if ((err = re__parse_new_link_node(&parse, new_group))) {
-        return err;
-      }
-      /* Strip NAMED flag */
-      group_flags &= ~RE__AST_GROUP_FLAG_NAMED;
-      if ((err = re__parse_new_push_frame(
-               parse, re__parse_new_get_frame(parse)->ast_prev_child_ref,
-               group_flags))) {
+    } else if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
+      mn__str_view_init_null(&group_name);
+      new_group_idx = re__ast_root_get_num_groups(&parse->reg->data->ast_root);
+      if ((err = re__ast_root_add_group(
+               &parse->reg->data->ast_root, group_name))) {
         return err;
       }
     }
-  }
-}
-
-/* Called after '(' */
-re_error re__parse_new_group_end(re__parse_new* parse)
-{
-  re_error err = RE_ERROR_NONE;
-  while (1) {
-    re__ast_type peek_type = re__parse_new_get_frame_type(parse);
-    if (peek_type == RE__AST_TYPE_NONE) {
-      /* If we are at the absolute bottom of the stack, there was no opening
-       * parentheses to begin with. */
-      return re__parse_error(parse, "unmatched ')'");
+    re__ast_init_group(&new_group, new_group_idx, group_flags);
+    if ((err = re__parse_new_link_node(parse, new_group))) {
+      return err;
     }
-    /* Now pop the current frame */
-    re__parse_new_frame_pop(parse);
-    /* If we just popped a group, finish */
-    if (peek_type == RE__AST_TYPE_GROUP) {
-      break;
+    /* Strip NAMED flag */
+    group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_NAMED;
+    if ((err = re__parse_new_push_frame(
+             parse, re__parse_new_get_frame(parse)->ast_prev_child_ref,
+             group_flags))) {
+      return err;
     }
   }
-  return RE_ERROR_NONE;
+  return err;
 }
 
 /* Act on a '|' character. If this is the first alteration, we wrap the current
@@ -490,7 +474,7 @@ MN_INTERNAL re_error re__parse_new_alt(re__parse_new* parse)
     peek_type = re__parse_new_get_frame_type(parse);
     if (peek_type == RE__AST_TYPE_CONCAT) {
       /* Pop all concatenations, alt takes priority */
-      re__parse_new_frame_pop(parse);
+      re__parse_new_pop_frame(parse);
     } else if (
         peek_type == RE__AST_TYPE_GROUP || peek_type == RE__AST_TYPE_NONE) {
       /* This is the initial alteration: "a|" or "(a|" */
@@ -500,7 +484,6 @@ MN_INTERNAL re_error re__parse_new_alt(re__parse_new* parse)
        * don't need to mess around with the amount of children for either
        * node. */
       re__ast new_alt;
-      mn_int32 new_alt_ref;
       re__ast_init_alt(&new_alt);
       if (re__parse_new_frame_is_empty(parse)) {
         /* Empty frame -- null alteration. */
@@ -530,6 +513,43 @@ MN_INTERNAL re_error re__parse_new_alt(re__parse_new* parse)
   }
 }
 
+/* Create an empty concatenation for an ending ALT, if necessary. */
+MN_INTERNAL re_error re__parse_new_alt_finish(re__parse_new* parse)
+{
+  if (re__parse_new_frame_is_empty(parse)) {
+    re__ast new_concat;
+    re__ast_init_concat(&new_concat);
+    return re__parse_new_link_node(parse, new_concat);
+  }
+  return RE_ERROR_NONE;
+}
+
+/* Called after '(' */
+re_error re__parse_new_group_end(re__parse_new* parse)
+{
+  re_error err = RE_ERROR_NONE;
+  while (1) {
+    re__ast_type peek_type = re__parse_new_get_frame_type(parse);
+    if (peek_type == RE__AST_TYPE_NONE) {
+      /* If we are at the absolute bottom of the stack, there was no opening
+       * parentheses to begin with. */
+      return re__parse_new_error(parse, "unmatched ')'");
+    }
+    if (peek_type == RE__AST_TYPE_ALT) {
+      if ((err = re__parse_new_alt_finish(parse))) {
+        return err;
+      }
+    }
+    /* Now pop the current frame */
+    re__parse_new_pop_frame(parse);
+    /* If we just popped a group, finish */
+    if (peek_type == RE__AST_TYPE_GROUP) {
+      break;
+    }
+  }
+  return err;
+}
+
 /* Create a new assert */
 MN_INTERNAL re_error
 re__parse_new_create_assert(re__parse_new* parse, re__assert_type assert_type)
@@ -543,7 +563,7 @@ MN_INTERNAL re_error re__parse_new_create_star(re__parse_new* parse)
 {
   re__ast new_star;
   if (re__parse_new_frame_is_empty(parse)) {
-    return re__parse_error(parse, "cannot use '*' operator with nothing");
+    return re__parse_new_error(parse, "cannot use '*' operator with nothing");
   }
   re__ast_init_quantifier(&new_star, 0, RE__AST_QUANTIFIER_INFINITY);
   re__ast_set_quantifier_greediness(
@@ -556,9 +576,9 @@ MN_INTERNAL re_error re__parse_new_create_question(re__parse_new* parse)
 {
   re__ast new_star;
   if (re__parse_new_frame_is_empty(parse)) {
-    return re__parse_error(parse, "cannot use '?' operator with nothing");
+    return re__parse_new_error(parse, "cannot use '?' operator with nothing");
   }
-  re__ast_init_quantifier(&new_star, 0, RE__AST_QUANTIFIER_INFINITY);
+  re__ast_init_quantifier(&new_star, 0, 2);
   re__ast_set_quantifier_greediness(
       &new_star, !!!(re__parse_new_get_frame(parse)->group_flags &
                      RE__AST_GROUP_FLAG_UNGREEDY));
@@ -569,9 +589,9 @@ MN_INTERNAL re_error re__parse_new_create_plus(re__parse_new* parse)
 {
   re__ast new_star;
   if (re__parse_new_frame_is_empty(parse)) {
-    return re__parse_error(parse, "cannot use '?' operator with nothing");
+    return re__parse_new_error(parse, "cannot use '?' operator with nothing");
   }
-  re__ast_init_quantifier(&new_star, 0, RE__AST_QUANTIFIER_INFINITY);
+  re__ast_init_quantifier(&new_star, 1, RE__AST_QUANTIFIER_INFINITY);
   re__ast_set_quantifier_greediness(
       &new_star, !!!(re__parse_new_get_frame(parse)->group_flags &
                      RE__AST_GROUP_FLAG_UNGREEDY));
@@ -582,7 +602,7 @@ MN_INTERNAL void re__parse_new_swap_greedy(re__parse_new* parse)
 {
   re__ast* quant;
   /* Cannot make nothing ungreedy */
-  MN_ASSERT(!re__parse_frame_is_empty(parse));
+  MN_ASSERT(!re__parse_new_frame_is_empty(parse));
   quant = re__ast_root_get(
       &parse->reg->data->ast_root,
       re__parse_new_get_frame(parse)->ast_prev_child_ref);
@@ -607,7 +627,7 @@ MN_INTERNAL re_error re__parse_new_create_any_byte(re__parse_new* parse)
 }
 
 /* Ingest a single rune. */
-MN_INTERNAL re_error re__parse_new_create_rune(re__parse* parse, re_rune ch)
+MN_INTERNAL re_error re__parse_new_create_rune(re__parse_new* parse, re_rune ch)
 {
   re__ast new_rune;
   re__ast_init_rune(&new_rune, ch);
@@ -736,8 +756,8 @@ MN_INTERNAL re_error re__parse_new_escape(
 {
   re_error err = RE_ERROR_NONE;
   re_rune ch;
-  mn_uint32 accum = 0;
-  mn_uint32 accum2 = 0;
+  mn_int32 accum = 0;
+  mn_int32 accum2 = 0;
   mn_size saved_pos;
   int i = 0;
   if ((err = re__parse_new_next_char(parse, &ch))) {
@@ -856,6 +876,7 @@ MN_INTERNAL re_error re__parse_new_escape(
             if ((err = re__parse_new_create_rune(parse, ch))) {
               return err;
             }
+            is_escape = 0;
           }
         }
       }
@@ -886,12 +907,12 @@ MN_INTERNAL re_error re__parse_new_escape(
     if (accept_classes) {
       if (!within_charclass) {
         if ((err = re__parse_new_create_charclass_ascii(
-                 parse, RE__CHARCLASS_ASCII_TYPE_WORD, 0))) {
+                 parse, RE__CHARCLASS_ASCII_TYPE_WORD, 1))) {
           return err;
         }
       } else {
         if ((err = re__parse_new_insert_charclass_ascii(
-                 parse, RE__CHARCLASS_ASCII_TYPE_WORD, 0))) {
+                 parse, RE__CHARCLASS_ASCII_TYPE_WORD, 1))) {
           return err;
         }
       }
@@ -986,14 +1007,14 @@ MN_INTERNAL re_error re__parse_new_escape(
     }
   } else if (ch == 'x') {
     /* \x | Two-digit hex literal or one-to-six digit hex literal */
-    if ((err = re__parse_new_next_char(parse, ch))) {
+    if ((err = re__parse_new_next_char(parse, &ch))) {
       return err;
     }
     if (ch == '{') {
       /* \x{ | Bracketed hex literal */
-      int i;
+      int hex_idx = 0;
       while (1) {
-        if ((err = re__parse_new_next_char(parse, ch))) {
+        if ((err = re__parse_new_next_char(parse, &ch))) {
           return err;
         }
         if (ch == RE__PARSE_NEW_EOF) {
@@ -1002,7 +1023,7 @@ MN_INTERNAL re_error re__parse_new_escape(
               parse, "expected one to six hex characters for bracketed hex "
                      "escape \"\\x{\"");
         } else if (ch == '}') {
-          if (i == 0) {
+          if (hex_idx == 0) {
             /* \x{} | Error condition */
             return re__parse_new_error(
                 parse, "expected one to six hex characters for bracketed hex "
@@ -1025,6 +1046,7 @@ MN_INTERNAL re_error re__parse_new_escape(
                 parse, "bracketed hex literal out of range [0, 0x10FFFF]");
           }
         }
+        hex_idx++;
       }
     } else if ((accum = re__parse_new_hex(ch)) == -1) {
       /* Handles EOF */
@@ -1033,7 +1055,7 @@ MN_INTERNAL re_error re__parse_new_escape(
                  "hex escape \"\\x\"");
     } else {
       /* \x[0-9a-fA-F] | Two-digit hex sequence */
-      if ((err = re__parse_new_next_char(parse, ch))) {
+      if ((err = re__parse_new_next_char(parse, &ch))) {
         return err;
       }
       if ((accum2 = re__parse_new_hex(ch)) == -1) {
@@ -1076,6 +1098,10 @@ MN_INTERNAL re_error re__parse_new_charclass(re__parse_new* parse)
     return re__parse_new_error(
         parse, "expected '^', characters, character classes, or character "
                "ranges for character class expression '['");
+  } else if (ch == ']') {
+    /* [] | Set right bracket as low character, look for dash */
+    range.min = ']';
+    goto before_dash;
   } else if (ch == '^') {
     /* [^ | Start of invert */
     re__charclass_builder_invert(&parse->charclass_builder);
@@ -1097,15 +1123,17 @@ MN_INTERNAL re_error re__parse_new_charclass(re__parse_new* parse)
     } else if (ch == '[') {
       /* [[ | Literal [ or char class */
       range.min = '[';
-      range.max = ']';
+      range.max = '[';
       if ((err = re__parse_new_next_char(parse, &ch))) {
         return err;
       }
       if (ch == RE__PARSE_NEW_EOF) {
+        /* [[<EOF> | Error */
         return re__parse_new_error(
             parse, "expected characters, character classes, or character "
                    "ranges for character class expression '['");
       } else if (ch == '\\') {
+        /* [[\ | Push bracket, begin escape */
         if ((err = re__charclass_builder_insert_range(
                  &parse->charclass_builder, range))) {
           return err;
@@ -1122,7 +1150,70 @@ MN_INTERNAL re_error re__parse_new_charclass(re__parse_new* parse)
         break;
       } else if (ch == ':') {
         /* [[: | Start of ASCII charclass */
-
+        mn_size name_start_pos = parse->str_pos;
+        mn_size name_end_pos = parse->str_pos;
+        int inverted = 0;
+        if ((err = re__parse_new_next_char(parse, &ch))) {
+          return err;
+        }
+        if (ch == '^') {
+          /* [[:^ | Invert ASCII charclass */
+          inverted = 1;
+          name_start_pos = parse->str_pos;
+          name_end_pos = parse->str_pos;
+        } else {
+          goto ascii_name;
+        }
+        while (1) {
+          if ((err = re__parse_new_next_char(parse, &ch))) {
+            return err;
+          }
+        ascii_name:
+          if (ch == RE__PARSE_NEW_EOF) {
+            /* [[:<EOF> | Error */
+            return re__parse_new_error(
+                parse, "expected named character class for \"[[:\"");
+          } else if (ch == ':') {
+            /* [[:<*>: | Look for right bracket to finish */
+            if ((err = re__parse_new_next_char(parse, &ch))) {
+              return err;
+            }
+            if (ch == RE__PARSE_NEW_EOF) {
+              /* [[:<*>:<EOF> | Error */
+              return re__parse_new_error(
+                  parse, "expected named character class for \"[[:\"");
+            } else if (ch == ']') {
+              /* [[:<*>:] | Finish named char class */
+              break;
+            }
+          } else {
+            name_end_pos = parse->str_pos;
+          }
+        }
+        {
+          mn__str_view name_view;
+          re__charclass ascii_cc;
+          mn__str_view_init_n(
+              &name_view, mn__str_view_get_data(&parse->str) + name_start_pos,
+              name_end_pos - name_start_pos);
+          if ((err = re__charclass_init_from_str(
+                   &ascii_cc, name_view, inverted))) {
+            if (err == RE_ERROR_INVALID) {
+              /* couldn't find charclass with name */
+              return re__parse_new_error(
+                  parse, "unknown ASCII character class name");
+            } else {
+              return err;
+            }
+          }
+          if ((err = re__charclass_builder_insert_class(
+                   &parse->charclass_builder, &ascii_cc))) {
+            re__charclass_destroy(&ascii_cc);
+            return err;
+          }
+          re__charclass_destroy(&ascii_cc);
+        }
+        continue;
       } else if (ch == '-') {
         /* [[- | Start of range. Set low rune to bracket. Look for high
          * rune. */
@@ -1147,6 +1238,9 @@ MN_INTERNAL re_error re__parse_new_charclass(re__parse_new* parse)
         continue;
       }
       /* We parsed a single character, it is set as the minimum value */
+    } else if (ch == ']') {
+      /* [] | End char class */
+      break;
     } else {
       /* [<*> | Set low character of char class */
       range.min = ch;
@@ -1213,6 +1307,9 @@ MN_INTERNAL re_error re__parse_new_charclass(re__parse_new* parse)
     } else {
       /* [<*>-<*> | Add range. */
       range.max = ch;
+      if (range.min > range.max) {
+        MN__SWAP(range.min, range.max, re_rune);
+      }
       if ((err = re__charclass_builder_insert_range(
                &parse->charclass_builder, range))) {
         return err;
@@ -1247,9 +1344,14 @@ MN_INTERNAL re_error re__parse_new_str(re__parse_new* parse, mn__str_view str)
   re_error err = RE_ERROR_NONE;
   /* Set string */
   parse->str = str;
+  parse->str_pos = 0;
+  if ((err = re__parse_new_push_frame(
+           parse, parse->reg->data->ast_root.root_ref, 0))) {
+    return err;
+  }
   while (1) {
     re_rune ch;
-    if ((err = re__parse_new_next_char(parse, ch))) {
+    if ((err = re__parse_new_next_char(parse, &ch))) {
       goto error;
     }
     if (ch == '$') {
@@ -1322,19 +1424,43 @@ MN_INTERNAL re_error re__parse_new_str(re__parse_new* parse, mn__str_view str)
       }
     } else if (ch == '{') {
       /* { | Start of counting form. */
-      if ((err = re__parse_new_count(parse))) {
+      /*if ((err = re__parse_new_count(parse))) {
         goto error;
-      }
+      }*/
     } else if (ch == '|') {
       /* | | Alternation. */
       if ((err = re__parse_new_alt(parse))) {
         goto error;
       }
+    } else if (ch == RE__PARSE_NEW_EOF) {
+      /* <EOF> | Finish. */
+      break;
     } else {
       /* Any other character. */
       if ((err = re__parse_new_create_rune(parse, ch))) {
         goto error;
       }
+    }
+  }
+  /* Pop all frames. */
+  while (1) {
+    re__ast_type peek_type = re__parse_new_get_frame_type(parse);
+    if (peek_type == RE__AST_TYPE_NONE) {
+      /* Successfully hit bottom frame. */
+      break;
+    } else if (peek_type == RE__AST_TYPE_CONCAT) {
+      re__parse_new_pop_frame(parse);
+    } else if (peek_type == RE__AST_TYPE_ALT) {
+      if ((err = re__parse_new_alt_finish(parse))) {
+        goto error;
+      }
+      re__parse_new_pop_frame(parse);
+    } else if (peek_type == RE__AST_TYPE_GROUP) {
+      /* If we find a group, that means it has not been closed. */
+      err = re__parse_new_error(parse, "unmatched '('");
+      goto error;
+    } else {
+      MN__ASSERT_UNREACHED();
     }
   }
 error:

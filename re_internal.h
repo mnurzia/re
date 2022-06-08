@@ -585,6 +585,26 @@ MN_INTERNAL void re__parse_init(re__parse* parse, re* re);
 MN_INTERNAL void re__parse_destroy(re__parse* parse);
 MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex);
 
+typedef struct re__parse_new_frame {
+  mn_int32 ast_root_ref;
+  mn_int32 ast_prev_child_ref;
+  re__ast_group_flags group_flags;
+} re__parse_new_frame;
+
+MN__VEC_DECL(re__parse_new_frame);
+
+typedef struct re__parse_new {
+  re* reg;
+  mn__str_view str;
+  mn_size str_pos;
+  re__parse_new_frame_vec frames;
+  re__charclass_builder charclass_builder;
+} re__parse_new;
+
+MN_INTERNAL void re__parse_new_init(re__parse_new* parse, re* reg);
+MN_INTERNAL void re__parse_new_destroy(re__parse_new* parse);
+MN_INTERNAL re_error re__parse_new_str(re__parse_new* parse, mn__str_view str);
+
 /* ---------------------------------------------------------------------------
  * Instruction format (re_prog.c)
  * ------------------------------------------------------------------------ */
@@ -1364,7 +1384,7 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
  * ------------------------------------------------------------------------ */
 /* Internal data structure */
 struct re_data {
-  re__parse parse;
+  re__parse_new parse;
   re__ast_root ast_root;
   re__prog program;
   re__prog program_reverse;
