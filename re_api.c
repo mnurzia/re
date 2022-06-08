@@ -64,12 +64,12 @@ re_error re_init_sz_flags(
   }
   re__error_init(reg);
   mn__str_view_init_n(&regex_view, regex, regex_size);
-  re__parse_new_init(&reg->data->parse, reg);
+  re__parse_init(&reg->data->parse, reg);
   re__ast_root_init(&reg->data->ast_root);
   re__prog_init(&reg->data->program);
   re__prog_init(&reg->data->program_reverse);
   re__compile_init(&reg->data->compile);
-  if ((err = re__parse_new_str(&reg->data->parse, regex_view))) {
+  if ((err = re__parse_str(&reg->data->parse, regex_view))) {
     return err;
   }
   return err;
@@ -90,7 +90,7 @@ void re_destroy(re* reg)
   re__prog_destroy(&reg->data->program);
   re__prog_destroy(&reg->data->program_reverse);
   re__ast_root_destroy(&reg->data->ast_root);
-  re__parse_new_destroy(&reg->data->parse);
+  re__parse_destroy(&reg->data->parse);
   re__error_destroy(reg);
   if (reg->data) {
     MN_FREE(reg->data);

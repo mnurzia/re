@@ -501,109 +501,25 @@ MN_INTERNAL int re__ast_root_verify(const re__ast_root* ast_root);
 /* ---------------------------------------------------------------------------
  * Parser (re_parse.c)
  * ------------------------------------------------------------------------ */
-/* Enumeration of parse states */
-/* The parser will likely be rewritten as recursive-descent with an explicit
- * stack. */
-typedef enum re__parse_state {
-  RE__PARSE_STATE_GND,
-  RE__PARSE_STATE_MAYBE_QUESTION,
-  RE__PARSE_STATE_ESCAPE,
-  RE__PARSE_STATE_PARENS_INITIAL,
-  RE__PARSE_STATE_PARENS_FLAG_INITIAL,
-  RE__PARSE_STATE_PARENS_FLAG_NEGATE,
-  RE__PARSE_STATE_PARENS_AFTER_COLON,
-  RE__PARSE_STATE_PARENS_AFTER_P,
-  RE__PARSE_STATE_PARENS_NAME_INITIAL,
-  RE__PARSE_STATE_PARENS_NAME,
-  RE__PARSE_STATE_OCTAL_SECOND_DIGIT,
-  RE__PARSE_STATE_OCTAL_THIRD_DIGIT,
-  RE__PARSE_STATE_HEX_INITIAL,
-  RE__PARSE_STATE_HEX_SECOND_DIGIT,
-  RE__PARSE_STATE_HEX_BRACKETED,
-  RE__PARSE_STATE_QUOTE,
-  RE__PARSE_STATE_QUOTE_ESCAPE,
-  RE__PARSE_STATE_COUNTING_FIRST_NUM_INITIAL,
-  RE__PARSE_STATE_COUNTING_FIRST_NUM,
-  RE__PARSE_STATE_COUNTING_SECOND_NUM_INITIAL,
-  RE__PARSE_STATE_COUNTING_SECOND_NUM,
-  RE__PARSE_STATE_CHARCLASS_INITIAL,
-  RE__PARSE_STATE_CHARCLASS_AFTER_CARET,
-  RE__PARSE_STATE_CHARCLASS_AFTER_BRACKET,
-  RE__PARSE_STATE_CHARCLASS_LO,
-  RE__PARSE_STATE_CHARCLASS_AFTER_LO,
-  RE__PARSE_STATE_CHARCLASS_HI,
-  RE__PARSE_STATE_CHARCLASS_NAMED_INITIAL,
-  RE__PARSE_STATE_CHARCLASS_NAMED,
-  RE__PARSE_STATE_CHARCLASS_NAMED_INVERTED,
-  RE__PARSE_STATE_CHARCLASS_NAMED_AFTER_COLON
-} re__parse_state;
-
-/* Parse stack frame object. */
 typedef struct re__parse_frame {
-  /* Reference to base AST node that this frame is building */
-  mn_int32 ast_frame_root_ref;
-  /* Reference to previous child that was built by this frame, this is only
-   * used in nodes with children, like quantifiers or alts */
+  mn_int32 ast_root_ref;
   mn_int32 ast_prev_child_ref;
-  /* Since ESCAPE and CHARCLASS share a lot of code, we use ret_state to
-   * tell which state to return to after popping a frame in those cases, and
-   * just merge a lot of the parsing code for those two cases */
-  re__parse_state ret_state;
-  /* Group flags, we need to explicitly maintain these on a stack so that we
-   * correctly reset flags as we unwind the stack */
   re__ast_group_flags group_flags;
-  /* Depth/maximum depth tracking of this frame */
-  mn_int32 depth;
-  mn_int32 depth_max;
 } re__parse_frame;
 
 MN__VEC_DECL(re__parse_frame);
 
 typedef struct re__parse {
-  re* re;
-  re__ast_root* ast_root;
-  re__parse_frame_vec frames;
-  mn_int32 ast_frame_root_ref;
-  mn_int32 ast_prev_child_ref;
-  re__parse_state state;
-  mn_int32 radix_num;
-  int radix_digits;
-  re__charclass_builder charclass_builder;
-  int defer;
-  re__ast_group_flags group_flags_new;
-  re__ast_group_flags group_flags;
-  const mn_char* str_begin;
-  const mn_char* str_end;
-  mn_int32 counting_first_num;
-  re_rune charclass_lo_rune;
-  mn_int32 depth;
-  mn_int32 depth_max;
-  mn_int32 depth_max_prev;
-} re__parse;
-
-MN_INTERNAL void re__parse_init(re__parse* parse, re* re);
-MN_INTERNAL void re__parse_destroy(re__parse* parse);
-MN_INTERNAL re_error re__parse_str(re__parse* parse, const mn__str_view* regex);
-
-typedef struct re__parse_new_frame {
-  mn_int32 ast_root_ref;
-  mn_int32 ast_prev_child_ref;
-  re__ast_group_flags group_flags;
-} re__parse_new_frame;
-
-MN__VEC_DECL(re__parse_new_frame);
-
-typedef struct re__parse_new {
   re* reg;
   mn__str_view str;
   mn_size str_pos;
-  re__parse_new_frame_vec frames;
+  re__parse_frame_vec frames;
   re__charclass_builder charclass_builder;
-} re__parse_new;
+} re__parse;
 
-MN_INTERNAL void re__parse_new_init(re__parse_new* parse, re* reg);
-MN_INTERNAL void re__parse_new_destroy(re__parse_new* parse);
-MN_INTERNAL re_error re__parse_new_str(re__parse_new* parse, mn__str_view str);
+MN_INTERNAL void re__parse_init(re__parse* parse, re* reg);
+MN_INTERNAL void re__parse_destroy(re__parse* parse);
+MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str);
 
 /* ---------------------------------------------------------------------------
  * Instruction format (re_prog.c)
@@ -1384,7 +1300,7 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
  * ------------------------------------------------------------------------ */
 /* Internal data structure */
 struct re_data {
-  re__parse_new parse;
+  re__parse parse;
   re__ast_root ast_root;
   re__prog program;
   re__prog program_reverse;
