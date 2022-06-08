@@ -26,8 +26,12 @@
         "bits/util/unused"
     ],
     "files": {
-        "api": [ "re_api.h" ],
-        "internal": [ "re_internal.h" ],
+        "api": [
+            "re_api.h"
+        ],
+        "internal": [
+            "re_internal.h"
+        ],
         "impl": [
             "re_ast.c",
             "re_api.c",
@@ -36,7 +40,7 @@
             "re_compile.c",
             "re_exec_dfa.c",
             "re_exec_nfa.c",
-            "re_parse.c",
+            "re_parse_new.c",
             "re_prog.c",
             "re_prog_data.c",
             "re_range.c"
