@@ -763,7 +763,9 @@ MN_INTERNAL re_error re__compile_regex(
   /* Allocate memory for frames */
   /* depth_max + 1 because we include an extra frame for terminals within the
    * deepest multi-child node */
-  compile->frames_size = ast_root->depth_max + 1;
+  if ((err = re__ast_root_get_depth(ast_root, &compile->frames_size))) {
+    return err;
+  }
   compile->frames = (re__compile_frame*)MN_MALLOC(
       (sizeof(re__compile_frame) * ((mn_size)compile->frames_size)));
   if (compile->frames == MN_NULL) {

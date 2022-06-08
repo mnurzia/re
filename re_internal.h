@@ -418,8 +418,6 @@ typedef struct re__ast_root {
   mn__str_arena strings;
   /* Group names in use by RE__AST_TYPE_GROUP nodes */
   mn__str_vec group_names;
-  /* Maximum depth recorded in this AST tree */
-  mn_int32 depth_max;
 } re__ast_root;
 
 /* Initialize this ast root */
@@ -487,6 +485,10 @@ re__ast_root_get_group(re__ast_root* ast_root, mn_uint32 group_number);
 
 /* Get the number of groups in this ast root. */
 MN_INTERNAL mn_uint32 re__ast_root_get_num_groups(re__ast_root* ast_root);
+
+/* Get the maximum depth of this ast root. */
+MN_INTERNAL re_error
+re__ast_root_get_depth(const re__ast_root* ast_root, mn_int32* depth);
 
 #if MN_DEBUG
 

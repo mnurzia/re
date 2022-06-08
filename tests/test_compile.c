@@ -118,7 +118,6 @@ TEST(t_compile_rune_unicode)
   } else if (err) {
     FAIL();
   }
-  ast_root.depth_max = 1;
   re__prog_inst_init_fail(&inst);
   if ((err = re__prog_add(&prog, inst)) == RE_ERROR_NOMEM) {
     goto error;
@@ -237,7 +236,6 @@ TEST(t_compile_str_thrash)
   } else if (err) {
     FAIL();
   }
-  ast_root.depth_max = 1;
   re__prog_inst_init_fail(&inst);
   if ((err = re__prog_add(&prog, inst)) == RE_ERROR_NOMEM) {
     goto error;

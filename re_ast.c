@@ -172,7 +172,6 @@ MN_INTERNAL void re__ast_root_init(re__ast_root* ast_root)
   ast_root->last_empty_ref = RE__AST_NONE;
   ast_root->root_ref = RE__AST_NONE;
   ast_root->root_last_child_ref = RE__AST_NONE;
-  ast_root->depth_max = 0;
   re__charclass_arena_init(&ast_root->charclasses);
   mn__str_arena_init(&ast_root->strings);
   mn__str_vec_init(&ast_root->group_names);
@@ -437,6 +436,48 @@ MN_INTERNAL mn_uint32 re__ast_root_get_num_groups(re__ast_root* ast_root)
   return (mn_uint32)mn__str_vec_size(&ast_root->group_names);
 }
 
+MN__VEC_DECL(mn_int32);
+MN__VEC_IMPL_FUNC(mn_int32, init)
+MN__VEC_IMPL_FUNC(mn_int32, destroy)
+MN__VEC_IMPL_FUNC(mn_int32, push)
+MN__VEC_IMPL_FUNC(mn_int32, get)
+MN__VEC_IMPL_FUNC(mn_int32, size)
+MN__VEC_IMPL_FUNC(mn_int32, pop)
+
+MN_INTERNAL re_error
+re__ast_root_get_depth(const re__ast_root* ast_root, mn_int32* depth)
+{
+  re_error err = RE_ERROR_NONE;
+  mn_int32_vec stk;
+  mn_int32 max_depth = 0;
+  mn_int32_vec_init(&stk);
+  if ((err = mn_int32_vec_push(&stk, ast_root->root_ref))) {
+    goto error;
+  }
+  while (mn_int32_vec_size(&stk)) {
+    mn_size cur_depth_sz = mn_int32_vec_size(&stk);
+    mn_int32 top_child_ref = mn_int32_vec_pop(&stk);
+    max_depth = MN__MAX((mn_int32)(cur_depth_sz), max_depth);
+    if (top_child_ref != RE__AST_NONE) {
+      const re__ast* top_child =
+          re__ast_root_get_const(ast_root, top_child_ref);
+      if ((err = mn_int32_vec_push(&stk, top_child->next_sibling_ref))) {
+        goto error;
+      }
+      if (top_child->first_child_ref != RE__AST_NONE) {
+        /* child has children */
+        if ((err = mn_int32_vec_push(&stk, top_child->first_child_ref))) {
+          goto error;
+        }
+      }
+    }
+  }
+  *depth = max_depth;
+error:
+  mn_int32_vec_destroy(&stk);
+  return err;
+}
+
 #if MN_DEBUG
 
 #if 0
@@ -611,13 +652,6 @@ MN_INTERNAL void re__ast_root_debug_dump(
     root_ref = ast->next_sibling_ref;
   }
 }
-
-MN__VEC_DECL(mn_int32);
-MN__VEC_IMPL_FUNC(mn_int32, init)
-MN__VEC_IMPL_FUNC(mn_int32, destroy)
-MN__VEC_IMPL_FUNC(mn_int32, push)
-MN__VEC_IMPL_FUNC(mn_int32, size)
-MN__VEC_IMPL_FUNC(mn_int32, get)
 
 #if 0
 MN_INTERNAL int re__ast_root_verify_depth(const re__ast_root* ast_root, mn_int32 start_ref, mn_int32 depth) {
