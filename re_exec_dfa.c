@@ -12,8 +12,6 @@ MN__VEC_IMPL_FUNC(mn_uint32_ptr, push)
 MN__VEC_IMPL_FUNC(mn_uint32_ptr, size)
 MN__VEC_IMPL_FUNC(mn_uint32_ptr, get)
 
-#define RE__EXEC_DFA_STATE_INVALID (MN_NULL + 1)
-
 void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog)
 {
   exec->current_state = MN_NULL;
@@ -446,10 +444,6 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec)
   printf("DFA State Debug Dump (%p, dfa: %p):\n", (void*)state, (void*)exec);
   if (state == MN_NULL) {
     printf("  NULL STATE\n");
-    return;
-  }
-  if (state == (re__exec_dfa_state*)RE__EXEC_DFA_STATE_INVALID) {
-    printf("  INVALID STATE\n");
     return;
   }
   printf("  Flags: 0x%04X\n", state->flags);
