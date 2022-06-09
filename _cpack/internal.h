@@ -77,7 +77,15 @@ void mn__memset(void* ptr, int value, mn_size count);
 #define MN__SWAP(a, b, T) { T swap_temp_ = b; b = a; a = swap_temp_; }
 
 /* bits/util/unreached */
+#if !defined(MN__COVERAGE)
+
 #define MN__ASSERT_UNREACHED() MN_ASSERT(0)
+
+#else
+
+#define MN__ASSERT_UNREACHED() ((void)(0))
+
+#endif
 
 /* bits/util/unused */
 #define MN__UNUSED(x) ((void)(x))

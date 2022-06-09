@@ -122,19 +122,22 @@ re__parse_utf8_decode(mn_uint32* state, mn_uint32* codep, mn_uint32 byte)
   return *state;
 }
 
+#define RE__PARSE_EOF (-1)
+
 re_error re__parse_next_char(re__parse* parse, re_rune* ch)
 {
   mn_uint32 codep = 0;
   mn_uint32 state = 0;
   while (1) {
+    MN_ASSERT(parse->str_pos <= mn__str_view_size(&parse->str));
     if (parse->str_pos == mn__str_view_size(&parse->str)) {
-      if (state == RE__PARSE_UTF8_REJECT) {
+      if (state == RE__PARSE_UTF8_ACCEPT) {
         parse->str_pos++;
-        return re__parse_error(parse, "invalid UTF-8 byte");
+        *ch = RE__PARSE_EOF;
+        return RE_ERROR_NONE;
       } else {
         parse->str_pos++;
-        *ch = -1;
-        return RE_ERROR_NONE;
+        return re__parse_error(parse, "invalid UTF-8 byte");
       }
     } else {
       mn_uint8 in_byte =
@@ -151,10 +154,7 @@ re_error re__parse_next_char(re__parse* parse, re_rune* ch)
       }
     }
   }
-  return RE_ERROR_NONE;
 }
-
-#define RE__PARSE_EOF (-1)
 
 /* Add a node after the previous child. */
 MN_INTERNAL re_error re__parse_push_node(re__parse* parse, re__ast ast)

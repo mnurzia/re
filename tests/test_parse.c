@@ -867,6 +867,113 @@ error:
   PASS();
 }
 
+TEST(t_parse_utf_valid_1)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "$"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "    (assert (text_end)))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_valid_2)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "\xc2\xa3"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "    (rune 163))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_valid_3)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "\xe0\xa4\xb9"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "    (rune 2361))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_valid_4)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, EX_UTF8_VALID_4), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "    (rune 66376))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_invalid_overlong)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_OVERLONG), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_invalid_surrogate)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_SURROGATE), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_invalid_toobig)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_TOOBIG), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_invalid_unfinished)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_UNFINISHED), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_invalid_unfinished_overlong)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(
+      re_init(&reg, EX_UTF8_INVALID_UNFINISHED_OVERLONG), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_utf_invalid_undefined)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_UNDEFINED), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 SUITE(s_parse)
 {
   RUN_TEST(t_parse_empty);
@@ -907,4 +1014,14 @@ SUITE(s_parse)
   RUN_TEST(t_parse_quote_text_unfinished);
   RUN_TEST(t_parse_quote_escape);
   RUN_TEST(t_parse_quote_escape_unfinished);
+  RUN_TEST(t_parse_utf_valid_1);
+  RUN_TEST(t_parse_utf_valid_2);
+  RUN_TEST(t_parse_utf_valid_3);
+  RUN_TEST(t_parse_utf_valid_4);
+  RUN_TEST(t_parse_utf_invalid_overlong);
+  RUN_TEST(t_parse_utf_invalid_surrogate);
+  RUN_TEST(t_parse_utf_invalid_toobig);
+  RUN_TEST(t_parse_utf_invalid_unfinished);
+  RUN_TEST(t_parse_utf_invalid_unfinished_overlong);
+  RUN_TEST(t_parse_utf_invalid_undefined);
 }
