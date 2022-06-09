@@ -85,6 +85,87 @@ error:
   PASS();
 }
 
+TEST(t_parse_group_flags_inline)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?U)a*"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (quantifier 0 inf nongreedy"
+      "    (rune 'a')))",
+      "inline flag should apply to outer nodes");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_group_flags_negated)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?U)a*(?-U)a*"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (concat ("
+      "    (quantifier 0 inf nongreedy"
+      "      (rune 'a'))"
+      "    (quantifier 0 inf greedy"
+      "      (rune 'a')))))",
+      "inline negated flag should undo previously set flag");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_group_flags_nonmatching)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?:a)"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (group (nonmatching)"
+      "    (rune 'a')))",
+      ": should set group to be nonmatching");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_group_flags_ungreedy)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?U)a*"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (quantifier 0 inf nongreedy"
+      "    (rune 'a')))",
+      "ungreedy flag should make quantifiers not greedy");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_group_flags_ungreedy_negated)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?U)a*(?-U)a*"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (concat ("
+      "    (quantifier 0 inf nongreedy"
+      "      (rune 'a'))"
+      "    (quantifier 0 inf greedy"
+      "      (rune 'a')))))",
+      "negated ungreedy flag should make quantifiers greedy");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_err_group_unmatched)
 {
   re reg;
@@ -1026,6 +1107,11 @@ SUITE(s_parse)
   RUN_TEST(t_parse_err_group_unmatched);
   RUN_TEST(t_parse_err_group_unfinished_invalid);
   RUN_TEST(t_parse_err_group_unfinished_question_invalid);
+  RUN_TEST(t_parse_group_flags_inline);
+  RUN_TEST(t_parse_group_flags_negated);
+  RUN_TEST(t_parse_group_flags_nonmatching);
+  RUN_TEST(t_parse_group_flags_ungreedy);
+  RUN_TEST(t_parse_group_flags_ungreedy_negated);
   FUZZ_TEST(t_parse_group_balance);
   RUN_TEST(t_parse_group_named);
   RUN_TEST(t_parse_groups);

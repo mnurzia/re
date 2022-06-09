@@ -303,10 +303,10 @@ re_error re__parse_group_begin(re__parse* parse)
   } else if (ch == '?') {
     int set_bit = 1;
     /* (? | Start of group flags/name */
-    if ((err = re__parse_next_char(parse, &ch))) {
-      return err;
-    }
     while (1) {
+      if ((err = re__parse_next_char(parse, &ch))) {
+        return err;
+      }
       if (ch == ')') {
         /* (?) | Go back to ground without creating a group, retain flags */
         re__parse_get_frame(parse)->flags = flags;
@@ -316,11 +316,7 @@ re_error re__parse_group_begin(re__parse* parse)
         set_bit = 0;
       } else if (ch == ':') {
         /* (?: | Non-matching group, also signals end of flags */
-        if (set_bit) {
-          group_flags |= RE__AST_GROUP_FLAG_NONMATCHING;
-        } else {
-          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_NONMATCHING;
-        }
+        group_flags |= RE__AST_GROUP_FLAG_NONMATCHING;
         break;
       } else if (ch == 'U') {
         /* (?U | Ungreedy mode: *+? operators have priority swapped */
