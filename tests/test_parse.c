@@ -22,8 +22,50 @@ TEST(t_parse_text_end)
   ASSERT_SYMEQm(
       re__ast_root, reg.data->ast_root,
       "(ast"
+      "   (assert (text_end_absolute)))",
+      "$ should create a text_end_absolute ast");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_text_end_multiline)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?m)$"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
       "   (assert (text_end)))",
-      "$ should create a text_end ast");
+      "$ should create a text_end ast when multiline flag is in effect");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_text_start)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "^"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "   (assert (text_start_absolute)))",
+      "^ should create a text_start_absolute ast");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_text_start_multiline)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?m)^"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "   (assert (text_start)))",
+      "^ should create a text_start ast when multiline flag is in effect");
 error:
   re_destroy(&reg);
   PASS();
@@ -199,6 +241,37 @@ error:
   re_destroy(&reg);
   PASS();
 }
+
+TEST(t_parse_group_flags_multiline)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?m)^"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (assert (text_start))",
+      "multiline flag should create an assert with text_start value");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_group_flags_multiline_negated)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?m)^(?-m)^"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (concat ("
+      "    (assert (text_start))"
+      "    (assert (text_start_absolute)))))",
+      "negated multiline flag should create text_start_absolute assert");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_err_group_unmatched)
 {
   re reg;
@@ -1031,7 +1104,7 @@ TEST(t_parse_utf_valid_1)
   ASSERT_SYMEQ(
       re__ast_root, reg.data->ast_root,
       "(ast"
-      "    (assert (text_end)))");
+      "    (assert (text_end_absolute)))");
 error:
   re_destroy(&reg);
   PASS();
@@ -1135,6 +1208,9 @@ SUITE(s_parse)
 {
   RUN_TEST(t_parse_empty);
   RUN_TEST(t_parse_text_end);
+  RUN_TEST(t_parse_text_end_multiline);
+  RUN_TEST(t_parse_text_start);
+  RUN_TEST(t_parse_text_start_multiline);
   RUN_TEST(t_parse_group);
   RUN_TEST(t_parse_err_group_unfinished);
   RUN_TEST(t_parse_err_group_unmatched);
@@ -1147,6 +1223,8 @@ SUITE(s_parse)
   RUN_TEST(t_parse_group_flags_ungreedy_negated);
   RUN_TEST(t_parse_group_flags_case_insensitive);
   RUN_TEST(t_parse_group_flags_case_insensitive_negated);
+  RUN_TEST(t_parse_group_flags_multiline);
+  RUN_TEST(t_parse_group_flags_multiline_negated);
   FUZZ_TEST(t_parse_group_balance);
   RUN_TEST(t_parse_group_named);
   RUN_TEST(t_parse_groups);
