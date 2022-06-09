@@ -12,18 +12,6 @@ int re__ast_group_flags_to_sym(
 {
   sym_build build;
   SYM_PUT_EXPR(parent, &build);
-  if (group_flags & RE__AST_GROUP_FLAG_CASE_INSENSITIVE) {
-    SYM_PUT_STR(&build, "case_insensitive");
-  }
-  if (group_flags & RE__AST_GROUP_FLAG_MULTILINE) {
-    SYM_PUT_STR(&build, "multiline");
-  }
-  if (group_flags & RE__AST_GROUP_FLAG_DOT_NEWLINE) {
-    SYM_PUT_STR(&build, "dot_newline");
-  }
-  if (group_flags & RE__AST_GROUP_FLAG_UNGREEDY) {
-    SYM_PUT_STR(&build, "ungreedy");
-  }
   if (group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
     SYM_PUT_STR(&build, "nonmatching");
   }
@@ -33,9 +21,7 @@ int re__ast_group_flags_to_sym(
   return SYM_OK;
 }
 
-static const char* group_flag_sym_types[] = {"case_insensitive", "multiline",
-                                             "dot_newline",      "ungreedy",
-                                             "nonmatching",      "named"};
+static const char* group_flag_sym_types[] = {"nonmatching", "named"};
 
 int re__ast_group_flags_from_sym(
     sym_walk* parent, re__ast_group_flags* group_flags)
@@ -47,7 +33,7 @@ int re__ast_group_flags_from_sym(
     const char* str;
     mptest_size n;
     int i = 0;
-    re__ast_group_flags cur_flag = RE__AST_GROUP_FLAG_CASE_INSENSITIVE;
+    re__ast_group_flags cur_flag = RE__AST_GROUP_FLAG_NONMATCHING;
     mn__str_view view_a, view_b;
     SYM_GET_STR(&walk, &str, &n);
     mn__str_view_init_n(&view_a, (const mn_char*)str, n);

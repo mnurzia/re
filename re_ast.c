@@ -619,20 +619,12 @@ MN_INTERNAL void re__ast_root_debug_dump(
       break;
     case RE__AST_TYPE_GROUP:
       printf(
-          "GROUP: %c%c%c%c%c",
-          ((ast->_data.group_info.flags & RE__AST_GROUP_FLAG_CASE_INSENSITIVE)
-               ? 'i'
-               : ' '),
-          ((ast->_data.group_info.flags & RE__AST_GROUP_FLAG_MULTILINE) ? 'm'
-                                                                        : ' '),
-          ((ast->_data.group_info.flags & RE__AST_GROUP_FLAG_DOT_NEWLINE)
-               ? 's'
-               : ' '),
-          ((ast->_data.group_info.flags & RE__AST_GROUP_FLAG_UNGREEDY) ? 'U'
-                                                                       : ' '),
+          "GROUP: %c%c",
           ((ast->_data.group_info.flags & RE__AST_GROUP_FLAG_NONMATCHING)
                ? ':'
-               : ' '));
+               : ' '),
+          ((ast->_data.group_info.flags & RE__AST_GROUP_FLAG_NAMED) ? 'P'
+                                                                    : ' '));
       break;
     case RE__AST_TYPE_ASSERT:
       printf("ASSERT: %i", ast->_data.assert_type);

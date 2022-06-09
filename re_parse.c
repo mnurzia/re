@@ -1,13 +1,11 @@
 #include "re_internal.h"
 
 void re__parse_frame_init(
-    re__parse_frame* frame, mn_int32 ast_root_ref,
-    re__ast_group_flags group_flags)
+    re__parse_frame* frame, mn_int32 ast_root_ref, re__parse_flags flags)
 {
   frame->ast_root_ref = ast_root_ref;
   frame->ast_prev_child_ref = RE__AST_NONE;
-  frame->flags = 0;
-  frame->group_flags = group_flags;
+  frame->flags = flags;
 }
 
 MN__VEC_IMPL_FUNC(re__parse_frame, init)
@@ -51,10 +49,10 @@ re__ast_type re__parse_get_frame_type(re__parse* parse)
 }
 
 re_error re__parse_push_frame(
-    re__parse* parse, mn_int32 ast_root_ref, re__ast_group_flags group_flags)
+    re__parse* parse, mn_int32 ast_root_ref, re__parse_flags flags)
 {
   re__parse_frame new_frame;
-  re__parse_frame_init(&new_frame, ast_root_ref, group_flags);
+  re__parse_frame_init(&new_frame, ast_root_ref, flags);
   return re__parse_frame_vec_push(&parse->frames, new_frame);
 }
 
@@ -276,7 +274,7 @@ MN_INTERNAL re_error re__parse_link_node(re__parse* parse, re__ast new_ast)
     /* Push a new frame */
     if ((err = re__parse_push_frame(
              parse, re__parse_get_frame(parse)->ast_prev_child_ref,
-             re__parse_get_frame(parse)->group_flags))) {
+             re__parse_get_frame(parse)->flags))) {
       return err;
     }
   }
@@ -294,8 +292,9 @@ re_error re__parse_group_begin(re__parse* parse)
   re_rune ch;
   mn_size begin_name_pos = 0;
   mn_size end_name_pos = 0;
-  re__ast_group_flags group_flags = re__parse_get_frame(parse)->group_flags;
+  re__parse_flags flags = re__parse_get_frame(parse)->flags;
   mn_size saved_pos = parse->str_pos;
+  re__ast_group_flags group_flags = 0;
   if ((err = re__parse_next_char(parse, &ch))) {
     return err;
   }
@@ -310,7 +309,7 @@ re_error re__parse_group_begin(re__parse* parse)
     while (1) {
       if (ch == ')') {
         /* (?) | Go back to ground without creating a group, retain flags */
-        re__parse_get_frame(parse)->group_flags = group_flags;
+        re__parse_get_frame(parse)->flags = flags;
         return err;
       } else if (ch == '-') {
         /* (?- | Negate remaining flags */
@@ -326,30 +325,30 @@ re_error re__parse_group_begin(re__parse* parse)
       } else if (ch == 'U') {
         /* (?U | Ungreedy mode: *+? operators have priority swapped */
         if (set_bit) {
-          group_flags |= RE__AST_GROUP_FLAG_UNGREEDY;
+          flags |= RE__PARSE_FLAG_UNGREEDY;
         } else {
-          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_UNGREEDY;
+          flags &= ~(unsigned int)RE__PARSE_FLAG_UNGREEDY;
         }
       } else if (ch == 'i') {
         /* (?i: Case insensitive matching */
         if (set_bit) {
-          group_flags |= RE__AST_GROUP_FLAG_CASE_INSENSITIVE;
+          flags |= RE__PARSE_FLAG_CASE_INSENSITIVE;
         } else {
-          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_CASE_INSENSITIVE;
+          flags &= ~(unsigned int)RE__PARSE_FLAG_CASE_INSENSITIVE;
         }
       } else if (ch == 'm') {
         /* (?m: Multi-line mode: ^$ match line boundaries */
         if (set_bit) {
-          group_flags |= RE__AST_GROUP_FLAG_MULTILINE;
+          flags |= RE__PARSE_FLAG_MULTILINE;
         } else {
-          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_MULTILINE;
+          flags &= ~(unsigned int)RE__PARSE_FLAG_MULTILINE;
         }
       } else if (ch == 's') {
         /* (?s: Stream (?) mode: . matches \n */
         if (set_bit) {
-          group_flags |= RE__AST_GROUP_FLAG_DOT_NEWLINE;
+          flags |= RE__PARSE_FLAG_DOT_NEWLINE;
         } else {
-          group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_DOT_NEWLINE;
+          group_flags &= ~(unsigned int)RE__PARSE_FLAG_DOT_NEWLINE;
         }
       } else if (ch == '<' || ch == 'P') {
         if (ch == 'P') {
@@ -427,11 +426,8 @@ re_error re__parse_group_begin(re__parse* parse)
     if ((err = re__parse_link_node(parse, new_group))) {
       return err;
     }
-    /* Strip NAMED flag */
-    group_flags &= ~(unsigned int)RE__AST_GROUP_FLAG_NAMED;
     if ((err = re__parse_push_frame(
-             parse, re__parse_get_frame(parse)->ast_prev_child_ref,
-             group_flags))) {
+             parse, re__parse_get_frame(parse)->ast_prev_child_ref, flags))) {
       return err;
     }
   }
@@ -473,7 +469,7 @@ MN_INTERNAL re_error re__parse_alt(re__parse* parse)
       /* Push a new ALT frame */
       if ((err = re__parse_push_frame(
                parse, re__parse_get_frame(parse)->ast_prev_child_ref,
-               re__parse_get_frame(parse)->group_flags))) {
+               re__parse_get_frame(parse)->flags))) {
         return err;
       }
       return err;
@@ -541,8 +537,8 @@ MN_INTERNAL re_error re__parse_create_star(re__parse* parse)
   }
   re__ast_init_quantifier(&new_star, 0, RE__AST_QUANTIFIER_INFINITY);
   re__ast_set_quantifier_greediness(
-      &new_star, !!!(re__parse_get_frame(parse)->group_flags &
-                     RE__AST_GROUP_FLAG_UNGREEDY));
+      &new_star,
+      !!!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_UNGREEDY));
   return re__parse_wrap_node(parse, new_star);
 }
 
@@ -554,8 +550,8 @@ MN_INTERNAL re_error re__parse_create_question(re__parse* parse)
   }
   re__ast_init_quantifier(&new_star, 0, 2);
   re__ast_set_quantifier_greediness(
-      &new_star, !!!(re__parse_get_frame(parse)->group_flags &
-                     RE__AST_GROUP_FLAG_UNGREEDY));
+      &new_star,
+      !!!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_UNGREEDY));
   return re__parse_wrap_node(parse, new_star);
 }
 
@@ -567,8 +563,8 @@ MN_INTERNAL re_error re__parse_create_plus(re__parse* parse)
   }
   re__ast_init_quantifier(&new_star, 1, RE__AST_QUANTIFIER_INFINITY);
   re__ast_set_quantifier_greediness(
-      &new_star, !!!(re__parse_get_frame(parse)->group_flags &
-                     RE__AST_GROUP_FLAG_UNGREEDY));
+      &new_star,
+      !!!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_UNGREEDY));
   return re__parse_wrap_node(parse, new_star);
 }
 

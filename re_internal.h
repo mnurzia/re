@@ -264,20 +264,12 @@ typedef enum re__assert_type {
 
 /* Group flags */
 typedef enum re__ast_group_flags {
-  /* Group is case-insensitive */
-  RE__AST_GROUP_FLAG_CASE_INSENSITIVE = 1,
-  /* ^/$ match begin/end of line */
-  RE__AST_GROUP_FLAG_MULTILINE = 2,
-  /* . matches newline */
-  RE__AST_GROUP_FLAG_DOT_NEWLINE = 4,
-  /* Ungreedy matching: all quantifiers have greediness swapped */
-  RE__AST_GROUP_FLAG_UNGREEDY = 8,
   /* Not a capturing group */
-  RE__AST_GROUP_FLAG_NONMATCHING = 16,
+  RE__AST_GROUP_FLAG_NONMATCHING = 1,
   /* Group has a name */
-  RE__AST_GROUP_FLAG_NAMED = 32,
+  RE__AST_GROUP_FLAG_NAMED = 2,
   /* Maximum value (non-inclusive) */
-  RE__AST_GROUP_FLAG_MAX = 64
+  RE__AST_GROUP_FLAG_MAX = 4
 } re__ast_group_flags;
 
 /* Group info */
