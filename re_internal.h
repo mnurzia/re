@@ -148,6 +148,29 @@ MN_INTERNAL int re__charclass_verify(const re__charclass* charclass);
 #endif
 
 /* ---------------------------------------------------------------------------
+ * Rune data (re_rune_data.c)
+ * ------------------------------------------------------------------------ */
+#define RE__RUNE_DATA_IMMEDIATE_STORAGE_SIZE 4
+
+typedef struct re__rune_data {
+  /* Holds larger sets of ranges. 99% of the time this is not in use. If not
+   * allocated, this is NULL. */
+  re_rune* range_storage;
+  /* Size of range_storage. */
+  mn_size range_storage_size;
+  /* Allocation size of range_storage. */
+  mn_size range_storage_alloc;
+  /* Holds smaller sets of ranges. This is used by default. */
+  re_rune immediate_range_storage[RE__RUNE_DATA_IMMEDIATE_STORAGE_SIZE];
+} re__rune_data;
+
+MN_INTERNAL void re__rune_data_init(re__rune_data* rune_data);
+MN_INTERNAL void re__rune_data_destroy(re__rune_data* rune_data);
+MN_INTERNAL re_error re__rune_data_casefold(
+    re__rune_data* rune_data, re_rune ch, re_rune** runes,
+    mn_size* ranges_size);
+
+/* ---------------------------------------------------------------------------
  * Immediate-mode character class builder (re_charclass.c)
  * ------------------------------------------------------------------------ */
 typedef struct re__charclass_builder {
@@ -1301,6 +1324,7 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
 /* Internal data structure */
 struct re_data {
   re__parse parse;
+  re__rune_data rune_data;
   re__ast_root ast_root;
   re__prog program;
   re__prog program_reverse;
