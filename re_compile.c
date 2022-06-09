@@ -708,10 +708,23 @@ MN_INTERNAL re_error re__compile_do_any_char(
 {
   /* Generates a sequence of instructions corresponding to a single
    * UTF-8 codepoint. */
-  re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_REJSURR;
+  re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_REJSURR_REJNL;
   MN__UNUSED(ast);
   if (compile->reversed) {
-    id = RE__PROG_DATA_ID_DOT_REV_REJSURR;
+    id = RE__PROG_DATA_ID_DOT_REV_REJSURR_REJNL;
+  }
+  return re__prog_data_decompress(
+      prog, re__prog_data[id], re__prog_data_size[id], &frame->patches);
+}
+
+MN_INTERNAL re_error re__compile_do_any_char_newline(
+    re__compile* compile, re__compile_frame* frame, const re__ast* ast,
+    re__prog* prog)
+{
+  re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_REJSURR_ACCNL;
+  MN__UNUSED(ast);
+  if (compile->reversed) {
+    id = RE__PROG_DATA_ID_DOT_REV_REJSURR_ACCNL;
   }
   return re__prog_data_decompress(
       prog, re__prog_data[id], re__prog_data_size[id], &frame->patches);
@@ -830,6 +843,10 @@ MN_INTERNAL re_error re__compile_regex(
     case RE__AST_TYPE_ANY_CHAR:
       err = re__compile_do_any_char(compile, &top_frame, top_node, prog);
       break;
+    case RE__AST_TYPE_ANY_CHAR_NEWLINE:
+      err =
+          re__compile_do_any_char_newline(compile, &top_frame, top_node, prog);
+      break;
     case RE__AST_TYPE_ANY_BYTE:
       err = re__compile_do_any_byte(compile, &top_frame, top_node, prog);
       break;
@@ -904,13 +921,13 @@ MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed)
 {
   re__compile_patches patches;
   re__prog_loc entry = re__prog_size(prog);
-  re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_REJSURR;
+  re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_REJSURR_ACCNL;
   re__prog_inst inst;
   re_error err = RE_ERROR_NONE;
   MN_ASSERT(
       re__prog_get_entry(prog, RE__PROG_ENTRY_DOTSTAR) == RE__PROG_LOC_INVALID);
   if (reversed) {
-    id = RE__PROG_DATA_ID_DOT_REV_REJSURR;
+    id = RE__PROG_DATA_ID_DOT_REV_REJSURR_ACCNL;
   }
   re__prog_inst_init_split(
       &inst, re__prog_get_entry(prog, RE__PROG_ENTRY_DEFAULT), entry + 1);
