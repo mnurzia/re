@@ -166,6 +166,39 @@ error:
   PASS();
 }
 
+TEST(t_parse_group_flags_case_insensitive)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?i)a"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (charclass ("
+      "    (rune_range 'A' 'A')"
+      "    (rune_range 'a' 'a'))))",
+      "case insensitive flag should create a charclass");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_group_flags_case_insensitive_negated)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?i)a(?-i)a"), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (concat ("
+      "    (charclass ("
+      "      (rune_range 'A' 'A')"
+      "      (rune_range 'a' 'a')))"
+      "    (rune 'a'))))",
+      "negated case insensitive flag should create bare characters");
+error:
+  re_destroy(&reg);
+  PASS();
+}
 TEST(t_parse_err_group_unmatched)
 {
   re reg;
@@ -1112,6 +1145,8 @@ SUITE(s_parse)
   RUN_TEST(t_parse_group_flags_nonmatching);
   RUN_TEST(t_parse_group_flags_ungreedy);
   RUN_TEST(t_parse_group_flags_ungreedy_negated);
+  RUN_TEST(t_parse_group_flags_case_insensitive);
+  RUN_TEST(t_parse_group_flags_case_insensitive_negated);
   FUZZ_TEST(t_parse_group_balance);
   RUN_TEST(t_parse_group_named);
   RUN_TEST(t_parse_groups);
