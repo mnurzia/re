@@ -71,6 +71,11 @@ MN_INTERNAL void re__ast_init_any_char(re__ast* ast)
   re__ast_init(ast, RE__AST_TYPE_ANY_CHAR);
 }
 
+MN_INTERNAL void re__ast_init_any_char_newline(re__ast* ast)
+{
+  re__ast_init(ast, RE__AST_TYPE_ANY_CHAR_NEWLINE);
+}
+
 MN_INTERNAL void re__ast_init_any_byte(re__ast* ast)
 {
   re__ast_init(ast, RE__AST_TYPE_ANY_BYTE);

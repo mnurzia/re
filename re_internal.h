@@ -238,6 +238,8 @@ typedef enum re__ast_type {
   RE__AST_TYPE_ASSERT,
   /* Any character (.) */
   RE__AST_TYPE_ANY_CHAR,
+  /* Any character including newlines ((?s).) */
+  RE__AST_TYPE_ANY_CHAR_NEWLINE,
   /* Any byte (\C) */
   RE__AST_TYPE_ANY_BYTE,
   /* RE__AST_TYPE_BACKREF */ /* <- haha, you wish */
