@@ -63,6 +63,28 @@ error:
   PASS();
 }
 
+TEST(t_parse_err_group_unfinished_invalid)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEMm(
+      re_init(&reg, "(\xff"), "error for invalid byte after group start",
+      error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_err_group_unfinished_question_invalid)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEMm(
+      re_init(&reg, "(?\xff"),
+      "error for invalid byte after group question start", error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_err_group_unmatched)
 {
   re reg;
@@ -714,6 +736,27 @@ error:
   PASS();
 }
 
+TEST(t_parse_alt_after_concat)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "a[bc]|d[ef]"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast "
+      "  (alt ("
+      "    (concat ("
+      "      (rune 'a')"
+      "      (charclass ("
+      "        (rune_range 'b' 'c')))))"
+      "    (concat ("
+      "      (rune 'd')"
+      "      (charclass ("
+      "        (rune_range 'e' 'f'))))))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_err_alt_nostartend)
 {
   re reg;
@@ -981,6 +1024,8 @@ SUITE(s_parse)
   RUN_TEST(t_parse_group);
   RUN_TEST(t_parse_err_group_unfinished);
   RUN_TEST(t_parse_err_group_unmatched);
+  RUN_TEST(t_parse_err_group_unfinished_invalid);
+  RUN_TEST(t_parse_err_group_unfinished_question_invalid);
   FUZZ_TEST(t_parse_group_balance);
   RUN_TEST(t_parse_group_named);
   RUN_TEST(t_parse_groups);
@@ -1006,6 +1051,7 @@ SUITE(s_parse)
   FUZZ_TEST(t_parse_opt_fuse_str_rune);
   RUN_TEST(t_parse_end_maybe_question);
   RUN_TEST(t_parse_alt);
+  RUN_TEST(t_parse_alt_after_concat);
   RUN_TEST(t_parse_err_alt_nostartend);
   RUN_TEST(t_parse_err_alt_nostart);
   RUN_TEST(t_parse_quote_empty);

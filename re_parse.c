@@ -199,45 +199,32 @@ re__parse_opt_fuse_concat(re__parse* parse, re__ast* next, int* did_fuse)
   t_prev = prev->type;
   t_next = next->type;
   *did_fuse = 0;
-  if (t_prev == RE__AST_TYPE_RUNE) {
-    if (t_next == RE__AST_TYPE_RUNE) {
-      /* Opportunity to fuse two runes into a string */
-      mn__str new_str;
-      re__ast new_ast;
+  if (t_next == RE__AST_TYPE_RUNE) {
+    if (t_prev == RE__AST_TYPE_STR || t_prev == RE__AST_TYPE_RUNE) {
+      mn_int32 str_ref;
       mn_char rune_bytes[16]; /* 16 oughta be good */
-      mn_int32 new_str_ref;
       int rune_bytes_ptr = 0;
-      rune_bytes_ptr += re__compile_gen_utf8(
-          re__ast_get_rune(prev), (mn_uint8*)rune_bytes + rune_bytes_ptr);
+      mn__str* out_str;
+      if (t_prev == RE__AST_TYPE_RUNE) {
+        mn__str new_str;
+        re__ast new_ast;
+        mn__str_init(&new_str);
+        if ((err = re__ast_root_add_str(
+                 &parse->reg->data->ast_root, new_str, &str_ref))) {
+          return err;
+        }
+        rune_bytes_ptr += re__compile_gen_utf8(
+            re__ast_get_rune(prev), (mn_uint8*)rune_bytes + rune_bytes_ptr);
+        re__ast_init_str(&new_ast, str_ref);
+        re__ast_root_replace(
+            &parse->reg->data->ast_root, prev_child_ref, new_ast);
+      } else {
+        str_ref = re__ast_get_str_ref(prev);
+      }
       rune_bytes_ptr += re__compile_gen_utf8(
           re__ast_get_rune(next), (mn_uint8*)rune_bytes + rune_bytes_ptr);
-      if ((err =
-               mn__str_init_n(&new_str, rune_bytes, (mn_size)rune_bytes_ptr))) {
-        return err;
-      }
-      if ((err = re__ast_root_add_str(
-               &parse->reg->data->ast_root, new_str, &new_str_ref))) {
-        mn__str_destroy(&new_str);
-        return err;
-      }
-      re__ast_init_str(&new_ast, new_str_ref);
-      re__ast_root_replace(
-          &parse->reg->data->ast_root, prev_child_ref, new_ast);
-      re__ast_destroy(next);
-      *did_fuse = 1;
-    }
-  } else if (t_prev == RE__AST_TYPE_STR) {
-    if (t_next == RE__AST_TYPE_RUNE) {
-      /* Opportunity to add a rune to a string */
-      mn__str* old_str;
-      mn_char rune_bytes[16];
-      mn_int32 old_str_ref;
-      int rune_bytes_ptr = 0;
-      rune_bytes_ptr += re__compile_gen_utf8(
-          re__ast_get_rune(next), (mn_uint8*)rune_bytes + rune_bytes_ptr);
-      old_str_ref = re__ast_get_str_ref(prev);
-      old_str = re__ast_root_get_str(&parse->reg->data->ast_root, old_str_ref);
-      if ((err = mn__str_cat_n(old_str, rune_bytes, (mn_size)rune_bytes_ptr))) {
+      out_str = re__ast_root_get_str(&parse->reg->data->ast_root, str_ref);
+      if ((err = mn__str_cat_n(out_str, rune_bytes, (mn_size)rune_bytes_ptr))) {
         return err;
       }
       re__ast_destroy(next);
@@ -275,30 +262,22 @@ MN_INTERNAL re_error re__parse_link_node(re__parse* parse, re__ast new_ast)
   frame_type = re__parse_get_frame_type(parse);
   /* Weird control flow -- it's the only way I figured out how to do the
    * assertion below. */
-  if (frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT ||
-      frame_type == RE__AST_TYPE_NONE) {
-    if (re__parse_frame_is_empty(parse)) {
-      /* Push node, fallthrough */
-    } else {
-      re__ast new_concat;
-      /* Wrap the last child(ren) in a concatenation */
-      re__ast_init_concat(&new_concat);
-      if ((err = re__parse_wrap_node(parse, new_concat))) {
-        return err;
-      }
-      /* new_concat is moved */
-      /* Push a new frame */
-      if ((err = re__parse_push_frame(
-               parse, re__parse_get_frame(parse)->ast_prev_child_ref,
-               re__parse_get_frame(parse)->group_flags))) {
-        return err;
-      }
+  if ((frame_type == RE__AST_TYPE_GROUP || frame_type == RE__AST_TYPE_ALT ||
+       frame_type == RE__AST_TYPE_NONE) &&
+      !re__parse_frame_is_empty(parse)) {
+    re__ast new_concat;
+    /* Wrap the last child(ren) in a concatenation */
+    re__ast_init_concat(&new_concat);
+    if ((err = re__parse_wrap_node(parse, new_concat))) {
+      return err;
     }
-  } else if (frame_type == RE__AST_TYPE_CONCAT) {
-    /* Push node, fallthrough */
-  } else {
-    /* Due to operator precedence, we should never arrive here. */
-    MN__ASSERT_UNREACHED();
+    /* new_concat is moved */
+    /* Push a new frame */
+    if ((err = re__parse_push_frame(
+             parse, re__parse_get_frame(parse)->ast_prev_child_ref,
+             re__parse_get_frame(parse)->group_flags))) {
+      return err;
+    }
   }
   /* Add the new node to the frame. */
   if ((err = re__parse_push_node(parse, new_ast))) {

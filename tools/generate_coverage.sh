@@ -5,7 +5,6 @@ rm -f cov.profraw
 rm -f oom.profraw
 rm -f cov.profdata
 rm -f lcov.info
-rm -rf cov-html/
 $1
 mv default.profraw cov.profraw
 $1 --leak-check-oom
@@ -13,4 +12,4 @@ mv default.profraw oom.profraw
 llvm-profdata merge cov.profraw oom.profraw -o cov.profdata
 llvm-cov export re_cov -instr-profile=cov.profdata -format=lcov > lcov.info
 mkdir -p cov-html/
-genhtml lcov.info --output-directory=cov-html/
+genhtml lcov.info --function-coverage --branch-coverage --output-directory=cov-html/

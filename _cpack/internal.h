@@ -83,7 +83,7 @@ void mn__memset(void* ptr, int value, mn_size count);
 
 #else
 
-#define MN__ASSERT_UNREACHED() ((void)(0))
+#define MN__ASSERT_UNREACHED() 
 
 #endif
 

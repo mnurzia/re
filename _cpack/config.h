@@ -2,14 +2,6 @@
 #define MN__RE_CONFIG_H
 
 #include "../tests/test_config.h"
-/* bits/hooks/assert */
-/* desc */
-/* cppreference */
-#if !defined(MN_ASSERT)
-#include <assert.h>
-#define MN_ASSERT assert
-#endif
-
 /* bits/hooks/malloc */
 /* Set to 1 in order to define malloc(), free(), and realloc() replacements. */
 #if !defined(MN_USE_CUSTOM_ALLOCATOR)
@@ -31,6 +23,14 @@
 /* Set to 1 in order to override the setting of the NDEBUG variable. */
 #if !defined(MN_DEBUG)
 #define MN_DEBUG 0
+#endif
+
+/* bits/hooks/assert */
+/* desc */
+/* cppreference */
+#if !defined(MN_ASSERT)
+#include <assert.h>
+#define MN_ASSERT assert
 #endif
 
 /* bits/util/exports */

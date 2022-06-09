@@ -34,6 +34,16 @@ typedef MN_SIZE_TYPE mn_size;
 #endif
 #endif
 
+/* bits/hooks/assert */
+#ifndef MN__HOOKS_ASSERT_INTERNAL_H
+#define MN__HOOKS_ASSERT_INTERNAL_H
+#if defined(MN__COVERAGE) || !MN_DEBUG
+#undef MN_ASSERT
+#define MN_ASSERT(e) ((void)0)
+#endif
+
+#endif /* MN__HOOKS_ASSERT_INTERNAL_H */
+
 /* bits/util/exports */
 #if !defined(MN__SPLIT_BUILD)
 #if MN_STATIC
