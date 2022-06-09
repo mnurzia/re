@@ -868,14 +868,22 @@ re__compile_patches_dump(re__compile_patches* patches, re__prog* prog);
 /* Pre-compiled programs, at this point they only exist as optimized UTF-8 .
  * representations */
 typedef enum re__prog_data_id {
-  /* dot, forward, accept surrogates */
-  RE__PROG_DATA_ID_DOT_FWD_ACCSURR,
-  /* dot, reverse, accept surrogates */
-  RE__PROG_DATA_ID_DOT_REV_ACCSURR,
-  /* dot, forward, reject surrogates */
-  RE__PROG_DATA_ID_DOT_FWD_REJSURR,
-  /* dot, reverse, reject surrogates */
-  RE__PROG_DATA_ID_DOT_REV_REJSURR,
+  /* dot, forward, accept surrogates, accept newlines */
+  RE__PROG_DATA_ID_DOT_FWD_ACCSURR_ACCNL,
+  /* dot, reverse, accept surrogates, accept newlines */
+  RE__PROG_DATA_ID_DOT_REV_ACCSURR_ACCNL,
+  /* dot, forward, reject surrogates, accept newlines */
+  RE__PROG_DATA_ID_DOT_FWD_REJSURR_ACCNL,
+  /* dot, reverse, reject surrogates, accept newlines */
+  RE__PROG_DATA_ID_DOT_REV_REJSURR_ACCNL,
+  /* dot, forward, accept surrogates, reject newlines */
+  RE__PROG_DATA_ID_DOT_FWD_ACCSURR_REJNL,
+  /* dot, reverse, accept surrogates, reject newlines */
+  RE__PROG_DATA_ID_DOT_REV_ACCSURR_REJNL,
+  /* dot, forward, reject surrogates, reject newlines */
+  RE__PROG_DATA_ID_DOT_FWD_REJSURR_REJNL,
+  /* dot, reverse, reject surrogates, reject newlines */
+  RE__PROG_DATA_ID_DOT_REV_REJSURR_REJNL,
   RE__PROG_DATA_ID_MAX
 } re__prog_data_id;
 
