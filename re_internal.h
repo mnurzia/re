@@ -501,10 +501,18 @@ MN_INTERNAL int re__ast_root_verify(const re__ast_root* ast_root);
 /* ---------------------------------------------------------------------------
  * Parser (re_parse.c)
  * ------------------------------------------------------------------------ */
+typedef enum re__parse_flags {
+  RE__PARSE_FLAG_CASE_INSENSITIVE = 1,
+  RE__PARSE_FLAG_MULTILINE = 2,
+  RE__PARSE_FLAG_DOT_NEWLINE = 4,
+  RE__PARSE_FLAG_UNGREEDY = 8
+} re__parse_flags;
+
 typedef struct re__parse_frame {
   mn_int32 ast_root_ref;
   mn_int32 ast_prev_child_ref;
   re__ast_group_flags group_flags;
+  re__parse_flags flags;
 } re__parse_frame;
 
 MN__VEC_DECL(re__parse_frame);

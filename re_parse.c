@@ -6,6 +6,7 @@ void re__parse_frame_init(
 {
   frame->ast_root_ref = ast_root_ref;
   frame->ast_prev_child_ref = RE__AST_NONE;
+  frame->flags = 0;
   frame->group_flags = group_flags;
 }
 
