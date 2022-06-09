@@ -1409,7 +1409,11 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
       goto error;
     }
     if (ch == '$') {
-      if ((err = re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_END))) {
+      re__assert_type assert_type = RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
+      if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_MULTILINE) {
+        assert_type = RE__ASSERT_TYPE_TEXT_END;
+      }
+      if ((err = re__parse_create_assert(parse, assert_type))) {
         goto error;
       }
     } else if (ch == '(') {
@@ -1471,7 +1475,11 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
       }
     } else if (ch == '^') {
       /* ^ | Text start assert. */
-      if ((err = re__parse_create_assert(parse, RE__ASSERT_TYPE_TEXT_START))) {
+      re__assert_type assert_type = RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
+      if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_MULTILINE) {
+        assert_type = RE__ASSERT_TYPE_TEXT_START;
+      }
+      if ((err = re__parse_create_assert(parse, assert_type))) {
         goto error;
       }
     } else if (ch == '{') {
