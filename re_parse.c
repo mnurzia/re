@@ -344,7 +344,7 @@ re_error re__parse_group_begin(re__parse* parse)
         if (set_bit) {
           flags |= RE__PARSE_FLAG_DOT_NEWLINE;
         } else {
-          group_flags &= ~(unsigned int)RE__PARSE_FLAG_DOT_NEWLINE;
+          flags &= ~(unsigned int)RE__PARSE_FLAG_DOT_NEWLINE;
         }
       } else if (ch == '<' || ch == 'P') {
         if (ch == 'P') {
@@ -581,7 +581,11 @@ MN_INTERNAL void re__parse_swap_greedy(re__parse* parse)
 MN_INTERNAL re_error re__parse_create_any_char(re__parse* parse)
 {
   re__ast new_dot;
-  re__ast_init_any_char(&new_dot);
+  if (!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_DOT_NEWLINE)) {
+    re__ast_init_any_char(&new_dot);
+  } else {
+    re__ast_init_any_char_newline(&new_dot);
+  }
   return re__parse_link_node(parse, new_dot);
 }
 

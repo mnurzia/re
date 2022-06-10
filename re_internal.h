@@ -375,6 +375,9 @@ MN_INTERNAL void re__ast_init_assert(re__ast* ast, re__assert_type assert_type);
 /* Initialize the given node as a RE__AST_TYPE_ANY_CHAR (.) */
 MN_INTERNAL void re__ast_init_any_char(re__ast* ast);
 
+/* Initialize the given node as a RE__AST_TYPE_ANY_CHAR_NEWLINE ((?s).) */
+MN_INTERNAL void re__ast_init_any_char_newline(re__ast* ast);
+
 /* Initialize the given node as a RE__AST_TYPE_ANY_BYTE (\C) */
 MN_INTERNAL void re__ast_init_any_byte(re__ast* ast);
 

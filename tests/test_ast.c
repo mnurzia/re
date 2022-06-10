@@ -3,9 +3,18 @@
 #include "test_charclass.h"
 #include "test_range.h"
 
-const char* ast_sym_types[RE__AST_TYPE_MAX] = {
-    "none",       "rune",  "str",    "charclass", "concat",  "alt",
-    "quantifier", "group", "assert", "any_char",  "any_byte"};
+const char* ast_sym_types[RE__AST_TYPE_MAX] = {"none",
+                                               "rune",
+                                               "str",
+                                               "charclass",
+                                               "concat",
+                                               "alt",
+                                               "quantifier",
+                                               "group",
+                                               "assert",
+                                               "any_char",
+                                               "any_char_newline",
+                                               "any_byte"};
 
 int re__ast_group_flags_to_sym(
     sym_build* parent, re__ast_group_flags group_flags)

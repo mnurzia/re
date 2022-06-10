@@ -272,6 +272,36 @@ error:
   PASS();
 }
 
+TEST(t_parse_group_flags_stream)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?s)."), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (any_char_newline)",
+      "stream flag should create an any_char_newline node");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_group_flags_stream_negated)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?s).(?-s)."), error);
+  ASSERT_SYMEQm(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (concat ("
+      "    (any_char_newline)"
+      "    (any_char))))",
+      "negated stream flag should create any_char node");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_err_group_unmatched)
 {
   re reg;
@@ -1225,6 +1255,8 @@ SUITE(s_parse)
   RUN_TEST(t_parse_group_flags_case_insensitive_negated);
   RUN_TEST(t_parse_group_flags_multiline);
   RUN_TEST(t_parse_group_flags_multiline_negated);
+  RUN_TEST(t_parse_group_flags_stream);
+  RUN_TEST(t_parse_group_flags_stream_negated);
   FUZZ_TEST(t_parse_group_balance);
   RUN_TEST(t_parse_group_named);
   RUN_TEST(t_parse_groups);
