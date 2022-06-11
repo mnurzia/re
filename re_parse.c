@@ -40,12 +40,15 @@ re__parse_frame* re__parse_get_frame(re__parse* parse)
 re__ast_type re__parse_get_frame_type(re__parse* parse)
 {
   re__parse_frame* frame = re__parse_get_frame(parse);
-  if (frame->ast_root_ref == RE__AST_NONE) {
-    return RE__AST_TYPE_NONE;
-  } else {
-    return re__ast_root_get(&parse->reg->data->ast_root, frame->ast_root_ref)
-        ->type;
+  re__ast_type ret = RE__AST_TYPE_NONE;
+  if (frame->ast_root_ref != RE__AST_NONE) {
+    ret = re__ast_root_get(&parse->reg->data->ast_root, frame->ast_root_ref)
+              ->type;
   }
+  MN_ASSERT(
+      ret == RE__AST_TYPE_GROUP || ret == RE__AST_TYPE_CONCAT ||
+      ret == RE__AST_TYPE_ALT || ret == RE__AST_TYPE_NONE);
+  return ret;
 }
 
 re_error re__parse_push_frame(
@@ -347,6 +350,7 @@ re_error re__parse_group_begin(re__parse* parse)
           flags &= ~(unsigned int)RE__PARSE_FLAG_DOT_NEWLINE;
         }
       } else if (ch == '<' || ch == 'P') {
+        mn_size saved_name_pos = 0;
         if (ch == 'P') {
           /* (?P | Alternative way to start group name */
           if ((err = re__parse_next_char(parse, &ch))) {
@@ -367,11 +371,12 @@ re_error re__parse_group_begin(re__parse* parse)
           return re__parse_error(parse, "cannot create empty group name");
         }
         while (1) {
+          saved_name_pos = parse->str_pos;
           if ((err = re__parse_next_char(parse, &ch))) {
             return err;
           }
           if (ch == '>') {
-            end_name_pos = parse->str_pos;
+            end_name_pos = saved_name_pos;
             group_flags |= RE__AST_GROUP_FLAG_NAMED;
             break;
           } else if (ch == RE__PARSE_EOF) {
@@ -396,19 +401,14 @@ re_error re__parse_group_begin(re__parse* parse)
     mn__str_view group_name;
     re__ast new_group;
     if (group_flags & RE__AST_GROUP_FLAG_NAMED) {
-      if (group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
-        return re__parse_error(
-            parse, "cannot have non-matching group with a name");
-      } else {
-        mn__str_view_init_n(
-            &group_name, mn__str_view_get_data(&parse->str) + begin_name_pos,
-            begin_name_pos - end_name_pos);
-        new_group_idx =
-            re__ast_root_get_num_groups(&parse->reg->data->ast_root);
-        if ((err = re__ast_root_add_group(
-                 &parse->reg->data->ast_root, group_name))) {
-          return err;
-        }
+      MN_ASSERT(!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING));
+      mn__str_view_init_n(
+          &group_name, mn__str_view_get_data(&parse->str) + begin_name_pos,
+          end_name_pos - begin_name_pos);
+      new_group_idx = re__ast_root_get_num_groups(&parse->reg->data->ast_root);
+      if ((err = re__ast_root_add_group(
+               &parse->reg->data->ast_root, group_name))) {
+        return err;
       }
     } else if (!(group_flags & RE__AST_GROUP_FLAG_NONMATCHING)) {
       mn__str_view_init_null(&group_name);
@@ -469,7 +469,7 @@ MN_INTERNAL re_error re__parse_alt(re__parse* parse)
         return err;
       }
       return err;
-    } else if (peek_type == RE__AST_TYPE_ALT) {
+    } else { /* peek_type == RE__AST_TYPE_ALT */
       /* Third+ part of the alteration: "a|b|" or "(a|b|" */
       /* Indicate that there are no new children (this is the beginning
        * of the second+ part of an alteration) */
@@ -655,6 +655,9 @@ MN_INTERNAL re_error
 re__parse_charclass_insert_range(re__parse* parse, re__rune_range range)
 {
   re_error err = RE_ERROR_NONE;
+  if (range.min > range.max) {
+    MN__SWAP(range.min, range.max, re_rune);
+  }
   if (!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE)) {
     return re__charclass_builder_insert_range(&parse->charclass_builder, range);
   } else {
@@ -854,11 +857,11 @@ MN_INTERNAL re_error re__parse_escape(
         saved_pos = parse->str_pos;
       } else {
         /* \[0-7]<*> | Did not find second/third octal digit */
-        *out_char = accum;
-        parse->str_pos = saved_pos;
         break;
       }
     }
+    *out_char = accum;
+    parse->str_pos = saved_pos;
   } else if (ch == 'A') {
     /* \A | Absolute text start */
     if (!within_charclass) {
@@ -991,7 +994,7 @@ MN_INTERNAL re_error re__parse_escape(
     }
   } else if (ch == 'a') {
     /* \a | Bell character */
-    *out_char = ch;
+    *out_char = 0x7;
   } else if (ch == 'b') {
     /* \b | Word boundary */
     if (!within_charclass) {
@@ -1021,16 +1024,16 @@ MN_INTERNAL re_error re__parse_escape(
     }
   } else if (ch == 'f') {
     /* \f | Form feed */
-    *out_char = ch;
+    *out_char = 0xC;
   } else if (ch == 'n') {
     /* \n | Newline */
-    *out_char = ch;
+    *out_char = 0xA;
   } else if (ch == 'p') {
     /* \p | Unicode character class */
     return re__parse_error(parse, "unimplemented");
   } else if (ch == 'r') {
     /* \r | Carriage return */
-    *out_char = ch;
+    *out_char = 0xD;
   } else if (ch == 's') {
     /* \s | Whitespace (Perl) */
     if (accept_classes) {
@@ -1051,10 +1054,10 @@ MN_INTERNAL re_error re__parse_escape(
     }
   } else if (ch == 't') {
     /* \t | Horizontal tab */
-    *out_char = ch;
+    *out_char = 0x9;
   } else if (ch == 'v') {
     /* \v | Vertical tab */
-    *out_char = ch;
+    *out_char = 0xB;
   } else if (ch == 'w') {
     /* \w | Word character */
     if (accept_classes) {
@@ -1075,6 +1078,7 @@ MN_INTERNAL re_error re__parse_escape(
     }
   } else if (ch == 'x') {
     /* \x | Two-digit hex literal or one-to-six digit hex literal */
+    accum = 0;
     if ((err = re__parse_next_char(parse, &ch))) {
       return err;
     }
@@ -1098,6 +1102,7 @@ MN_INTERNAL re_error re__parse_escape(
                        "escape \"\\x{\"");
           } else {
             /* \x{[0-9a-fA-F]} | Finish */
+            *out_char = accum;
             break;
           }
         } else if ((accum2 = re__parse_hex(ch)) == -1) {
@@ -1140,12 +1145,14 @@ MN_INTERNAL re_error re__parse_escape(
     /* \z | Absolute text end */
     if (!within_charclass) {
       if ((err = re__parse_create_assert(
-               parse, RE__ASSERT_TYPE_TEXT_START_ABSOLUTE))) {
+               parse, RE__ASSERT_TYPE_TEXT_END_ABSOLUTE))) {
         return err;
       }
     } else {
       return re__parse_error(parse, "cannot use \\z inside character class");
     }
+  } else {
+    return re__parse_error(parse, "invalid escape sequence");
   }
   return err;
 }
@@ -1243,11 +1250,11 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
             if ((err = re__parse_next_char(parse, &ch))) {
               return err;
             }
-            if (ch == RE__PARSE_EOF) {
+            if (ch == RE__PARSE_EOF || ch != ']') {
               /* [[:<*>:<EOF> | Error */
               return re__parse_error(
                   parse, "expected named character class for \"[[:\"");
-            } else if (ch == ']') {
+            } else { /* ch == ']' */
               /* [[:<*>:] | Finish named char class */
               break;
             }
@@ -1277,19 +1284,18 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
             return err;
           }
           re__charclass_destroy(&ascii_cc);
+          continue;
         }
-        continue;
       } else if (ch == '-') {
-        /* [[- | Start of range. Set low rune to bracket. Look for high
-         * rune. */
+        /* [[- | Start of range. Set low rune to bracket. Look for high rune. */
         range.min = '[';
         goto before_high_rune;
       } else {
-        /* [[<*> | Add bracket. Set low rune to next char. Look for -.
-         */
+        /* [[<*> | Add bracket. Set low rune to next char. Look for -. */
         if ((err = re__parse_charclass_insert_range(parse, range))) {
           return err;
         }
+        range.min = ch;
         goto before_dash;
       }
     } else if (ch == '\\') {
@@ -1366,9 +1372,6 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
     } else {
       /* [<*>-<*> | Add range. */
       range.max = ch;
-      if (range.min > range.max) {
-        MN__SWAP(range.min, range.max, re_rune);
-      }
       if ((err = re__parse_charclass_insert_range(parse, range))) {
         return err;
       }
@@ -1381,6 +1384,18 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
     if ((err = re__charclass_builder_finish(
              &parse->charclass_builder, &new_charclass))) {
       return err;
+    }
+    if (re__charclass_get_num_ranges(&new_charclass) == 1) {
+      re__rune_range first_range = re__charclass_get_ranges(&new_charclass)[0];
+      if (first_range.min == first_range.max) {
+        re__ast_init_rune(&new_node, first_range.min);
+        if ((err = re__parse_link_node(parse, new_node))) {
+          re__charclass_destroy(&new_charclass);
+          return err;
+        }
+        re__charclass_destroy(&new_charclass);
+        return err;
+      }
     }
     /* We own new_charclass */
     if ((err = re__ast_root_add_charclass(
@@ -1440,7 +1455,7 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
         if ((err = re__parse_create_question(parse))) {
           goto error;
         }
-      } else if (ch == '+') {
+      } else { /* ch == '+' */
         if ((err = re__parse_create_plus(parse))) {
           goto error;
         }
@@ -1519,12 +1534,10 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
         goto error;
       }
       re__parse_pop_frame(parse);
-    } else if (peek_type == RE__AST_TYPE_GROUP) {
+    } else { /* peek_type == RE__AST_TYPE_GROUP */
       /* If we find a group, that means it has not been closed. */
       err = re__parse_error(parse, "unmatched '('");
       goto error;
-    } else {
-      MN__ASSERT_UNREACHED();
     }
   }
 error:
