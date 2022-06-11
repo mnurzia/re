@@ -291,7 +291,7 @@ TEST(t_compile_concat)
       "    (fail)"
       "    (byte 'a' 2)"
       "    (byte 'b' 3)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
@@ -329,7 +329,7 @@ TEST(t_compile_alt)
       "    (split 2 3)"
       "    (byte 'a' 4)"
       "    (byte 'b' 4)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
@@ -370,7 +370,7 @@ TEST(t_compile_alts)
       "    (split 4 5)"
       "    (byte 'b' 6)"
       "    (byte 'c' 6)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
@@ -405,7 +405,7 @@ TEST(t_compile_star)
       "    (fail)"
       "    (split 2 3)"
       "    (byte 'a' 1)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
@@ -440,7 +440,7 @@ TEST(t_compile_star_nongreedy)
       "    (fail)"
       "    (split 3 2)"
       "    (byte 'a' 1)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
@@ -475,7 +475,7 @@ TEST(t_compile_question)
       "    (fail)"
       "    (split 2 3)"
       "    (byte 'a' 3)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
@@ -510,7 +510,7 @@ TEST(t_compile_question_nongreedy)
       "    (fail)"
       "    (split 3 2)"
       "    (byte 'a' 3)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
@@ -545,7 +545,7 @@ TEST(t_compile_plus)
       "    (fail)"
       "    (byte 'a' 2)"
       "    (split 1 3)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
@@ -580,7 +580,7 @@ TEST(t_compile_plus_nongreedy)
       "    (fail)"
       "    (byte 'a' 2)"
       "    (split 3 1)"
-      "    (match 1 0)",
+      "    (match 1 0))",
       &prog);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
