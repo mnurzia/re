@@ -150,7 +150,7 @@ MN_INTERNAL int re__charclass_verify(const re__charclass* charclass);
 /* ---------------------------------------------------------------------------
  * Rune data (re_rune_data.c)
  * ------------------------------------------------------------------------ */
-#define RE__RUNE_DATA_IMMEDIATE_STORAGE_SIZE 4
+#define RE__RUNE_DATA_IMMEDIATE_STORAGE_SIZE 1
 
 typedef struct re__rune_data {
   /* Holds larger sets of ranges. 99% of the time this is not in use. If not
