@@ -164,6 +164,7 @@ MN_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder)
 {
   re__rune_range_vec_init(&builder->ranges);
   builder->should_invert = 0;
+  builder->should_fold = 0;
   builder->highest = -1;
 }
 
@@ -171,6 +172,7 @@ MN_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder)
 {
   re__rune_range_vec_clear(&builder->ranges);
   builder->should_invert = 0;
+  builder->should_fold = 0;
   builder->highest = -1;
 }
 
@@ -182,6 +184,11 @@ MN_INTERNAL void re__charclass_builder_destroy(re__charclass_builder* builder)
 MN_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder)
 {
   builder->should_invert = 1;
+}
+
+MN_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder)
+{
+  builder->should_fold = 1;
 }
 
 /* Insert a range into the builder. */

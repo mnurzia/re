@@ -179,6 +179,8 @@ typedef struct re__charclass_builder {
   /* 1 if the character class will be inverted when
    * re__charclass_builder_finish() is called */
   int should_invert;
+  /* 1 if the character class will have its rune ranges case-folded */
+  int should_fold;
   /* Optimization: highest rune in this charclass, if the rune-range to be
    * added is greater than this, we can avoid calling insert() on ranges and
    * just use push(), O(1) baby */
@@ -196,6 +198,9 @@ MN_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder);
 
 /* Set the invert flag -- when finish() is called the class will be inverted */
 MN_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder);
+
+/* Set the fold flag -- inserted ranges will be case-folded */
+MN_INTERNAL void re__charclass_builder_fold(re__charclass_builder* builder);
 
 /* Insert a range of characters into this character class */
 MN_INTERNAL re_error re__charclass_builder_insert_range(

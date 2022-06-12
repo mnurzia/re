@@ -1988,6 +1988,21 @@ error:
   PASS();
 }
 
+TEST(t_parse_charclass_case_insensitive)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?i)[[:upper:]]"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast "
+      "  (charclass ("
+      "    (rune_range 'A' 'Z')"
+      "    (rune_range 'a' 'z'))))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_word_boundary)
 {
   re reg;
@@ -2509,6 +2524,7 @@ SUITE(s_parse)
   RUN_TEST(t_parse_charclass_named_inverted);
   RUN_TEST(t_parse_charclass_double_inverted);
   RUN_TEST(t_parse_charclass_reversed);
+  RUN_TEST(t_parse_charclass_case_insensitive);
   RUN_TEST(t_parse_word_boundary);
   RUN_TEST(t_parse_word_boundary_not);
   FUZZ_TEST(t_parse_opt_fuse_rune_rune);
