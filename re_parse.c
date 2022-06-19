@@ -881,6 +881,34 @@ MN_INTERNAL int re__parse_hex(re_rune ch)
   }
 }
 
+MN_INTERNAL int re__parse_dec(re_rune ch)
+{
+  switch (ch) {
+  case '0':
+    return 0;
+  case '1':
+    return 1;
+  case '2':
+    return 2;
+  case '3':
+    return 3;
+  case '4':
+    return 4;
+  case '5':
+    return 5;
+  case '6':
+    return 6;
+  case '7':
+    return 7;
+  case '8':
+    return 8;
+  case '9':
+    return 9;
+  default:
+    return -1;
+  }
+}
+
 /* Parse an escape character */
 /* Called after '\' */
 MN_INTERNAL re_error re__parse_escape(
@@ -1473,6 +1501,81 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
   return err;
 }
 
+MN_INTERNAL re_error re__parse_count(re__parse* parse)
+{
+  re_error err = RE_ERROR_NONE;
+  re_rune ch;
+  mn_int32 rep_min = 0;
+  mn_int32 rep_max = 0;
+  mn_int32 temp_num;
+  re__ast out;
+  if (re__parse_frame_is_empty(parse)) {
+    return re__parse_error(parse, "cannot use '{' operator with nothing");
+  }
+  if ((err = re__parse_next_char(parse, &ch))) {
+    return err;
+  }
+  if (ch == ',' || ch == '}') {
+    return re__parse_error(
+        parse, "must specify lower bound for repeat expression");
+  }
+  if ((rep_min = re__parse_dec(ch)) == -1) {
+    return re__parse_error(
+        parse, "invalid decimal literal for repeat expression");
+  }
+  while (1) {
+    if ((err = re__parse_next_char(parse, &ch))) {
+      return err;
+    }
+    if (ch == ',') {
+      break;
+    } else if (ch == '}') {
+      rep_max = rep_min;
+      goto construct;
+    }
+    if ((temp_num = re__parse_dec(ch)) == -1) {
+      return re__parse_error(
+          parse, "invalid decimal literal for repeat expression");
+    }
+    rep_min *= 10;
+    rep_min += temp_num;
+    if (rep_min > RE__AST_QUANTIFIER_MAX) {
+      return re__parse_error(parse, "repeat amount exceeds maximum");
+    }
+  }
+  if ((err = re__parse_next_char(parse, &ch))) {
+    return err;
+  }
+  if (ch == '}') {
+    rep_max = RE__AST_QUANTIFIER_INFINITY;
+    goto construct;
+  }
+  goto afterfirst;
+  while (1) {
+    if ((err = re__parse_next_char(parse, &ch))) {
+      return err;
+    }
+  afterfirst:
+    if (ch == '}') {
+      break;
+    }
+    if ((temp_num = re__parse_dec(ch)) == -1) {
+      return re__parse_error(
+          parse, "invalid decimal literal for repeat expression");
+    }
+    rep_max *= 10;
+    rep_max += temp_num;
+    if (rep_max > RE__AST_QUANTIFIER_MAX) {
+      return re__parse_error(parse, "repeat amount exceeds maximum");
+    }
+  }
+construct:
+  re__ast_init_quantifier(&out, rep_min, rep_max);
+  re__ast_set_quantifier_greediness(
+      &out, !!!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_UNGREEDY));
+  return re__parse_wrap_node(parse, out);
+}
+
 MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
 {
   re_error err = RE_ERROR_NONE;
@@ -1564,9 +1667,9 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
       }
     } else if (ch == '{') {
       /* { | Start of counting form. */
-      /*if ((err = re__parse_count(parse))) {
+      if ((err = re__parse_count(parse))) {
         goto error;
-      }*/
+      }
     } else if (ch == '|') {
       /* | | Alternation. */
       if ((err = re__parse_alt(parse))) {
