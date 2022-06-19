@@ -1997,7 +1997,9 @@ TEST(t_parse_charclass_case_insensitive)
       "(ast "
       "  (charclass ("
       "    (rune_range 'A' 'Z')"
-      "    (rune_range 'a' 'z'))))");
+      "    (rune_range 'a' 'z')"
+      "    (rune_range 0x017F 0x017F)"      /* LATIN SMALL LETTER LONG S */
+      "    (rune_range 0x212A 0x212A))))"); /* KELVIN SIGN */
 error:
   re_destroy(&reg);
   PASS();
