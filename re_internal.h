@@ -179,7 +179,7 @@ MN_INTERNAL int
 re__rune_data_casefold(re__rune_data* rune_data, re_rune ch, re_rune** runes);
 MN_INTERNAL re_error re__rune_data_get_property(
     re__rune_data* rune_data, const char* property_name,
-    mn_size property_name_size, const re__rune_range** ranges_out,
+    mn_size property_name_size, re__rune_range** ranges_out,
     mn_size* ranges_size_out);
 
 /* ---------------------------------------------------------------------------

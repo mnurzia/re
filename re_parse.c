@@ -716,19 +716,21 @@ MN_INTERNAL re_error re__parse_unicode_property(
 {
   re_error err = RE_ERROR_NONE;
   re_rune ch;
-  mn_size start_pos;
-  mn_size prev_pos;
+  mn_size name_start;
+  mn_size name_end;
   re__rune_range* ranges;
   mn_size ranges_size;
   if (!accept_classes) {
-    return re__parse_error("cannot use Unicode property as range ending "
-                           "character for character class");
+    return re__parse_error(
+        parse, "cannot use Unicode property as range ending "
+               "character for character class");
   }
   if ((err = re__parse_next_char(parse, &ch))) {
     return err;
   }
   if (ch != '{') {
-    return re__parse_error("expected '{' to begin Unicode property name");
+    return re__parse_error(
+        parse, "expected '{' to begin Unicode property name");
   }
   name_start = parse->str_pos;
   while (1) {
@@ -739,15 +741,16 @@ MN_INTERNAL re_error re__parse_unicode_property(
     if (ch == '}') {
       break;
     } else if (ch == RE__PARSE_EOF) {
-      return re__parse_error("expected '}' to close Unicode property name");
+      return re__parse_error(
+          parse, "expected '}' to close Unicode property name");
     }
   }
   if ((err = re__rune_data_get_property(
            &parse->reg->data->rune_data,
-           mn__str_get_data(&parse->str)[name_start], name_end - name_start,
-           &ranges, &ranges_size))) {
+           mn__str_view_get_data(&parse->str) + name_start,
+           name_end - name_start, &ranges, &ranges_size))) {
     if (err == RE_ERROR_INVALID) {
-      return re__parse_error("invalid Unicode property name");
+      return re__parse_error(parse, "invalid Unicode property name");
     }
     return err;
   }
@@ -779,16 +782,17 @@ MN_INTERNAL re_error re__parse_unicode_property(
     } else {
       re__charclass_builder_begin(&parse->charclass_builder);
       if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
-        re__charclass_builder_fold(builder);
+        re__charclass_builder_fold(&parse->charclass_builder);
       }
       if (inverted) {
-        re__charclass_builder_invert(builder);
+        re__charclass_builder_invert(&parse->charclass_builder);
       }
       if ((err = re__charclass_builder_insert_ranges(
-               builder, ranges, ranges_size))) {
+               &parse->charclass_builder, ranges, ranges_size))) {
         return err;
       }
-      if ((err = re__charclass_builder_finish(builder, &out))) {
+      if ((err =
+               re__charclass_builder_finish(&parse->charclass_builder, &out))) {
         return err;
       }
     }

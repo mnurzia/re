@@ -104,7 +104,7 @@ MN_INTERNAL re_error re__rune_data_prop_decomp(
 
 MN_INTERNAL re_error re__rune_data_get_property(
     re__rune_data* rune_data, const char* property_name,
-    mn_size property_name_size, const re__rune_range** ranges_out,
+    mn_size property_name_size, re__rune_range** ranges_out,
     mn_size* ranges_size_out)
 {
   re__rune_data_prop* search = rune_data->properties_head;
