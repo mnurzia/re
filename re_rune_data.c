@@ -24,17 +24,20 @@ MN_INTERNAL void re__rune_data_destroy(re__rune_data* rune_data)
 
 MN_INTERNAL re_rune re__rune_data_casefold_next(re_rune r);
 
-MN_INTERNAL void re__rune_data_casefold(
-    re__rune_data* rune_data, re_rune ch, re_rune** runes, mn_size* runes_size)
+MN_INTERNAL int
+re__rune_data_casefold(re__rune_data* rune_data, re_rune ch, re_rune** runes)
 {
   re_rune current = ch;
-  *runes_size = 0;
+  int runes_size = 0;
   MN_ASSERT(ch <= RE_RUNE_MAX);
   do {
-    rune_data->fold_storage[(*runes_size)++] = current;
+    rune_data->fold_storage[runes_size++] = current;
     current += re__rune_data_casefold_next(current);
   } while (current != ch);
-  *runes = rune_data->fold_storage;
+  if (runes != MN_NULL) {
+    *runes = rune_data->fold_storage;
+  }
+  return runes_size;
 }
 
 typedef struct re__rune_data_prop_compressed {
@@ -949,6 +952,14 @@ MN_INTERNAL_DATA mn_uint8 re__rune_data_casefold_5[] = {
  * This:     : 6-level, 2x4x2x32x16x136, squish:   4004 bytes (-86.63%) */
 /* This version is almost certainly slower, but is also almost certainly more
  * cache-friendly. */
+/* I thought it was cool that my program figured out that it's most efficient
+ * to compress the bottom-level to pairs of 2 rune deltas. Especially at higher
+ * codepoints, there are large runs of +1/-1 repetitions, which are easily
+ * compressible. In addition, there's a lot of gain to be had by compressing
+ * the smallest units possible, because the bottom level stores deltas as
+ * int32s since a very small percentage (<1%) of deltas are outside the range
+ * of an int16. We end up losing fewer zero bytes this way. */
+/* See tools/unicode_data.py */
 MN_INTERNAL re_rune re__rune_data_casefold_next(re_rune r)
 {
   return re__rune_data_casefold_0

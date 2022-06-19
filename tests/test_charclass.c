@@ -1114,19 +1114,24 @@ error:
 TEST(t_charclass_builder_init)
 {
   re__charclass_builder builder;
-  re__charclass_builder_init(&builder);
+  re__rune_data rune_data;
+  re__rune_data_init(&rune_data);
+  re__charclass_builder_init(&builder, &rune_data);
   ASSERT(builder.should_invert == 0);
   ASSERT(builder.highest == -1);
   re__charclass_builder_destroy(&builder);
+  re__rune_data_destroy(&rune_data);
   PASS();
 }
 
 TEST(t_charclass_builder_begin)
 {
   re__charclass_builder builder;
+  re__rune_data rune_data;
   mn_size l = RAND_PARAM(600);
   mn_size i;
-  re__charclass_builder_init(&builder);
+  re__rune_data_init(&rune_data);
+  re__charclass_builder_init(&builder, &rune_data);
   re__charclass_builder_begin(&builder);
   ASSERT(builder.should_invert == 0);
   ASSERT(builder.highest == -1);
@@ -1140,17 +1145,21 @@ TEST(t_charclass_builder_begin)
   ASSERT(builder.should_invert == 0);
   ASSERT(builder.highest == -1);
   re__charclass_builder_destroy(&builder);
+  re__rune_data_destroy(&rune_data);
   PASS();
 }
 
 TEST(t_charclass_builder_invert)
 {
   re__charclass_builder builder;
-  re__charclass_builder_init(&builder);
+  re__rune_data rune_data;
+  re__rune_data_init(&rune_data);
+  re__charclass_builder_init(&builder, &rune_data);
   ASSERT(builder.should_invert == 0);
   re__charclass_builder_invert(&builder);
   ASSERT(builder.should_invert == 1);
   re__charclass_builder_destroy(&builder);
+  re__rune_data_destroy(&rune_data);
   PASS();
 }
 
@@ -1159,7 +1168,9 @@ TEST(t_charclass_builder_insert_range)
   mn_size l = RAND_PARAM(60);
   mn_size i;
   re__charclass_builder builder;
-  re__charclass_builder_init(&builder);
+  re__rune_data rune_data;
+  re__rune_data_init(&rune_data);
+  re__charclass_builder_init(&builder, &rune_data);
   for (i = 0; i < l; i++) {
     re__rune_range rr;
     rr.min = (re_rune)RAND_PARAM(0x10FFFF);
@@ -1167,6 +1178,7 @@ TEST(t_charclass_builder_insert_range)
     re__charclass_builder_insert_range(&builder, rr);
   }
   re__charclass_builder_destroy(&builder);
+  re__rune_data_destroy(&rune_data);
   PASS();
 }
 

@@ -160,12 +160,14 @@ MN_INTERNAL re_error re__charclass_init_from_str(
   return re__charclass_init_from_ascii(charclass, found, inverted);
 }
 
-MN_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder)
+MN_INTERNAL void re__charclass_builder_init(
+    re__charclass_builder* builder, re__rune_data* rune_data)
 {
   re__rune_range_vec_init(&builder->ranges);
   builder->should_invert = 0;
   builder->should_fold = 0;
   builder->highest = -1;
+  builder->rune_data = rune_data;
 }
 
 MN_INTERNAL void re__charclass_builder_begin(re__charclass_builder* builder)
@@ -194,7 +196,7 @@ MN_INTERNAL void re__charclass_builder_fold(re__charclass_builder* builder)
 /* Insert a range into the builder. */
 /* Inserts in sorted order, that is, all ranges are ordered by their low bound.
  */
-MN_INTERNAL re_error re__charclass_builder_insert_range(
+MN_INTERNAL re_error re__charclass_builder_insert_range_internal(
     re__charclass_builder* builder, re__rune_range range)
 {
   re_error err = RE_ERROR_NONE;
@@ -227,6 +229,35 @@ just_push:
   /* Range is higher than everything else */
   builder->highest = range.max;
   return re__rune_range_vec_push(&builder->ranges, range);
+}
+
+/* Insert a range into the builder. */
+/* Inserts in sorted order, that is, all ranges are ordered by their low bound.
+ */
+MN_INTERNAL re_error re__charclass_builder_insert_range(
+    re__charclass_builder* builder, re__rune_range range)
+{
+  if (builder->should_fold) {
+    re_rune i;
+    for (i = range.min; i <= range.max; i++) {
+      re_rune* folded;
+      int folded_size = re__rune_data_casefold(builder->rune_data, i, &folded);
+      int j;
+      for (j = 0; j < folded_size; j++) {
+        re_error err = RE_ERROR_NONE;
+        re__rune_range temp;
+        temp.min = folded[j];
+        temp.max = folded[j];
+        if ((err =
+                 re__charclass_builder_insert_range_internal(builder, temp))) {
+          return err;
+        }
+      }
+    }
+    return RE_ERROR_NONE;
+  } else {
+    return re__charclass_builder_insert_range_internal(builder, range);
+  }
 }
 
 /* Insert a character class into a builder. */

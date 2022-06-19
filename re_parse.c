@@ -21,7 +21,7 @@ void re__parse_init(re__parse* parse, re* reg)
   mn__str_view_init_null(&parse->str);
   parse->str_pos = 0;
   re__parse_frame_vec_init(&parse->frames);
-  re__charclass_builder_init(&parse->charclass_builder);
+  re__charclass_builder_init(&parse->charclass_builder, &reg->data->rune_data);
 }
 
 void re__parse_destroy(re__parse* parse)
@@ -605,28 +605,24 @@ MN_INTERNAL re_error re__parse_create_rune(re__parse* parse, re_rune ch)
     re__ast_init_rune(&new_rune, ch);
     return re__parse_link_node(parse, new_rune);
   } else {
-    re_rune* fold_runes;
-    mn_size fold_runes_size;
-    re__rune_data_casefold(
-        &parse->reg->data->rune_data, ch, &fold_runes, &fold_runes_size);
-    if (fold_runes_size == 1) {
+    int num_fold_runes =
+        re__rune_data_casefold(&parse->reg->data->rune_data, ch, MN_NULL);
+    if (num_fold_runes == 1) {
       re__ast new_rune;
       re__ast_init_rune(&new_rune, ch);
       return re__parse_link_node(parse, new_rune);
     } else {
-      mn_size i;
       re__charclass out;
       re__ast new_charclass;
       mn_int32 out_ref;
+      re__rune_range new_range;
       re__charclass_builder_begin(&parse->charclass_builder);
-      for (i = 0; i < fold_runes_size; i++) {
-        re__rune_range new_range;
-        new_range.min = fold_runes[i];
-        new_range.max = fold_runes[i];
-        if ((err = re__charclass_builder_insert_range(
-                 &parse->charclass_builder, new_range))) {
-          return err;
-        }
+      re__charclass_builder_fold(&parse->charclass_builder);
+      new_range.min = ch;
+      new_range.max = ch;
+      if ((err = re__charclass_builder_insert_range(
+               &parse->charclass_builder, new_range))) {
+        return err;
       }
       if ((err =
                re__charclass_builder_finish(&parse->charclass_builder, &out))) {
@@ -651,33 +647,10 @@ MN_INTERNAL re_error re__parse_create_rune(re__parse* parse, re_rune ch)
 MN_INTERNAL re_error
 re__parse_charclass_insert_range(re__parse* parse, re__rune_range range)
 {
-  re_error err = RE_ERROR_NONE;
   if (range.min > range.max) {
     MN__SWAP(range.min, range.max, re_rune);
   }
-  if (!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE)) {
-    return re__charclass_builder_insert_range(&parse->charclass_builder, range);
-  } else {
-    re_rune* ranges;
-    mn_size ranges_size;
-    re_rune i = range.min;
-    while (i <= range.max) {
-      mn_size j;
-      re__rune_range cur;
-      re__rune_data_casefold(
-          &parse->reg->data->rune_data, i, &ranges, &ranges_size);
-      for (j = 0; j < ranges_size; j++) {
-        cur.min = ranges[j];
-        cur.max = ranges[j];
-        if ((err = re__charclass_builder_insert_range(
-                 &parse->charclass_builder, cur))) {
-          return err;
-        }
-      }
-      i++;
-    }
-    return err;
-  }
+  return re__charclass_builder_insert_range(&parse->charclass_builder, range);
 }
 
 /* Create an ASCII charclass. */
@@ -693,16 +666,18 @@ MN_INTERNAL re_error re__parse_create_charclass_ascii(
   }
   if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
     re__charclass folded_class;
-    mn_size i;
     re__charclass_builder_begin(&parse->charclass_builder);
-    for (i = 0; i < re__charclass_get_num_ranges(&new_class); i++) {
-      re__rune_range cur = re__charclass_get_ranges(&new_class)[i];
-      if ((err = re__parse_charclass_insert_range(parse, cur))) {
-        re__charclass_destroy(&new_class);
-        return err;
-      }
+    re__charclass_builder_fold(&parse->charclass_builder);
+    if ((err = re__charclass_builder_insert_class(
+             &parse->charclass_builder, &new_class))) {
+      re__charclass_destroy(&new_class);
+      return err;
     }
-    re__charclass_builder_finish(&parse->charclass_builder, &folded_class);
+    if ((err = re__charclass_builder_finish(
+             &parse->charclass_builder, &folded_class))) {
+      re__charclass_destroy(&new_class);
+      return err;
+    }
     re__charclass_destroy(&new_class);
     new_class = folded_class;
   }
@@ -725,20 +700,10 @@ MN_INTERNAL re_error re__parse_insert_charclass_ascii(
   if ((err = re__charclass_init_from_class(&new_class, ascii_cc, inverted))) {
     return err;
   }
-  if (!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE)) {
-    if ((err = re__charclass_builder_insert_class(
-             &parse->charclass_builder, &new_class))) {
-      return err;
-    }
-  } else {
-    mn_size i;
-    for (i = 0; i < re__charclass_get_num_ranges(&new_class); i++) {
-      re__rune_range cur = re__charclass_get_ranges(&new_class)[i];
-      if ((err = re__charclass_builder_insert_range(
-               &parse->charclass_builder, cur))) {
-        return err;
-      }
-    }
+  if ((err = re__charclass_builder_insert_class(
+           &parse->charclass_builder, &new_class))) {
+    re__charclass_destroy(&new_class);
+    return err;
   }
   re__charclass_destroy(&new_class);
   return err;
@@ -1160,6 +1125,9 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
   re_rune ch;
   re__rune_range range;
   re__charclass_builder_begin(&parse->charclass_builder);
+  if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
+    re__charclass_builder_fold(&parse->charclass_builder);
+  }
   if ((err = re__parse_next_char(parse, &ch))) {
     return err;
   }

@@ -170,9 +170,8 @@ typedef struct re__rune_data {
 
 MN_INTERNAL void re__rune_data_init(re__rune_data* rune_data);
 MN_INTERNAL void re__rune_data_destroy(re__rune_data* rune_data);
-MN_INTERNAL void re__rune_data_casefold(
-    re__rune_data* rune_data, re_rune ch, re_rune** runes,
-    mn_size* ranges_size);
+MN_INTERNAL int
+re__rune_data_casefold(re__rune_data* rune_data, re_rune ch, re_rune** runes);
 MN_INTERNAL re_error re__rune_data_get_property(
     re__rune_data* rune_data, const char* property_name,
     mn_size property_name_size, const re__rune_range** ranges_out,
@@ -193,10 +192,13 @@ typedef struct re__charclass_builder {
    * added is greater than this, we can avoid calling insert() on ranges and
    * just use push(), O(1) baby */
   re_rune highest;
+  /* Reference to rune data */
+  re__rune_data* rune_data;
 } re__charclass_builder;
 
 /* Initialize this character class builder */
-MN_INTERNAL void re__charclass_builder_init(re__charclass_builder* builder);
+MN_INTERNAL void re__charclass_builder_init(
+    re__charclass_builder* builder, re__rune_data* rune_data);
 
 /* Destroy this character class builder */
 MN_INTERNAL void re__charclass_builder_destroy(re__charclass_builder* builder);

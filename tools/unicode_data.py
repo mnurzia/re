@@ -37,7 +37,7 @@ class HexRangeType(UcdType):
         if "." in s:
             return [int(x, 16) for x in s.split("..")]
         else:
-            return int(x, 16)
+            return int(s, 16)
 
 class HexSeqType(UcdType):
     def __init__(self, name):
@@ -354,9 +354,6 @@ def try_sizes(deltas):
             dzz_size = len(dzz_encode(a_array)) + len(dzz_encode(b_array)) \
                 + len(dzz_encode(c_array))
             print("A: %8i B: %8i C: %8i Uncompressed: %8i Compressed: %8i" % (size_a, size_b, size_c, uncomp_size, dzz_size))
-
-def arraydat(arr):
-    return f"len: {len(arr)}, bytewidth: {bytewidth(max(arr))}, leadzero: {leadzeros(arr)}, trailzero: {trailzeros(arr)}"
 
 def perform_squish(arrangement, leads, trails, blocks):
     out = []

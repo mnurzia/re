@@ -64,8 +64,8 @@ re_error re_init_sz_flags(
   }
   re__error_init(reg);
   mn__str_view_init_n(&regex_view, regex, regex_size);
-  re__parse_init(&reg->data->parse, reg);
   re__rune_data_init(&reg->data->rune_data);
+  re__parse_init(&reg->data->parse, reg);
   re__ast_root_init(&reg->data->ast_root);
   re__prog_init(&reg->data->program);
   re__prog_init(&reg->data->program_reverse);
