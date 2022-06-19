@@ -6,52 +6,54 @@ MN__STATIC_ASSERT(mn__char_is_one_byte, sizeof(mn_char) == 1);
 
 /* bits/container/str */
 /* Maximum size, without null terminator */
-#define MN__STR_SHORT_SIZE_MAX (((sizeof(mn__str) - sizeof(mn_size)) / (sizeof(mn_char)) - 1))
+#define MN__STR_SHORT_SIZE_MAX                                                \
+    (((sizeof(mn__str) - sizeof(mn_size)) / (sizeof(mn_char)) - 1))
 
 #define MN__STR_GET_SHORT(str) !((str)->_size_short & 1)
-#define MN__STR_SET_SHORT(str, short) \
-    do { \
-        mn_size temp = short; \
-        (str)->_size_short &= ~((mn_size)1); \
-        (str)->_size_short |= !temp; \
+#define MN__STR_SET_SHORT(str, short)                                         \
+    do {                                                                      \
+        mn_size temp = short;                                                 \
+        (str)->_size_short &= ~((mn_size)1);                                  \
+        (str)->_size_short |= !temp;                                          \
     } while (0)
 #define MN__STR_GET_SIZE(str) ((str)->_size_short >> 1)
-#define MN__STR_SET_SIZE(str, size) \
-    do { \
-        mn_size temp = size; \
-        (str)->_size_short &= 1; \
-        (str)->_size_short |= temp << 1; \
+#define MN__STR_SET_SIZE(str, size)                                           \
+    do {                                                                      \
+        mn_size temp = size;                                                  \
+        (str)->_size_short &= 1;                                              \
+        (str)->_size_short |= temp << 1;                                      \
     } while (0)
-#define MN__STR_DATA(str) (MN__STR_GET_SHORT(str) ? ((mn_char*)&((str)->_alloc)) : (str)->_data)
+#define MN__STR_DATA(str)                                                     \
+    (MN__STR_GET_SHORT(str) ? ((mn_char*)&((str)->_alloc)) : (str)->_data)
 
 /* Round up to multiple of 32 */
-#define MN__STR_ROUND_ALLOC(alloc) \
-    (((alloc + 1) + 32) & (~((mn_size)32)))
+#define MN__STR_ROUND_ALLOC(alloc) (((alloc + 1) + 32) & (~((mn_size)32)))
 
 #if MN_DEBUG
 
-#define MN__STR_CHECK(str) \
-    do { \
-        if (MN__STR_GET_SHORT(str)) { \
-            /* If string is short, the size must always be less than */ \
-            /* MN__STR_SHORT_SIZE_MAX. */ \
-            MN_ASSERT(MN__STR_GET_SIZE(str) <= MN__STR_SHORT_SIZE_MAX); \
-        } else { \
-            /* If string is long, the size can still be less, but the other */ \
-            /* fields must be valid. */ \
-            /* Ensure there is enough space */ \
-            MN_ASSERT((str)->_alloc >= MN__STR_GET_SIZE(str)); \
-            /* Ensure that the _data field isn't NULL if the size is 0 */ \
-            if (MN__STR_GET_SIZE(str) > 0) { \
-                MN_ASSERT((str)->_data != MN_NULL); \
-            } \
-            /* Ensure that if _alloc is 0 then _data is NULL */ \
-            if ((str)->_alloc == 0) { \
-                MN_ASSERT((str)->_data == MN_NULL); \
-            } \
-        } \
-        /* Ensure that there is a null-terminator */ \
-        MN_ASSERT(MN__STR_DATA(str)[MN__STR_GET_SIZE(str)] == '\0'); \
+#define MN__STR_CHECK(str)                                                    \
+    do {                                                                      \
+        if (MN__STR_GET_SHORT(str)) {                                         \
+            /* If string is short, the size must always be less than */       \
+            /* MN__STR_SHORT_SIZE_MAX. */                                     \
+            MN_ASSERT(MN__STR_GET_SIZE(str) <= MN__STR_SHORT_SIZE_MAX);       \
+        } else {                                                              \
+            /* If string is long, the size can still be less, but the other   \
+             */                                                               \
+            /* fields must be valid. */                                       \
+            /* Ensure there is enough space */                                \
+            MN_ASSERT((str)->_alloc >= MN__STR_GET_SIZE(str));                \
+            /* Ensure that the _data field isn't NULL if the size is 0 */     \
+            if (MN__STR_GET_SIZE(str) > 0) {                                  \
+                MN_ASSERT((str)->_data != MN_NULL);                           \
+            }                                                                 \
+            /* Ensure that if _alloc is 0 then _data is NULL */               \
+            if ((str)->_alloc == 0) {                                         \
+                MN_ASSERT((str)->_data == MN_NULL);                           \
+            }                                                                 \
+        }                                                                     \
+        /* Ensure that there is a null-terminator */                          \
+        MN_ASSERT(MN__STR_DATA(str)[MN__STR_GET_SIZE(str)] == '\0');          \
     } while (0)
 
 #else
@@ -73,9 +75,7 @@ void mn__str_destroy(mn__str* str) {
     }
 }
 
-mn_size mn__str_size(const mn__str* str) {
-    return MN__STR_GET_SIZE(str);
-}
+mn_size mn__str_size(const mn__str* str) { return MN__STR_GET_SIZE(str); }
 
 MN_INTERNAL int mn__str_grow(mn__str* str, mn_size new_size) {
     mn_size old_size = MN__STR_GET_SIZE(str);
@@ -86,9 +86,10 @@ MN_INTERNAL int mn__str_grow(mn__str* str, mn_size new_size) {
             MN__STR_SET_SIZE(str, new_size);
         } else {
             /* Needs allocation */
-            mn_size new_alloc = 
-                MN__STR_ROUND_ALLOC(new_size + (new_size >> 1));
-            mn_char* new_data = (mn_char*)MN_MALLOC(sizeof(mn_char) * (new_alloc + 1));
+            mn_size new_alloc =
+              MN__STR_ROUND_ALLOC(new_size + (new_size >> 1));
+            mn_char* new_data =
+              (mn_char*)MN_MALLOC(sizeof(mn_char) * (new_alloc + 1));
             mn_size i;
             if (new_data == MN_NULL) {
                 return -1;
@@ -106,16 +107,15 @@ MN_INTERNAL int mn__str_grow(mn__str* str, mn_size new_size) {
     } else {
         if (new_size > str->_alloc) {
             /* Needs allocation */
-            mn_size new_alloc = 
-                MN__STR_ROUND_ALLOC(new_size + (new_size >> 1));
+            mn_size new_alloc =
+              MN__STR_ROUND_ALLOC(new_size + (new_size >> 1));
             mn_char* new_data;
             if (str->_alloc == 0) {
-                new_data = \
-                    (mn_char*)MN_MALLOC(sizeof(mn_char) * (new_alloc + 1));
+                new_data =
+                  (mn_char*)MN_MALLOC(sizeof(mn_char) * (new_alloc + 1));
             } else {
-                new_data = \
-                    (mn_char*)MN_REALLOC(
-                        str->_data, sizeof(mn_char) * (new_alloc + 1));
+                new_data = (mn_char*)MN_REALLOC(
+                  str->_data, sizeof(mn_char) * (new_alloc + 1));
             }
             if (new_data == MN_NULL) {
                 return -1;
@@ -279,6 +279,11 @@ int mn__str_cmp(const mn__str* str_a, const mn__str* str_b) {
     return 0;
 }
 
+void mn__str_clear(mn__str* str) {
+    MN__STR_SET_SIZE(str, 0);
+    MN__STR_DATA(str)[0] = '\0';
+}
+
 /* bits/container/str_view */
 void mn__str_view_init(mn__str_view* view, const mn__str* other) {
     view->_size = mn__str_size(other);
@@ -336,6 +341,10 @@ int mn__str_view_cmp(const mn__str_view* view_a, const mn__str_view* view_b) {
  * that is 32 bits wide. */
 MN__STATIC_ASSERT(mn__int32_is_4_bytes, sizeof(mn_int32) == 4);
 
+/* bits/types/fixed/uint16 */
+/* If this fails, you need to define MN_UINT16_TYPE to a unsigned integer type
+ * that is 16 bits wide. */
+MN__STATIC_ASSERT(mn__uint16_is_2_bytes, sizeof(mn_uint16) == 2);
 /* bits/types/fixed/uint32 */
 /* If this fails, you need to define MN_UINT32_TYPE to a unsigned integer type
  * that is 32 bits wide. */

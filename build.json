@@ -16,6 +16,7 @@
         "bits/types/fixed/int32",
         "bits/types/fixed/uint32",
         "bits/types/fixed/uint8",
+        "bits/types/fixed/uint16",
         "bits/types/size",
         "bits/util/cstd",
         "bits/util/debug",

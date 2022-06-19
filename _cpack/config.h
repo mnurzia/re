@@ -53,6 +53,12 @@
 #if !defined(MN_INT32_TYPE)
 #endif
 
+/* bits/types/fixed/uint16 */
+/* desc */
+/* cppreference */
+#if !defined(MN_UINT16_TYPE)
+#endif
+
 /* bits/types/fixed/uint32 */
 /* desc */
 /* cppreference */

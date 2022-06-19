@@ -1,8 +1,5 @@
 import sys
 
-def escape(c):
-    return c.enco
-
 with open(sys.argv[1], 'rb') as f:
     s = '"'
     for c in f.read():

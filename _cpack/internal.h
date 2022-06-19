@@ -36,7 +36,7 @@
 /* bits/container/str */
 typedef struct mn__str {
     mn_size _size_short; /* does not include \0 */
-    mn_size _alloc; /* does not include \0 */
+    mn_size _alloc;      /* does not include \0 */
     mn_char* _data;
 } mn__str;
 
@@ -55,6 +55,7 @@ int mn__str_insert(mn__str* str, mn_size index, mn_char chr);
 const mn_char* mn__str_get_data(const mn__str* str);
 int mn__str_cmp(const mn__str* str_a, const mn__str* str_b);
 mn_size mn__str_slen(const mn_char* chars);
+void mn__str_clear(mn__str* str);
 
 /* bits/container/str_view */
 typedef struct mn__str_view {

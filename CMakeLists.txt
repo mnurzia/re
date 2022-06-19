@@ -30,6 +30,7 @@ set(TEST_SOURCES
   tests/test_parse.c 
   tests/test_prog.c 
   tests/test_regr.c 
+  tests/test_rune_data.c 
   tests/test_range.c)
 
 set(FUZZ_SOURCES tests/test_fuzz.c)

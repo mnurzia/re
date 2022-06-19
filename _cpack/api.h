@@ -77,6 +77,18 @@ typedef MN_CHAR_TYPE mn_char;
 
 typedef MN_INT32_TYPE mn_int32;
 
+/* bits/types/fixed/uint16 */
+#if !defined(MN_UINT16_TYPE)
+#if MN__CSTD >= 1999
+#include <stdint.h>
+#define MN_UINT16_TYPE uint16_t
+#else
+#define MN_UINT16_TYPE unsigned short
+#endif
+#endif
+
+typedef MN_UINT16_TYPE mn_uint16;
+
 /* bits/types/fixed/uint32 */
 #if !defined(MN_UINT32_TYPE)
 #if MN__CSTD >= 1999

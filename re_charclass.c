@@ -186,6 +186,11 @@ MN_INTERNAL void re__charclass_builder_invert(re__charclass_builder* builder)
   builder->should_invert = 1;
 }
 
+MN_INTERNAL void re__charclass_builder_fold(re__charclass_builder* builder)
+{
+  builder->should_fold = 1;
+}
+
 /* Insert a range into the builder. */
 /* Inserts in sorted order, that is, all ranges are ordered by their low bound.
  */

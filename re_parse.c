@@ -607,11 +607,8 @@ MN_INTERNAL re_error re__parse_create_rune(re__parse* parse, re_rune ch)
   } else {
     re_rune* fold_runes;
     mn_size fold_runes_size;
-    if ((err = re__rune_data_casefold(
-             &parse->reg->data->rune_data, ch, &fold_runes,
-             &fold_runes_size))) {
-      return err;
-    }
+    re__rune_data_casefold(
+        &parse->reg->data->rune_data, ch, &fold_runes, &fold_runes_size);
     if (fold_runes_size == 1) {
       re__ast new_rune;
       re__ast_init_rune(&new_rune, ch);
@@ -667,10 +664,8 @@ re__parse_charclass_insert_range(re__parse* parse, re__rune_range range)
     while (i <= range.max) {
       mn_size j;
       re__rune_range cur;
-      if ((err = re__rune_data_casefold(
-               &parse->reg->data->rune_data, i, &ranges, &ranges_size))) {
-        return err;
-      }
+      re__rune_data_casefold(
+          &parse->reg->data->rune_data, i, &ranges, &ranges_size);
       for (j = 0; j < ranges_size; j++) {
         cur.min = ranges[j];
         cur.max = ranges[j];

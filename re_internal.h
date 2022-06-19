@@ -150,25 +150,33 @@ MN_INTERNAL int re__charclass_verify(const re__charclass* charclass);
 /* ---------------------------------------------------------------------------
  * Rune data (re_rune_data.c)
  * ------------------------------------------------------------------------ */
-#define RE__RUNE_DATA_IMMEDIATE_STORAGE_SIZE 1
+#define RE__RUNE_DATA_MAX_FOLD_CLASS 4
+
+typedef struct re__rune_data_prop re__rune_data_prop;
+
+struct re__rune_data_prop {
+  const char* property_name;
+  re__rune_range* ranges;
+  mn_size ranges_size;
+  re__rune_data_prop* next;
+};
 
 typedef struct re__rune_data {
-  /* Holds larger sets of ranges. 99% of the time this is not in use. If not
-   * allocated, this is NULL. */
-  re_rune* range_storage;
-  /* Size of range_storage. */
-  mn_size range_storage_size;
-  /* Allocation size of range_storage. */
-  mn_size range_storage_alloc;
   /* Holds smaller sets of ranges. This is used by default. */
-  re_rune immediate_range_storage[RE__RUNE_DATA_IMMEDIATE_STORAGE_SIZE];
+  re_rune fold_storage[RE__RUNE_DATA_MAX_FOLD_CLASS];
+  /* Head of property list. */
+  re__rune_data_prop* properties_head;
 } re__rune_data;
 
 MN_INTERNAL void re__rune_data_init(re__rune_data* rune_data);
 MN_INTERNAL void re__rune_data_destroy(re__rune_data* rune_data);
-MN_INTERNAL re_error re__rune_data_casefold(
+MN_INTERNAL void re__rune_data_casefold(
     re__rune_data* rune_data, re_rune ch, re_rune** runes,
     mn_size* ranges_size);
+MN_INTERNAL re_error re__rune_data_get_property(
+    re__rune_data* rune_data, const char* property_name,
+    mn_size property_name_size, const re__rune_range** ranges_out,
+    mn_size* ranges_size_out);
 
 /* ---------------------------------------------------------------------------
  * Immediate-mode character class builder (re_charclass.c)

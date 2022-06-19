@@ -281,3 +281,5 @@ cython_debug/
 tests/fuzz_bad/
 tests/fuzz_potench/
 tests/fuzz_samples/
+
+tools/unicode_data/
