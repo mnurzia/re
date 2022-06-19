@@ -107,6 +107,11 @@ typedef enum re__charclass_ascii_type {
 /* Initialize the given character class */
 MN_INTERNAL void re__charclass_init(re__charclass* charclass);
 
+/* Initialize the given character class from a set of sorted ranges. */
+MN_INTERNAL re_error re__charclass_init_from_ranges(
+    re__charclass* charclass, const re__rune_range* ranges, mn_size ranges_size,
+    int inverted);
+
 /* Initialize the given character class from the ASCII charclass index, indexed
  * from enum re__charclass_ascii_type, optionally inverted */
 MN_INTERNAL re_error re__charclass_init_from_class(
@@ -219,6 +224,11 @@ MN_INTERNAL re_error re__charclass_builder_insert_range(
 /* Insert another character class into this one */
 MN_INTERNAL re_error re__charclass_builder_insert_class(
     re__charclass_builder* builder, re__charclass* charclass);
+
+/* Inserta set of ranges into this */
+MN_INTERNAL re_error re__charclass_builder_insert_ranges(
+    re__charclass_builder* builder, const re__rune_range* ranges,
+    mn_size ranges_size);
 
 /* Finish building, and output results to the given character class */
 MN_INTERNAL re_error re__charclass_builder_finish(

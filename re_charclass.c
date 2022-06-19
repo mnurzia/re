@@ -93,6 +93,55 @@ re__charclass_ascii_find(mn__str_view name_view)
   return found;
 }
 
+/* ranges must be sorted. */
+MN_INTERNAL re_error re__charclass_init_from_ranges(
+    re__charclass* charclass, const re__rune_range* ranges, mn_size ranges_size,
+    int inverted)
+{
+  re_error err = RE_ERROR_NONE;
+  mn_size i;
+  re__rune_range temp;
+  re_rune last_max = -1;
+  /* Dump found ranges into a char class */
+  re__charclass_init(charclass);
+  for (i = 0; i < ranges_size; i++) {
+    if (inverted) {
+      if (last_max == -1) {
+        temp.min = 0;
+      } else {
+        temp.min = last_max;
+      }
+      temp.max = ranges[i].min - 1;
+      last_max = ranges[i].max + 1;
+    } else {
+      temp.min = ranges[i].min;
+      temp.max = ranges[i].max;
+    }
+    if (temp.max >= temp.min) {
+      if ((err = re__charclass_push(charclass, temp))) {
+        re__charclass_destroy(charclass);
+        return err;
+      }
+    }
+  }
+  if (inverted) {
+    if (last_max == -1) {
+      temp.min = 0;
+      temp.max = RE_RUNE_MAX;
+    } else {
+      temp.min = last_max;
+      temp.max = RE_RUNE_MAX;
+    }
+    if (temp.min != temp.max) {
+      if ((err = re__charclass_push(charclass, temp))) {
+        re__charclass_destroy(charclass);
+        return err;
+      }
+    }
+  }
+  return err;
+}
+
 MN_INTERNAL re_error re__charclass_init_from_ascii(
     re__charclass* charclass, const re__charclass_ascii* ascii_cc, int inverted)
 {
@@ -260,23 +309,32 @@ MN_INTERNAL re_error re__charclass_builder_insert_range(
   }
 }
 
-/* Insert a character class into a builder. */
-/* Used when putting a named character class inside of an unnamed one. */
-MN_INTERNAL re_error re__charclass_builder_insert_class(
-    re__charclass_builder* builder, re__charclass* charclass)
+/* Insert a set of ranges into a builder. */
+MN_INTERNAL re_error re__charclass_builder_insert_ranges(
+    re__charclass_builder* builder, const re__rune_range* ranges,
+    mn_size ranges_size)
 {
   mn_size i;
-  mn_size sz = re__rune_range_vec_size(&charclass->ranges);
   re_error err = RE_ERROR_NONE;
-  for (i = 0; i < sz; i++) {
+  for (i = 0; i < ranges_size; i++) {
     /* Iterate through ranges, adding them all */
     /* Perhaps could be optimized more */
-    re__rune_range cur_range = re__rune_range_vec_get(&charclass->ranges, i);
+    re__rune_range cur_range = ranges[i];
     if ((err = re__charclass_builder_insert_range(builder, cur_range))) {
       return err;
     }
   }
   return err;
+}
+
+/* Insert a character class into a builder. */
+/* Used when putting a named character class inside of an unnamed one. */
+MN_INTERNAL re_error re__charclass_builder_insert_class(
+    re__charclass_builder* builder, re__charclass* charclass)
+{
+  return re__charclass_builder_insert_ranges(
+      builder, re__rune_range_vec_get_data(&charclass->ranges),
+      re__rune_range_vec_size(&charclass->ranges));
 }
 
 MN_INTERNAL re_error re__charclass_builder_finish(

@@ -709,6 +709,98 @@ MN_INTERNAL re_error re__parse_insert_charclass_ascii(
   return err;
 }
 
+/* Either insert a Unicode property into the builder or create a new charclass
+ * out of the property. */
+MN_INTERNAL re_error re__parse_unicode_property(
+    re__parse* parse, int inverted, int accept_classes, int within_charclass)
+{
+  re_error err = RE_ERROR_NONE;
+  re_rune ch;
+  mn_size start_pos;
+  mn_size prev_pos;
+  re__rune_range* ranges;
+  mn_size ranges_size;
+  if (!accept_classes) {
+    return re__parse_error("cannot use Unicode property as range ending "
+                           "character for character class");
+  }
+  if ((err = re__parse_next_char(parse, &ch))) {
+    return err;
+  }
+  if (ch != '{') {
+    return re__parse_error("expected '{' to begin Unicode property name");
+  }
+  name_start = parse->str_pos;
+  while (1) {
+    name_end = parse->str_pos;
+    if ((err = re__parse_next_char(parse, &ch))) {
+      return err;
+    }
+    if (ch == '}') {
+      break;
+    } else if (ch == RE__PARSE_EOF) {
+      return re__parse_error("expected '}' to close Unicode property name");
+    }
+  }
+  if ((err = re__rune_data_get_property(
+           &parse->reg->data->rune_data,
+           mn__str_get_data(&parse->str)[name_start], name_end - name_start,
+           &ranges, &ranges_size))) {
+    if (err == RE_ERROR_INVALID) {
+      return re__parse_error("invalid Unicode property name");
+    }
+    return err;
+  }
+  if (within_charclass) {
+    if (!inverted) {
+      return re__charclass_builder_insert_ranges(
+          &parse->charclass_builder, ranges, ranges_size);
+    } else {
+      re__charclass temp;
+      if ((err = re__charclass_init_from_ranges(
+               &temp, ranges, ranges_size, inverted))) {
+        return err;
+      }
+      err =
+          re__charclass_builder_insert_class(&parse->charclass_builder, &temp);
+      re__charclass_destroy(&temp);
+      return err;
+    }
+  } else {
+    re__charclass out;
+    re__ast new_node;
+    mn_int32 out_charclass_ref;
+    if (!inverted && !(re__parse_get_frame(parse)->flags &
+                       RE__PARSE_FLAG_CASE_INSENSITIVE)) {
+      if ((err =
+               re__charclass_init_from_ranges(&out, ranges, ranges_size, 0))) {
+        return err;
+      }
+    } else {
+      re__charclass_builder_begin(&parse->charclass_builder);
+      if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
+        re__charclass_builder_fold(builder);
+      }
+      if (inverted) {
+        re__charclass_builder_invert(builder);
+      }
+      if ((err = re__charclass_builder_insert_ranges(
+               builder, ranges, ranges_size))) {
+        return err;
+      }
+      if ((err = re__charclass_builder_finish(builder, &out))) {
+        return err;
+      }
+    }
+    if ((err = re__ast_root_add_charclass(
+             &parse->reg->data->ast_root, out, &out_charclass_ref))) {
+      return err;
+    }
+    re__ast_init_charclass(&new_node, out_charclass_ref);
+    return re__parse_link_node(parse, new_node);
+  }
+}
+
 MN_INTERNAL int re__parse_oct(re_rune ch)
 {
   switch (ch) {
@@ -873,7 +965,8 @@ MN_INTERNAL re_error re__parse_escape(
     return re__parse_error(parse, "\\E can only be used from within \\Q");
   } else if (ch == 'P') {
     /* \P | Inverted Unicode character class */
-    return re__parse_error(parse, "unimplemented");
+    return re__parse_unicode_property(
+        parse, 1, accept_classes, within_charclass);
   } else if (ch == 'Q') {
     /* \Q | Quote begin */
     if (!within_charclass) {
@@ -990,7 +1083,8 @@ MN_INTERNAL re_error re__parse_escape(
     *out_char = 0xA;
   } else if (ch == 'p') {
     /* \p | Unicode character class */
-    return re__parse_error(parse, "unimplemented");
+    return re__parse_unicode_property(
+        parse, 0, accept_classes, within_charclass);
   } else if (ch == 'r') {
     /* \r | Carriage return */
     *out_char = 0xD;

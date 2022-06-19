@@ -538,8 +538,6 @@ def decompose_groups(groups):
 def encode_property(matching_chars):
     array_out = bytearray()
     groups = list(group_by(matching_chars))
-    #print("groups_len=",len(groups),"chars_len=",len(matching_chars))
-    #print(list(decompose_groups(groups)))
     uleb128(array_out, len(groups))
     array_out += dzz_encode(list(decompose_groups(groups)))
     return array_out
