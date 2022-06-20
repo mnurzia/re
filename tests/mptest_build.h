@@ -462,6 +462,14 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
 #define ASSERT_GTE(lhs, rhs) _ASSERT_BINOP(lhs, rhs, >=)
 #define ASSERT_LTE(lhs, rhs) _ASSERT_BINOP(lhs, rhs, <=)
 
+#define PROPAGATE(expr)                                                        \
+  do {                                                                         \
+    int _mptest_err = (expr);                                                  \
+    if (_mptest_err != MPTEST__RESULT_PASS) {                                  \
+      return _mptest_err;                                                      \
+    }                                                                          \
+  } while (0)
+
 #if MPTEST_USE_LONGJMP
 
 /* Assert that an assertion failure will occur within statement `stmt`. */
@@ -809,8 +817,8 @@ int mptest__str_cmp(const mptest__str* str_a, const mptest__str* str_b);
 mptest_size mptest__str_slen(const mptest_char* chars);
 void mptest__str_clear(mptest__str* str);
 
-#if MPTEST_USE_DYN_ALLOC
 #if MPTEST_USE_SYM
+#if MPTEST_USE_DYN_ALLOC
 /* bits/container/str_view */
 typedef struct mptest__str_view {
     const mptest_char* _data;
@@ -824,8 +832,8 @@ void mptest__str_view_init_null(mptest__str_view* view);
 mptest_size mptest__str_view_size(const mptest__str_view* view);
 const mptest_char* mptest__str_view_get_data(const mptest__str_view* view);
 int mptest__str_view_cmp(const mptest__str_view* a, const mptest__str_view* b);
-#endif /* MPTEST_USE_DYN_ALLOC */
 #endif /* MPTEST_USE_SYM */
+#endif /* MPTEST_USE_DYN_ALLOC */
 
 #if MPTEST_USE_APARSE
 /* bits/util/ntstr/cmp_n */
@@ -969,8 +977,8 @@ MPTEST_INTERNAL aparse_error aparse__error_print_long_opt(aparse__state* state, 
 MPTEST_INTERNAL aparse_error aparse__error_print_sub_args(aparse__state* state, const aparse__arg* arg);
 #endif /* MPTEST_USE_APARSE */
 
-#if MPTEST_USE_DYN_ALLOC
 #if MPTEST_USE_SYM
+#if MPTEST_USE_DYN_ALLOC
 /* bits/container/vec */
 #define MPTEST__VEC_TYPE(T) \
     MPTEST__PASTE(T, _vec)
@@ -1286,8 +1294,8 @@ MPTEST_INTERNAL aparse_error aparse__error_print_sub_args(aparse__state* state, 
         MPTEST__VEC_SETSIZE(T, vec, cap); \
         return 0; \
     }
-#endif /* MPTEST_USE_DYN_ALLOC */
 #endif /* MPTEST_USE_SYM */
+#endif /* MPTEST_USE_DYN_ALLOC */
 
 /* mptest */
 #ifndef MPTEST_INTERNAL_H
@@ -1927,8 +1935,8 @@ void mptest__str_clear(mptest__str* str) {
     MPTEST__STR_DATA(str)[0] = '\0';
 }
 
-#if MPTEST_USE_DYN_ALLOC
 #if MPTEST_USE_SYM
+#if MPTEST_USE_DYN_ALLOC
 /* bits/container/str_view */
 void mptest__str_view_init(mptest__str_view* view, const mptest__str* other) {
     view->_size = mptest__str_size(other);
@@ -1980,8 +1988,8 @@ int mptest__str_view_cmp(const mptest__str_view* view_a, const mptest__str_view*
     }
     return 0;
 }
-#endif /* MPTEST_USE_DYN_ALLOC */
 #endif /* MPTEST_USE_SYM */
+#endif /* MPTEST_USE_DYN_ALLOC */
 
 #if MPTEST_USE_SYM
 /* bits/types/fixed/int32 */

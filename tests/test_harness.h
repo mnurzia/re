@@ -31,10 +31,10 @@
   ASSERT_PARSE_ERR_NOMEMm(expr, #expr, lab)
 
 /* https://en.wikipedia.org/wiki/UTF-8 */
-#define EX_UTF8_VALID_1 "$"
-#define EX_UTF8_VALID_2 "\xc2\xa3"
-#define EX_UTF8_VALID_3 "\xe0\xa4\xb9"
-#define EX_UTF8_VALID_4 "\xf0\x90\x8d\x88"
+#define EX_UTF8_VALID_1 "$"                /* 36, 0x24 */
+#define EX_UTF8_VALID_2 "\xc2\xa3"         /* 163, 0xA3 */
+#define EX_UTF8_VALID_3 "\xe0\xa4\xb9"     /* 2361, 0x939 */
+#define EX_UTF8_VALID_4 "\xf0\x90\x8d\x88" /* 66376, 0x10348 */
 #define EX_UTF8_INVALID_OVERLONG "\xc0\x81"
 #define EX_UTF8_INVALID_SURROGATE "\xed\xa0\xb0"
 #define EX_UTF8_INVALID_TOOBIG "\xf4\x90\xb0\xb0"
