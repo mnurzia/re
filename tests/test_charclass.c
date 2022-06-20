@@ -21,16 +21,24 @@ int re__charclass_to_sym(sym_build* parent, const re__charclass charclass)
 int re__charclass_from_sym(sym_walk* parent, re__charclass* charclass)
 {
   sym_walk walk;
+  int err = SYM_OK;
   SYM_GET_EXPR(parent, &walk);
   SYM_CHECK_TYPE(&walk, "charclass");
-  {
-    sym_walk range_list;
-    SYM_GET_EXPR(&walk, &range_list);
-    while (SYM_MORE(&range_list)) {
-      re__rune_range rr;
-      SYM_GET_SUB(&range_list, re__rune_range, &rr);
-      re__charclass_push(charclass, rr);
-    }
+  re__charclass_init(charclass);
+  if ((err = re__charclass_from_sym_ranges_only(&walk, charclass))) {
+    return err;
+  }
+  return err;
+}
+
+int re__charclass_from_sym_ranges_only(sym_walk* walk, re__charclass* charclass)
+{
+  sym_walk range_list;
+  SYM_GET_EXPR(walk, &range_list);
+  while (SYM_MORE(&range_list)) {
+    re__rune_range rr;
+    SYM_GET_SUB(&range_list, re__rune_range, &rr);
+    re__charclass_push(charclass, rr);
   }
   return SYM_OK;
 }

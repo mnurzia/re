@@ -6,6 +6,8 @@ MN_INTERNAL void re__compile_patches_init(re__compile_patches* patches)
   patches->last_inst = RE__PROG_LOC_INVALID;
 }
 
+#if 0
+/* I might want to use this later! */
 MN_INTERNAL void re__compile_patches_prepend(
     re__compile_patches* patches, re__prog* prog, re__prog_loc to,
     int secondary)
@@ -27,6 +29,7 @@ MN_INTERNAL void re__compile_patches_prepend(
     patches->first_inst = out_val;
   }
 }
+#endif
 
 MN_INTERNAL void re__compile_patches_append(
     re__compile_patches* patches, re__prog* prog, re__prog_loc to,

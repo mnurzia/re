@@ -231,7 +231,11 @@ int re__ast_root_from_sym_r(
   } else if (type == RE__AST_TYPE_CHARCLASS) {
     re__charclass cc;
     mn_int32 new_cc_ref;
-    SYM_GET_SUB(&walk, re__charclass, &cc);
+    int err = SYM_OK;
+    re__charclass_init(&cc);
+    if ((err = re__charclass_from_sym_ranges_only(&walk, &cc))) {
+      return err;
+    }
     re__ast_root_add_charclass(ast_root, cc, &new_cc_ref);
     re__ast_init_charclass(&ast, new_cc_ref);
   } else if (type == RE__AST_TYPE_CONCAT) {

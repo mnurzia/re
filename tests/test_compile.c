@@ -5,92 +5,113 @@
 #include "test_prog.h"
 #include "test_range.h"
 
-TEST(t_compile_empty)
+TEST(t_compile_gen_utf8_one)
+{
+  mn_uint8 chars[10];
+  int charslen = re__compile_gen_utf8(0x24, chars);
+  ASSERT_EQ(charslen, 1);
+  ASSERT_EQ(chars[0], EX_UTF8_VALID_1[0]);
+  PASS();
+}
+
+TEST(t_compile_gen_utf8_two)
+{
+  mn_uint8 chars[10];
+  int charslen = re__compile_gen_utf8(0xA3, chars);
+  ASSERT_EQ(charslen, 2);
+  ASSERT_EQ(chars[0], (mn_uint8)EX_UTF8_VALID_2[0]);
+  ASSERT_EQ(chars[1], (mn_uint8)EX_UTF8_VALID_2[1]);
+  PASS();
+}
+
+TEST(t_compile_gen_utf8_three)
+{
+  mn_uint8 chars[10];
+  int charslen = re__compile_gen_utf8(0x939, chars);
+  ASSERT_EQ(charslen, 3);
+  ASSERT_EQ(chars[0], (mn_uint8)EX_UTF8_VALID_3[0]);
+  ASSERT_EQ(chars[1], (mn_uint8)EX_UTF8_VALID_3[1]);
+  ASSERT_EQ(chars[2], (mn_uint8)EX_UTF8_VALID_3[2]);
+  PASS();
+}
+
+TEST(t_compile_gen_utf8_four)
+{
+  mn_uint8 chars[10];
+  int charslen = re__compile_gen_utf8(0x10348, chars);
+  ASSERT_EQ(charslen, 4);
+  ASSERT_EQ(chars[0], (mn_uint8)EX_UTF8_VALID_4[0]);
+  ASSERT_EQ(chars[1], (mn_uint8)EX_UTF8_VALID_4[1]);
+  ASSERT_EQ(chars[2], (mn_uint8)EX_UTF8_VALID_4[2]);
+  ASSERT_EQ(chars[3], (mn_uint8)EX_UTF8_VALID_4[3]);
+  PASS();
+}
+
+TEST(t_compile_gen_utf8_toobig)
+{
+  mn_uint8 chars[10];
+  int charslen = re__compile_gen_utf8(0x110000, chars);
+  ASSERT_EQ(charslen, 0);
+  PASS();
+}
+
+int re__compile_test(const char* ast, const char* prog, int reversed)
 {
   re__ast_root ast_root;
-  re__prog prog;
   re__compile compile;
+  re__prog prog_actual;
   re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root, "(ast)", &ast_root);
-  re__prog_init(&prog);
+  SYM(re__ast_root, ast, &ast_root);
   re__compile_init(&compile);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog, 0)) ==
+  re__prog_init(&prog_actual);
+  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, reversed)) ==
       RE_ERROR_NOMEM) {
     goto error;
   } else if (err) {
     FAIL();
   }
-  ASSERT_SYMEQ(
-      re__prog, prog,
+  ASSERT_SYMEQ(re__prog, prog_actual, prog);
+error:
+  re__prog_destroy(&prog_actual);
+  re__compile_destroy(&compile);
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_compile_empty)
+{
+  PROPAGATE(re__compile_test(
+      "(ast)",
       "(prog"
       "  (fail)"
-      "  (match 1 0))");
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__ast_root_destroy(&ast_root);
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_rune_ascii)
 {
-  re__ast_root ast_root;
-  re__prog prog;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
       "  (rune 'a'))",
-      &ast_root);
-  re__prog_init(&prog);
-  re__compile_init(&compile);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT_SYMEQ(
-      re__prog, prog,
       "(prog"
       "  (fail)"
       "  (byte 'a' 2)"
-      "  (match 1 0))");
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__ast_root_destroy(&ast_root);
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_rune_ascii_reversed)
 {
-  re__ast_root ast_root;
-  re__prog prog;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
       "  (rune 'a'))",
-      &ast_root);
-  re__prog_init(&prog);
-  re__compile_init(&compile);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT_SYMEQ(
-      re__prog, prog,
       "(prog"
       "  (fail)"
       "  (byte 'a' 2)"
-      "  (match 1 0))");
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__ast_root_destroy(&ast_root);
+      "  (match 1 0))",
+      1));
   PASS();
 }
 
@@ -156,35 +177,33 @@ error:
 
 TEST(t_compile_str)
 {
-  re__ast_root ast_root;
-  re__prog prog;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
       "  (str test))",
-      &ast_root);
-  re__prog_init(&prog);
-  re__compile_init(&compile);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT_SYMEQ(
-      re__prog, prog,
       "(prog"
       "  (fail)"
       "  (byte 't' 2)"
       "  (byte 'e' 3)"
       "  (byte 's' 4)"
       "  (byte 't' 5)"
-      "  (match 1 0))");
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__ast_root_destroy(&ast_root);
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_str_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (str test))",
+      "(prog"
+      "  (fail)"
+      "  (byte 't' 2)"
+      "  (byte 's' 3)"
+      "  (byte 'e' 4)"
+      "  (byte 't' 5)"
+      "  (match 1 0))",
+      1));
   PASS();
 }
 
@@ -276,596 +295,315 @@ error:
 
 TEST(t_compile_concat)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (concat"
-      "        ("
-      "            (rune 'a')"
-      "            (rune 'b'))))",
-      &ast_root);
-  SYM(re__prog,
+      "  (concat ("
+      "    (rune 'a')"
+      "    (rune 'b'))))",
       "(prog"
-      "    (fail)"
-      "    (byte 'a' 2)"
-      "    (byte 'b' 3)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (byte 'b' 3)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_concat_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (concat ("
+      "    (rune 'a')"
+      "    (rune 'b'))))",
+      "(prog"
+      "  (fail)"
+      "  (byte 'b' 2)"
+      "  (byte 'a' 3)"
+      "  (match 1 0))",
+      1));
   PASS();
 }
 
 TEST(t_compile_alt)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (alt"
-      "        ("
-      "            (rune 'a')"
-      "            (rune 'b'))))",
-      &ast_root);
-  SYM(re__prog,
+      "  (alt ("
+      "    (rune 'a')"
+      "    (rune 'b'))))",
       "(prog"
-      "    (fail)"
-      "    (split 2 3)"
-      "    (byte 'a' 4)"
-      "    (byte 'b' 4)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (split 2 3)"
+      "  (byte 'a' 4)"
+      "  (byte 'b' 4)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_alts)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (alt"
-      "        ("
-      "            (rune 'a')"
-      "            (rune 'b')"
-      "            (rune 'c'))))",
-      &ast_root);
-  SYM(re__prog,
+      "  (alt ("
+      "    (rune 'a')"
+      "    (rune 'b')"
+      "    (rune 'c')"
+      "    (rune 'd'))))",
       "(prog"
-      "    (fail)"
-      "    (split 2 3)"
-      "    (byte 'a' 6)"
-      "    (split 4 5)"
-      "    (byte 'b' 6)"
-      "    (byte 'c' 6)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (split 2 3)"
+      "  (byte 'a' 8)"
+      "  (split 4 5)"
+      "  (byte 'b' 8)"
+      "  (split 6 7)"
+      "  (byte 'c' 8)"
+      "  (byte 'd' 8)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_star)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 0 inf greedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 0 inf greedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (split 2 3)"
-      "    (byte 'a' 1)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (split 2 3)"
+      "  (byte 'a' 1)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_star_nongreedy)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 0 inf nongreedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 0 inf nongreedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (split 3 2)"
-      "    (byte 'a' 1)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (split 3 2)"
+      "  (byte 'a' 1)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_question)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 0 2 greedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 0 2 greedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (split 2 3)"
-      "    (byte 'a' 3)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (split 2 3)"
+      "  (byte 'a' 3)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_question_nongreedy)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 0 2 nongreedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 0 2 nongreedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (split 3 2)"
-      "    (byte 'a' 3)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (split 3 2)"
+      "  (byte 'a' 3)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_plus)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 1 inf greedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 1 inf greedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (byte 'a' 2)"
-      "    (split 1 3)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (split 1 3)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_plus_nongreedy)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 1 inf nongreedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 1 inf nongreedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (byte 'a' 2)"
-      "    (split 3 1)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (split 3 1)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_quantifier_nomax)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 3 inf greedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 3 inf greedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (byte 'a' 2)"
-      "    (byte 'a' 3)"
-      "    (byte 'a' 4)"
-      "    (split 3 5)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (byte 'a' 3)"
+      "  (byte 'a' 4)"
+      "  (split 3 5)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_quantifier_nomax_nongreedy)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 3 inf nongreedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 3 inf nongreedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (byte 'a' 2)"
-      "    (byte 'a' 3)"
-      "    (byte 'a' 4)"
-      "    (split 5 3)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (byte 'a' 3)"
+      "  (byte 'a' 4)"
+      "  (split 5 3)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_quantifier_minmax)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 3 6 greedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 3 6 greedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (byte 'a' 2)"
-      "    (byte 'a' 3)"
-      "    (byte 'a' 4)"
-      "    (split 5 8)"
-      "    (byte 'a' 6)"
-      "    (split 7 8)"
-      "    (byte 'a' 8)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (byte 'a' 3)"
+      "  (byte 'a' 4)"
+      "  (split 5 8)"
+      "  (byte 'a' 6)"
+      "  (split 7 8)"
+      "  (byte 'a' 8)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_quantifier_minmax_nongreedy)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (quantifier 3 6 nongreedy"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (quantifier 3 6 nongreedy"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (byte 'a' 2)"
-      "    (byte 'a' 3)"
-      "    (byte 'a' 4)"
-      "    (split 8 5)"
-      "    (byte 'a' 6)"
-      "    (split 8 7)"
-      "    (byte 'a' 8)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (byte 'a' 3)"
+      "  (byte 'a' 4)"
+      "  (split 8 5)"
+      "  (byte 'a' 6)"
+      "  (split 8 7)"
+      "  (byte 'a' 8)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_group)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (group () 0"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (group () 0"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (save 0 2)"
-      "    (byte 'a' 3)"
-      "    (save 1 4)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (save 0 2)"
+      "  (byte 'a' 3)"
+      "  (save 1 4)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_group_nonmatching)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (group (nonmatching)"
-      "        (rune 'a')))",
-      &ast_root);
-  SYM(re__prog,
+      "  (group (nonmatching)"
+      "    (rune 'a')))",
       "(prog"
-      "    (fail)"
-      "    (byte 'a' 2)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 TEST(t_compile_assert)
 {
-  re__ast_root ast_root;
-  re__prog prog, prog_actual;
-  re__compile compile;
-  re_error err = RE_ERROR_NONE;
-  SYM(re__ast_root,
+  PROPAGATE(re__compile_test(
       "(ast"
-      "    (assert (text_start text_end word word_not)))",
-      &ast_root);
-  SYM(re__prog,
+      "  (assert (text_start text_end word word_not)))",
       "(prog"
-      "    (fail)"
-      "    (assert (text_start text_end word word_not) 2)"
-      "    (match 1 0))",
-      &prog);
-  re__compile_init(&compile);
-  re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
-      RE_ERROR_NOMEM) {
-    goto error;
-  } else if (err) {
-    FAIL();
-  }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
-error:
-  re__compile_destroy(&compile);
-  re__prog_destroy(&prog);
-  re__prog_destroy(&prog_actual);
-  re__ast_root_destroy(&ast_root);
+      "  (fail)"
+      "  (assert (text_start text_end word word_not) 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+/* just test simple compilation, the heavy lifting is done in
+ * re_compile_charclass.c */
+TEST(t_compile_charclass)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (charclass ("
+      "    (rune_range 'a' 'z'))))",
+      "(prog"
+      "  (fail)"
+      "  (byte_range 'a' 'z' 2)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
 SUITE(s_compile)
 {
+  RUN_TEST(t_compile_gen_utf8_one);
+  RUN_TEST(t_compile_gen_utf8_two);
+  RUN_TEST(t_compile_gen_utf8_three);
+  RUN_TEST(t_compile_gen_utf8_four);
+  RUN_TEST(t_compile_gen_utf8_toobig);
   RUN_TEST(t_compile_empty);
   RUN_TEST(t_compile_rune_ascii);
   RUN_TEST(t_compile_rune_ascii_reversed);
   FUZZ_TEST(t_compile_rune_unicode);
   RUN_TEST(t_compile_str);
+  RUN_TEST(t_compile_str_reversed);
   FUZZ_TEST(t_compile_str_thrash);
   RUN_TEST(t_compile_concat);
+  RUN_TEST(t_compile_concat_reversed);
   RUN_TEST(t_compile_alt);
   RUN_TEST(t_compile_alts);
   RUN_TEST(t_compile_star);
@@ -881,4 +619,5 @@ SUITE(s_compile)
   RUN_TEST(t_compile_group);
   RUN_TEST(t_compile_group_nonmatching);
   RUN_TEST(t_compile_assert);
+  RUN_TEST(t_compile_charclass);
 }
