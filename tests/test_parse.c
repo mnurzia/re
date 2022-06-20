@@ -56,10 +56,64 @@ error:
   PASS();
 }
 
+TEST(t_parse_escape_unfinished)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_escape_invalid)
 {
   re reg;
   ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\\xff"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_invalid_char)
+{
+  re reg;
+  char* invalid_escapes = "FGHIJKLMNORTUVXYZceghijklmoquy";
+  while (*invalid_escapes) {
+    char regs[3];
+    regs[0] = '\\';
+    regs[1] = *invalid_escapes;
+    regs[2] = '\0';
+    ASSERT_PARSE_ERR_NOMEM(re_init(&reg, regs), error);
+    re_destroy(&reg);
+    invalid_escapes++;
+  }
+  PASS();
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_literal_hi)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "\\~"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (rune '~'))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_literal_lo)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "\\&"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (rune '&'))");
 error:
   re_destroy(&reg);
   PASS();
@@ -326,10 +380,139 @@ error:
   PASS();
 }
 
-TEST(t_parse_escape_unicode_property)
+TEST(t_parse_escape_unicode_property_ending_range)
 {
   re reg;
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\P"), error);
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "[a-\\p{Cc}]"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_invalid_one)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\p\xFF}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_invalid_two)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\pA"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_empty_name)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\p{}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_invalid_three)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\p{A}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_invalid_four)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\p{\xFF}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_unfinished)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "\\p{"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_valid)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "\\p{Cc}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (charclass ("
+      "    (rune_range 0x00 0x1F)"
+      "    (rune_range 0x7F 0x9F))))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_valid_in_charclass)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "[\\p{Cc}]"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (charclass ("
+      "    (rune_range 0x00 0x1F)"
+      "    (rune_range 0x7F 0x9F))))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_valid_inverted)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "\\P{Cc}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (charclass ("
+      "    (rune_range 0x20 0x7E)"
+      "    (rune_range 0xA0 0x10FFFF))))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_valid_inverted_in_charclass)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "[\\P{Cc}]"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (charclass ("
+      "    (rune_range 0x20 0x7E)"
+      "    (rune_range 0xA0 0x10FFFF))))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_unicode_property_valid_case_insensitive)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?i)\\p{Cc}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (charclass ("
+      "    (rune_range 0x00 0x1F)"
+      "    (rune_range 0x7F 0x9F))))");
 error:
   re_destroy(&reg);
   PASS();
@@ -1138,6 +1321,15 @@ error:
   PASS();
 }
 
+TEST(t_parse_group_flags_invalid)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "(?Q"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_group_named_angle)
 {
   re reg;
@@ -1312,6 +1504,7 @@ TEST(t_parse_group_balance)
     re reg;
     int res = re_init(&reg, mn__str_get_data(&regs));
     if (res == RE_ERROR_NOMEM) {
+      re_destroy(&reg);
       goto error;
     }
     if (balance != 0) {
@@ -1349,20 +1542,10 @@ error:
   PASS();
 }
 
-TEST(t_parse_err_star_nostart)
+TEST(t_parse_star_nothing)
 {
   re reg;
   ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "*"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "(*)"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "(?:*)"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "*?"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "(*?)"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "(?:*?)"), error);
 error:
   re_destroy(&reg);
   PASS();
@@ -1389,26 +1572,10 @@ error:
   PASS();
 }
 
-TEST(t_parse_err_question_nostart)
+TEST(t_parse_question_nothing)
 {
   re reg;
   ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "?"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "(?:?)"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "??"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(
-      re_init(
-          &reg, "(?"
-                "?)"),
-      error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(
-      re_init(
-          &reg, "(?:?"
-                "?)"),
-      error);
 error:
   re_destroy(&reg);
   PASS();
@@ -1435,14 +1602,10 @@ error:
   PASS();
 }
 
-TEST(t_parse_err_plus_nostart)
+TEST(t_parse_plus_nothing)
 {
   re reg;
   ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "+"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "(+)"), error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "(?:+)"), error);
 error:
   re_destroy(&reg);
   PASS();
@@ -1527,6 +1690,25 @@ TEST(t_parse_charclass_ascii)
       "    (rune_range '0' '9')"
       "    (rune_range 'A' 'Z')"
       "    (rune_range 'a' 'z'))))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_escape_charclass_ascii_case_insensitive)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "(?i)\\w"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (charclass ("
+      "    (rune_range '0' '9')"
+      "    (rune_range 'A' 'Z')"
+      "    (rune_range '_' '_')"
+      "    (rune_range 'a' 'z')"
+      "    (rune_range 0x017F 0x017F)"
+      "    (rune_range 0x212A 0x212A))))");
 error:
   re_destroy(&reg);
   PASS();
@@ -2005,6 +2187,15 @@ error:
   PASS();
 }
 
+TEST(t_parse_charclass_eof_after_range)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "[a-z"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_word_boundary)
 {
   re reg;
@@ -2378,13 +2569,218 @@ error:
   PASS();
 }
 
+TEST(t_parse_count_nothing)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "{0,2}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_invalid_one)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{\xFF"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_comma_early)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{,}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_empty)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_invalid_two)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{-"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_lower_zero)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "a{0,}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (quantifier 0 inf greedy"
+      "    (rune 'a')))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_lower_many)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "a{5,}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (quantifier 5 inf greedy"
+      "    (rune 'a')))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_lower_exact_zero)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "a{0}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (quantifier 0 1 greedy"
+      "    (rune 'a')))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_lower_exact_many)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "a{123}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (quantifier 123 124 greedy"
+      "    (rune 'a')))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_lower_invalid_one)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{4\xFF"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_lower_invalid_two)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{6&"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_lower_toobig)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{2001,}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_upper_invalid_one)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{78,\xFF"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_upper)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "a{78,90}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (quantifier 78 91 greedy"
+      "    (rune 'a')))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_upper_invalid_two)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{78,9\xFF"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_upper_invalid_three)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{78,9&"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_upper_toobig)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{1,2002}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_swapped)
+{
+  re reg;
+  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, "a{5,2}"), error);
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
+TEST(t_parse_count_equal)
+{
+  re reg;
+  ASSERT_ERR_NOMEM(re_init(&reg, "a{5,5}"), error);
+  ASSERT_SYMEQ(
+      re__ast_root, reg.data->ast_root,
+      "(ast"
+      "  (quantifier 5 6 greedy"
+      "    (rune 'a')))");
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 SUITE(s_parse)
 {
   RUN_TEST(t_parse_empty);
   RUN_TEST(t_parse_rune);
   RUN_TEST(t_parse_rune_case_insensitive_fold);
   RUN_TEST(t_parse_rune_case_insensitive_nofold);
+  RUN_TEST(t_parse_escape_unfinished);
   RUN_TEST(t_parse_escape_invalid);
+  RUN_TEST(t_parse_escape_invalid_char);
+  RUN_TEST(t_parse_escape_literal_hi);
+  RUN_TEST(t_parse_escape_literal_lo);
   RUN_TEST(t_parse_escape_octal_one);
   RUN_TEST(t_parse_escape_octal_two);
   RUN_TEST(t_parse_escape_octal_three);
@@ -2399,7 +2795,18 @@ SUITE(s_parse)
   RUN_TEST(t_parse_escape_digit_not_in_charclass);
   RUN_TEST(t_parse_escape_digit_not_ending_range);
   RUN_TEST(t_parse_escape_quote_end_unmatched);
-  RUN_TEST(t_parse_escape_unicode_property);
+  RUN_TEST(t_parse_escape_unicode_property_ending_range);
+  RUN_TEST(t_parse_escape_unicode_property_invalid_one);
+  RUN_TEST(t_parse_escape_unicode_property_invalid_two);
+  RUN_TEST(t_parse_escape_unicode_property_empty_name);
+  RUN_TEST(t_parse_escape_unicode_property_invalid_three);
+  RUN_TEST(t_parse_escape_unicode_property_invalid_four);
+  RUN_TEST(t_parse_escape_unicode_property_unfinished);
+  RUN_TEST(t_parse_escape_unicode_property_valid);
+  RUN_TEST(t_parse_escape_unicode_property_valid_in_charclass);
+  RUN_TEST(t_parse_escape_unicode_property_valid_inverted);
+  RUN_TEST(t_parse_escape_unicode_property_valid_inverted_in_charclass);
+  RUN_TEST(t_parse_escape_unicode_property_valid_case_insensitive);
   RUN_TEST(t_parse_escape_quote_empty);
   RUN_TEST(t_parse_escape_quote_empty_unfinished);
   RUN_TEST(t_parse_escape_quote_text);
@@ -2452,6 +2859,7 @@ SUITE(s_parse)
   RUN_TEST(t_parse_escape_hex_bracketed);
   RUN_TEST(t_parse_escape_absolute_text_end);
   RUN_TEST(t_parse_escape_absolute_text_end_in_charclass);
+  RUN_TEST(t_parse_escape_charclass_ascii_case_insensitive);
   RUN_TEST(t_parse_text_end);
   RUN_TEST(t_parse_text_end_multiline);
   RUN_TEST(t_parse_text_start);
@@ -2472,6 +2880,7 @@ SUITE(s_parse)
   RUN_TEST(t_parse_group_flags_multiline_negated);
   RUN_TEST(t_parse_group_flags_stream);
   RUN_TEST(t_parse_group_flags_stream_negated);
+  RUN_TEST(t_parse_group_flags_invalid);
   FUZZ_TEST(t_parse_group_balance);
   RUN_TEST(t_parse_group_named_angle);
   RUN_TEST(t_parse_group_named_angle_invalid);
@@ -2484,11 +2893,11 @@ SUITE(s_parse)
   RUN_TEST(t_parse_group_named_p_unfinished);
   RUN_TEST(t_parse_groups);
   RUN_TEST(t_parse_star);
-  RUN_TEST(t_parse_err_star_nostart);
+  RUN_TEST(t_parse_star_nothing);
   RUN_TEST(t_parse_question);
-  RUN_TEST(t_parse_err_question_nostart);
+  RUN_TEST(t_parse_question_nothing);
   RUN_TEST(t_parse_plus);
-  RUN_TEST(t_parse_err_plus_nostart);
+  RUN_TEST(t_parse_plus_nothing);
   RUN_TEST(t_parse_invalid_after_quantifier);
   RUN_TEST(t_parse_any_char);
   RUN_TEST(t_parse_charclass_one);
@@ -2527,6 +2936,7 @@ SUITE(s_parse)
   RUN_TEST(t_parse_charclass_double_inverted);
   RUN_TEST(t_parse_charclass_reversed);
   RUN_TEST(t_parse_charclass_case_insensitive);
+  RUN_TEST(t_parse_charclass_eof_after_range);
   RUN_TEST(t_parse_word_boundary);
   RUN_TEST(t_parse_word_boundary_not);
   FUZZ_TEST(t_parse_opt_fuse_rune_rune);
@@ -2548,4 +2958,23 @@ SUITE(s_parse)
   RUN_TEST(t_parse_utf_invalid_unfinished);
   RUN_TEST(t_parse_utf_invalid_unfinished_overlong);
   RUN_TEST(t_parse_utf_invalid_undefined);
+  RUN_TEST(t_parse_count_nothing);
+  RUN_TEST(t_parse_count_invalid_one);
+  RUN_TEST(t_parse_count_comma_early);
+  RUN_TEST(t_parse_count_empty);
+  RUN_TEST(t_parse_count_invalid_two);
+  RUN_TEST(t_parse_count_lower_zero);
+  RUN_TEST(t_parse_count_lower_many);
+  RUN_TEST(t_parse_count_lower_exact_zero);
+  RUN_TEST(t_parse_count_lower_exact_many);
+  RUN_TEST(t_parse_count_lower_invalid_one);
+  RUN_TEST(t_parse_count_lower_invalid_two);
+  RUN_TEST(t_parse_count_lower_toobig);
+  RUN_TEST(t_parse_count_upper_invalid_one);
+  RUN_TEST(t_parse_count_upper);
+  RUN_TEST(t_parse_count_upper_invalid_two);
+  RUN_TEST(t_parse_count_upper_invalid_three);
+  RUN_TEST(t_parse_count_upper_toobig);
+  RUN_TEST(t_parse_count_swapped);
+  RUN_TEST(t_parse_count_equal);
 }

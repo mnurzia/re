@@ -369,6 +369,8 @@ re_error re__parse_group_begin(re__parse* parse)
         }
         if (ch == '>') {
           return re__parse_error(parse, "cannot create empty group name");
+        } else if (ch == RE__PARSE_EOF) {
+          return re__parse_error(parse, "unfinished group name");
         }
         while (1) {
           saved_name_pos = parse->str_pos;
@@ -734,7 +736,6 @@ MN_INTERNAL re_error re__parse_unicode_property(
   }
   name_start = parse->str_pos;
   while (1) {
-    name_end = parse->str_pos;
     if ((err = re__parse_next_char(parse, &ch))) {
       return err;
     }
@@ -743,6 +744,8 @@ MN_INTERNAL re_error re__parse_unicode_property(
     } else if (ch == RE__PARSE_EOF) {
       return re__parse_error(
           parse, "expected '}' to close Unicode property name");
+    } else {
+      name_end = parse->str_pos;
     }
   }
   if ((err = re__rune_data_get_property(
@@ -798,6 +801,7 @@ MN_INTERNAL re_error re__parse_unicode_property(
     }
     if ((err = re__ast_root_add_charclass(
              &parse->reg->data->ast_root, out, &out_charclass_ref))) {
+      re__charclass_destroy(&out);
       return err;
     }
     re__ast_init_charclass(&new_node, out_charclass_ref);
@@ -1237,8 +1241,15 @@ MN_INTERNAL re_error re__parse_escape(
     } else {
       return re__parse_error(parse, "cannot use \\z inside character class");
     }
-  } else {
+  } else if (ch >= 'A' && ch <= 'Z') {
+    /* \[A-Z] | Catch-all for invalid escape sequences */
     return re__parse_error(parse, "invalid escape sequence");
+  } else if (ch >= 'a' && ch <= 'z') {
+    /* \[a-z] | Catch-all for invalid escape sequences */
+    return re__parse_error(parse, "invalid escape sequence");
+  } else {
+    /* \* | Literal * */
+    *out_char = ch;
   }
   return err;
 }
@@ -1530,7 +1541,7 @@ MN_INTERNAL re_error re__parse_count(re__parse* parse)
     if (ch == ',') {
       break;
     } else if (ch == '}') {
-      rep_max = rep_min;
+      rep_max = rep_min + 1;
       goto construct;
     }
     if ((temp_num = re__parse_dec(ch)) == -1) {
@@ -1557,6 +1568,7 @@ MN_INTERNAL re_error re__parse_count(re__parse* parse)
     }
   afterfirst:
     if (ch == '}') {
+      rep_max += 1;
       break;
     }
     if ((temp_num = re__parse_dec(ch)) == -1) {
@@ -1565,11 +1577,15 @@ MN_INTERNAL re_error re__parse_count(re__parse* parse)
     }
     rep_max *= 10;
     rep_max += temp_num;
-    if (rep_max > RE__AST_QUANTIFIER_MAX) {
+    /* >= used here because rep_max is one less than the internal rep. */
+    if (rep_max >= RE__AST_QUANTIFIER_MAX) {
       return re__parse_error(parse, "repeat amount exceeds maximum");
     }
   }
 construct:
+  if (rep_max <= rep_min) {
+    return re__parse_error(parse, "max repeat cannot be less than min repeat");
+  }
   re__ast_init_quantifier(&out, rep_min, rep_max);
   re__ast_set_quantifier_greediness(
       &out, !!!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_UNGREEDY));
