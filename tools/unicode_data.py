@@ -568,7 +568,9 @@ def dzz_encode(array_in):
     array_out = bytearray()
     previous = 0
     for ch in array_in:
-        zig_uleb128(array_out, ch - previous)
+        assert ch >= 0
+        # 6/19/22: no need to apply zigzag here, nothing is negative  
+        uleb128(array_out, ch - previous)
         previous = ch
     return array_out
 
