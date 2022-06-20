@@ -31,14 +31,22 @@ static mptest__result test_match2(
   re_error rv2 = 0;
   re_span out_groups;
   mn__str_view_init_s(&text_view, text);
-  ASSERT(!re_init(&reg, regex));
+  rv = re_init(&reg, regex);
+  if (rv == RE_ERROR_NOMEM) {
+    re_destroy(&reg);
+    return RE_ERROR_NOMEM;
+  } else if (rv != 0) {
+    return RE_ERROR_INVALID;
+  }
   rv = re_is_match(&reg, text, mn__str_view_size(&text_view), anchor_type);
   if (rv != RE_MATCH) {
     if (rv == RE_ERROR_NOMEM) {
       re_destroy(&reg);
       return RE_ERROR_NOMEM;
     }
-    ASSERT(rv == RE_NOMATCH);
+    if (rv != RE_NOMATCH) {
+      return RE_ERROR_INVALID;
+    }
   }
   rv2 = re_match_groups(
       &reg, text, mn__str_view_size(&text_view), anchor_type, 1, &out_groups);
@@ -46,14 +54,26 @@ static mptest__result test_match2(
     re_destroy(&reg);
     return RE_ERROR_NOMEM;
   }
-  ASSERT(rv == rv2);
+  if (rv != rv2) {
+    return RE_ERROR_INVALID;
+  }
   if (rv2 != RE_MATCH) {
-    ASSERT(rv == RE_NOMATCH);
-    ASSERT_EQ(bound_start, -1);
-    ASSERT_EQ(bound_end, -1);
+    if (rv != RE_NOMATCH) {
+      return RE_ERROR_INVALID;
+    }
+    if (bound_start != -1) {
+      return RE_ERROR_INVALID;
+    }
+    if (bound_end != -1) {
+      return RE_ERROR_INVALID;
+    }
   } else {
-    ASSERT_EQ((int)out_groups.begin, bound_start);
-    ASSERT_EQ((int)out_groups.end, bound_end);
+    if ((int)out_groups.begin != bound_start) {
+      return RE_ERROR_INVALID;
+    }
+    if ((int)out_groups.end != bound_end) {
+      return RE_ERROR_INVALID;
+    }
   }
   re_destroy(&reg);
   return rv == RE_MATCH;

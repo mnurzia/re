@@ -225,6 +225,7 @@ TEST(t_compile_str_thrash)
   }
   if ((err = re__ast_root_add_str(&ast_root, copy_str, &str_ref)) ==
       RE_ERROR_NOMEM) {
+    mn__str_destroy(&copy_str);
     goto error;
   } else if (err) {
     FAIL();

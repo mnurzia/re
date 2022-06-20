@@ -483,6 +483,7 @@ TEST(t_charclass_init_from_str_alnum)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALNUM, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -496,6 +497,7 @@ TEST(t_charclass_init_from_str_alnum)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALNUM, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -519,6 +521,7 @@ TEST(t_charclass_init_from_str_alpha)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALPHA, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -532,6 +535,7 @@ TEST(t_charclass_init_from_str_alpha)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ALPHA, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -554,6 +558,7 @@ TEST(t_charclass_init_from_str_ascii)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ASCII, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -567,6 +572,7 @@ TEST(t_charclass_init_from_str_ascii)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_ASCII, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -589,6 +595,7 @@ TEST(t_charclass_init_from_str_blank)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_BLANK, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -602,6 +609,7 @@ TEST(t_charclass_init_from_str_blank)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_BLANK, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -624,6 +632,7 @@ TEST(t_charclass_init_from_str_cntrl)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_CNTRL, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -637,6 +646,7 @@ TEST(t_charclass_init_from_str_cntrl)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_CNTRL, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -659,6 +669,7 @@ TEST(t_charclass_init_from_str_digit)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_DIGIT, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -672,6 +683,7 @@ TEST(t_charclass_init_from_str_digit)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_DIGIT, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -694,6 +706,7 @@ TEST(t_charclass_init_from_str_graph)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_GRAPH, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -707,6 +720,7 @@ TEST(t_charclass_init_from_str_graph)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_GRAPH, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -729,6 +743,7 @@ TEST(t_charclass_init_from_str_lower)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_LOWER, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -742,6 +757,7 @@ TEST(t_charclass_init_from_str_lower)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_LOWER, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -765,6 +781,7 @@ TEST(t_charclass_init_from_str_perl_space)
   err = re__charclass_init_from_class(
       &test, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -779,6 +796,7 @@ TEST(t_charclass_init_from_str_perl_space)
   err = re__charclass_init_from_class(
       &test, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -801,6 +819,7 @@ TEST(t_charclass_init_from_str_print)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PRINT, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -814,6 +833,7 @@ TEST(t_charclass_init_from_str_print)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PRINT, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -836,6 +856,7 @@ TEST(t_charclass_init_from_str_punct)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PUNCT, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -849,6 +870,7 @@ TEST(t_charclass_init_from_str_punct)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_PUNCT, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -871,6 +893,7 @@ TEST(t_charclass_init_from_str_space)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_SPACE, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -884,6 +907,7 @@ TEST(t_charclass_init_from_str_space)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_SPACE, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -906,6 +930,7 @@ TEST(t_charclass_init_from_str_upper)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_UPPER, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -919,6 +944,7 @@ TEST(t_charclass_init_from_str_upper)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_UPPER, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -941,6 +967,7 @@ TEST(t_charclass_init_from_str_word)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_WORD, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -954,6 +981,7 @@ TEST(t_charclass_init_from_str_word)
   ASSERT(err == RE_ERROR_NONE);
   err = re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_WORD, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -977,6 +1005,7 @@ TEST(t_charclass_init_from_str_xdigit)
   err =
       re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 0);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);
@@ -991,6 +1020,7 @@ TEST(t_charclass_init_from_str_xdigit)
   err =
       re__charclass_init_from_class(&test, RE__CHARCLASS_ASCII_TYPE_XDIGIT, 1);
   if (err == RE_ERROR_NOMEM) {
+    re__charclass_destroy(&out);
     PASS();
   }
   ASSERT(err == RE_ERROR_NONE);

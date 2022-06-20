@@ -178,25 +178,29 @@ MN_INTERNAL re_error
 re__exec_thrd_set_alloc(re__exec_thrd_set* set, re__prog_loc size)
 {
   re_error err = RE_ERROR_NONE;
+  re__exec_thrd* new_dense = MN_NULL;
+  re__prog_loc* new_sparse = MN_NULL;
   set->size = size;
   if (!set->dense) {
-    set->dense = (re__exec_thrd*)MN_MALLOC(sizeof(re__exec_thrd) * size);
+    new_dense = (re__exec_thrd*)MN_MALLOC(sizeof(re__exec_thrd) * size);
   } else {
-    set->dense =
+    new_dense =
         (re__exec_thrd*)MN_REALLOC(set->dense, sizeof(re__exec_thrd) * size);
   }
-  if (set->dense == MN_NULL) {
+  if (new_dense == MN_NULL) {
     return RE_ERROR_NOMEM;
   }
+  set->dense = new_dense;
   if (!set->sparse) {
-    set->sparse = (re__prog_loc*)MN_MALLOC(sizeof(re__prog_loc) * size);
+    new_sparse = (re__prog_loc*)MN_MALLOC(sizeof(re__prog_loc) * size);
   } else {
-    set->sparse =
+    new_sparse =
         (re__prog_loc*)MN_REALLOC(set->sparse, sizeof(re__prog_loc) * size);
   }
-  if (set->sparse == MN_NULL) {
+  if (new_sparse == MN_NULL) {
     return RE_ERROR_NOMEM;
   }
+  set->sparse = new_sparse;
   return err;
 }
 

@@ -109,6 +109,7 @@ re_error re__exec_dfa_stash_loc_set(
       return RE_ERROR_NOMEM;
     }
     if ((err = mn_uint32_ptr_vec_push(&exec->thrd_loc_pages, thrds_page))) {
+      MN_FREE(thrds_page);
       return err;
     }
   }
@@ -151,6 +152,7 @@ re_error re__exec_dfa_get_new_state(
       return RE_ERROR_NOMEM;
     }
     if ((err = re__exec_dfa_state_ptr_vec_push(&exec->state_pages, page))) {
+      MN_FREE(page);
       return err;
     }
   } else {

@@ -208,7 +208,7 @@ re_error re__match_dfa_driver(
   mn_uint32 match_status = 0;
   re__exec_dfa_init(&exec_dfa, program);
   if ((err = re__exec_dfa_start(&exec_dfa, entry, start_state_flags))) {
-    return err;
+    goto err_destroy_dfa;
   }
   if (!reversed) {
     pos = start_pos;
