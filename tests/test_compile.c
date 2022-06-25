@@ -78,6 +78,23 @@ error:
   PASS();
 }
 
+int re__compile_test_long(const char* ast, const char** progs, int reversed)
+{
+  mn__str temp;
+  const char** i = progs;
+  mn__str_init(&temp);
+  while (*i) {
+    if (mn__str_cat_s(&temp, *i)) {
+      goto error;
+    }
+    i++;
+  }
+  PROPAGATE(re__compile_test(ast, mn__str_get_data(&temp), reversed));
+error:
+  mn__str_destroy(&temp);
+  PASS();
+}
+
 TEST(t_compile_empty)
 {
   PROPAGATE(re__compile_test(
@@ -166,7 +183,7 @@ TEST(t_compile_rune_unicode)
   } else if (err) {
     FAIL();
   }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
+  ASSERT(re__prog_test_equals(&prog, &prog_actual));
 error:
   re__prog_destroy(&prog);
   re__prog_destroy(&prog_actual);
@@ -283,7 +300,7 @@ TEST(t_compile_str_thrash)
   } else if (err) {
     FAIL();
   }
-  ASSERT(re__prog_equals(&prog, &prog_actual));
+  ASSERT(re__prog_test_equals(&prog, &prog_actual));
 error:
   re__prog_destroy(&prog);
   re__prog_destroy(&prog_actual);
@@ -360,6 +377,32 @@ TEST(t_compile_alts)
       "  (split 6 7)"
       "  (byte 'c' 8)"
       "  (byte 'd' 8)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_alts_after)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (concat ("
+      "    (rune 'q')"
+      "    (alt ("
+      "      (rune 'a')"
+      "      (rune 'b')"
+      "      (rune 'c')"
+      "      (rune 'd'))))))",
+      "(prog"
+      "  (fail)"
+      "  (byte 'q' 2)"
+      "  (split 3 4)"
+      "  (byte 'a' 9)"
+      "  (split 5 6)"
+      "  (byte 'b' 9)"
+      "  (split 7 8)"
+      "  (byte 'c' 9)"
+      "  (byte 'd' 9)"
       "  (match 1 0))",
       0));
   PASS();
@@ -545,6 +588,41 @@ TEST(t_compile_group)
   PASS();
 }
 
+TEST(t_compile_group_nested)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (group () 0"
+      "    (group () 1"
+      "      (rune 'a'))))",
+      "(prog"
+      "  (fail)"
+      "  (save 0 2)"
+      "  (save 2 3)"
+      "  (byte 'a' 4)"
+      "  (save 3 5)"
+      "  (save 1 6)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_group_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (group () 0"
+      "    (rune 'a')))",
+      "(prog"
+      "  (fail)"
+      "  (save 1 2)"
+      "  (byte 'a' 3)"
+      "  (save 0 4)"
+      "  (match 1 0))",
+      1));
+  PASS();
+}
+
 TEST(t_compile_group_nonmatching)
 {
   PROPAGATE(re__compile_test(
@@ -559,14 +637,170 @@ TEST(t_compile_group_nonmatching)
   PASS();
 }
 
-TEST(t_compile_assert)
+TEST(t_compile_assert_text_start)
 {
   PROPAGATE(re__compile_test(
       "(ast"
-      "  (assert (text_start text_end word word_not)))",
+      "  (assert (text_start)))",
       "(prog"
       "  (fail)"
-      "  (assert (text_start text_end word word_not) 2)"
+      "  (assert (text_start) 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_assert_text_end)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (text_end)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (text_end) 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_assert_text_start_absolute)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (text_start_absolute)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (text_start_absolute) 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_assert_text_end_absolute)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (text_end_absolute)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (text_end_absolute) 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_assert_word)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (word)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (word) 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_assert_word_not)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (word_not)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (word_not) 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_assert_text_start_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (text_start)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (text_end) 2)"
+      "  (match 1 0))",
+      1));
+  PASS();
+}
+
+TEST(t_compile_assert_text_end_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (text_end)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (text_start) 2)"
+      "  (match 1 0))",
+      1));
+  PASS();
+}
+
+TEST(t_compile_assert_text_start_absolute_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (text_start_absolute)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (text_end_absolute) 2)"
+      "  (match 1 0))",
+      1));
+  PASS();
+}
+
+TEST(t_compile_assert_text_end_absolute_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (text_end_absolute)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (text_start_absolute) 2)"
+      "  (match 1 0))",
+      1));
+  PASS();
+}
+
+TEST(t_compile_assert_word_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (word)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (word) 2)"
+      "  (match 1 0))",
+      1));
+  PASS();
+}
+
+TEST(t_compile_assert_word_not_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (word_not)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (word_not) 2)"
+      "  (match 1 0))",
+      1));
+  PASS();
+}
+
+TEST(t_compile_assert_multiple)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (assert (text_start text_end_absolute word)))",
+      "(prog"
+      "  (fail)"
+      "  (assert (text_start text_end_absolute word) 2)"
       "  (match 1 0))",
       0));
   PASS();
@@ -588,6 +822,204 @@ TEST(t_compile_charclass)
   PASS();
 }
 
+TEST(t_compile_any_char)
+{
+  /* over 512 chars. thanks c89 */
+  /* shamelessly copy-pasted this. not good test etiquette. */
+  const char* expected_prog[] = {
+      "(prog ",
+      "  (fail)",
+      "  (split 2 3)",
+      "  (byte_range 0 9 27)",
+      "  (split 4 5)",
+      "  (byte_range 11 127 27)",
+      "  (split 6 8)",
+      "  (byte_range 194 223 7)",
+      "  (byte_range 128 191 27)",
+      "  (split 9 11)",
+      "  (byte 224 10)",
+      "  (byte_range 160 191 7)",
+      "  (split 12 14)",
+      "  (byte_range 225 236 13)",
+      "  (byte_range 128 191 7)",
+      "  (split 15 17)",
+      "  (byte 237 16)",
+      "  (byte_range 128 159 7)",
+      "  (split 18 19)",
+      "  (byte_range 238 239 13)",
+      "  (split 20 22)",
+      "  (byte 240 21)",
+      "  (byte_range 144 191 13)",
+      "  (split 23 25)",
+      "  (byte_range 241 243 24)",
+      "  (byte_range 128 191 13)",
+      "  (byte 244 26)",
+      "  (byte_range 128 143 13)",
+      "  (match 1 0))",
+      NULL};
+  PROPAGATE(re__compile_test_long(
+      "(ast"
+      "  (any_char))",
+      expected_prog, 0));
+  PASS();
+}
+
+TEST(t_compile_any_char_reversed)
+{
+  const char* expected_prog[] = {
+      "(prog",
+      "(fail)",
+      "(split 2 3)",
+      "(byte_range 0 9 25)",
+      "(split 4 5)",
+      "(byte_range 11 127 25)",
+      "(byte_range 128 191 6)",
+      "(split 7 15)",
+      "(byte_range 128 159 8)",
+      "(split 9 11)",
+      "(byte_range 128 143 10)",
+      "(byte_range 241 244 25)",
+      "(split 12 14)",
+      "(byte_range 144 191 13)",
+      "(byte_range 240 243 25)",
+      "(byte_range 225 239 25)",
+      "(split 16 24)",
+      "(byte_range 160 191 17)",
+      "(split 18 19)",
+      "(byte_range 128 143 10)",
+      "(split 20 21)",
+      "(byte_range 144 191 13)",
+      "(split 22 23)",
+      "(byte_range 224 236 25)",
+      "(byte_range 238 239 25)",
+      "(byte_range 194 223 25)",
+      "(match 1 0))",
+      NULL};
+  PROPAGATE(re__compile_test_long(
+      "(ast"
+      "  (any_char))",
+      expected_prog, 1));
+  PASS();
+}
+
+TEST(t_compile_any_char_newline)
+{
+  const char* expected_prog[] = {
+      "(prog",
+      "  (fail)",
+      "  (split 2 3)",
+      "  (byte_range 0 127 25)",
+      "  (split 4 6)",
+      "  (byte_range 194 223 5)",
+      "  (byte_range 128 191 25)",
+      "  (split 7 9)",
+      "  (byte 224 8)",
+      "  (byte_range 160 191 5)",
+      "  (split 10 12)",
+      "  (byte_range 225 236 11)",
+      "  (byte_range 128 191 5)",
+      "  (split 13 15)",
+      "  (byte 237 14)",
+      "  (byte_range 128 159 5)",
+      "  (split 16 17)",
+      "  (byte_range 238 239 11)",
+      "  (split 18 20)",
+      "  (byte 240 19)",
+      "  (byte_range 144 191 11)",
+      "  (split 21 23)",
+      "  (byte_range 241 243 22)",
+      "  (byte_range 128 191 11)",
+      "  (byte 244 24)",
+      "  (byte_range 128 143 11)",
+      "  (match 1 0))",
+      NULL};
+  PROPAGATE(re__compile_test_long(
+      "(ast"
+      "  (any_char_newline))",
+      expected_prog, 0));
+  PASS();
+}
+
+TEST(t_compile_any_char_newline_reversed)
+{
+  const char* expected_prog[] = {
+      "(prog",
+      "  (fail)",
+      "  (split 2 3)",
+      "  (byte_range 0 127 23)",
+      "  (byte_range 128 191 4)",
+      "  (split 5 13)",
+      "  (byte_range 128 159 6)",
+      "  (split 7 9)",
+      "  (byte_range 128 143 8)",
+      "  (byte_range 241 244 23)",
+      "  (split 10 12)",
+      "  (byte_range 144 191 11)",
+      "  (byte_range 240 243 23)",
+      "  (byte_range 225 239 23)",
+      "  (split 14 22)",
+      "  (byte_range 160 191 15)",
+      "  (split 16 17)",
+      "  (byte_range 128 143 8)",
+      "  (split 18 19)",
+      "  (byte_range 144 191 11)",
+      "  (split 20 21)",
+      "  (byte_range 224 236 23)",
+      "  (byte_range 238 239 23)",
+      "  (byte_range 194 223 23)",
+      "  (match 1 0))",
+      NULL};
+  PROPAGATE(re__compile_test_long(
+      "(ast"
+      "  (any_char_newline))",
+      expected_prog, 1));
+  PASS();
+}
+
+TEST(t_compile_any_byte)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (any_byte))",
+      "(prog"
+      "  (fail)"
+      "  (byte_range 0 255 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_any_byte_reversed)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (any_byte))",
+      "(prog"
+      "  (fail)"
+      "  (byte_range 0 255 2)"
+      "  (match 1 0))",
+      1));
+  PASS();
+}
+
+TEST(t_compile_dotstar)
+{
+  re__prog out_prog;
+  re__prog_inst inst;
+  re__prog_init(&out_prog);
+  re__prog_inst_init_fail(&inst);
+  ASSERT_ERR_NOMEM(re__prog_add(&out_prog, inst), error);
+  re__prog_inst_init_match(&inst, 0);
+  ASSERT_ERR_NOMEM(re__prog_add(&out_prog, inst), error);
+  re__prog_set_entry(&out_prog, RE__PROG_ENTRY_DEFAULT, 1);
+  ASSERT_ERR_NOMEM(
+      re__compile_dotstar(&out_prog, RE__PROG_DATA_ID_DOT_FWD_ACCSURR_ACCNL),
+      error);
+error:
+  re__prog_destroy(&out_prog);
+  PASS();
+}
+
 SUITE(s_compile)
 {
   RUN_TEST(t_compile_gen_utf8_one);
@@ -606,6 +1038,7 @@ SUITE(s_compile)
   RUN_TEST(t_compile_concat_reversed);
   RUN_TEST(t_compile_alt);
   RUN_TEST(t_compile_alts);
+  RUN_TEST(t_compile_alts_after);
   RUN_TEST(t_compile_star);
   RUN_TEST(t_compile_star_nongreedy);
   RUN_TEST(t_compile_question);
@@ -617,7 +1050,28 @@ SUITE(s_compile)
   RUN_TEST(t_compile_quantifier_minmax);
   RUN_TEST(t_compile_quantifier_minmax_nongreedy);
   RUN_TEST(t_compile_group);
+  RUN_TEST(t_compile_group_nested);
+  RUN_TEST(t_compile_group_reversed);
   RUN_TEST(t_compile_group_nonmatching);
-  RUN_TEST(t_compile_assert);
+  RUN_TEST(t_compile_assert_text_start);
+  RUN_TEST(t_compile_assert_text_end);
+  RUN_TEST(t_compile_assert_text_start_absolute);
+  RUN_TEST(t_compile_assert_text_end_absolute);
+  RUN_TEST(t_compile_assert_word);
+  RUN_TEST(t_compile_assert_word_not);
+  RUN_TEST(t_compile_assert_text_start_reversed);
+  RUN_TEST(t_compile_assert_text_end_reversed);
+  RUN_TEST(t_compile_assert_text_start_absolute_reversed);
+  RUN_TEST(t_compile_assert_text_end_absolute_reversed);
+  RUN_TEST(t_compile_assert_word_reversed);
+  RUN_TEST(t_compile_assert_word_not_reversed);
+  RUN_TEST(t_compile_assert_multiple);
   RUN_TEST(t_compile_charclass);
+  RUN_TEST(t_compile_any_char);
+  RUN_TEST(t_compile_any_char_reversed);
+  RUN_TEST(t_compile_any_char_newline);
+  RUN_TEST(t_compile_any_char_newline_reversed);
+  RUN_TEST(t_compile_any_byte);
+  RUN_TEST(t_compile_any_byte_reversed);
+  RUN_TEST(t_compile_dotstar);
 }

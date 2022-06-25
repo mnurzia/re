@@ -231,7 +231,6 @@ MN_INTERNAL int re__compile_gen_utf8(re_rune codep, mn_uint8* out_buf)
     out_buf[3] = (mn_uint8)(((codep >> 0) & 0x3F) | 0x80);
     return 4;
   } else {
-    MN__ASSERT_UNREACHED();
     return 0;
   }
 }
@@ -528,6 +527,7 @@ MN_INTERNAL re_error re__compile_do_quantifier(
     if (max == RE__AST_QUANTIFIER_INFINITY) {
       re__prog_inst new_spl;
       if (min == 0) {
+        MN_ASSERT(int_idx == 0 || int_idx == 1);
         if (int_idx == 0) {
           if (re__ast_get_quantifier_greediness(ast)) {
             re__prog_inst_init_split(
@@ -547,7 +547,7 @@ MN_INTERNAL re_error re__compile_do_quantifier(
           compile->should_push_child = 1;
           compile->should_push_child_ref = ast->first_child_ref;
           frame->ast_child_ref = ast->first_child_ref;
-        } else if (int_idx == 1) {
+        } else { /* int_idx == 1 */
           re__compile_patches_patch(
               &compile->returned_frame.patches, prog, frame->end - 1);
         }
@@ -818,6 +818,7 @@ MN_INTERNAL re_error re__compile_regex(
     }
     compile->should_push_child = 0;
     compile->should_push_child_ref = top_frame.ast_child_ref;
+    MN_ASSERT(top_node_type < RE__AST_TYPE_MAX);
     switch (top_node_type) {
     case RE__AST_TYPE_RUNE:
       err = re__compile_do_rune(compile, &top_frame, top_node, prog);
@@ -853,10 +854,8 @@ MN_INTERNAL re_error re__compile_regex(
     case RE__AST_TYPE_ANY_BYTE:
       err = re__compile_do_any_byte(compile, &top_frame, top_node, prog);
       break;
-    case RE__AST_TYPE_NONE:
+    default: /* RE__AST_TYPE_NONE */
       break;
-    default:
-      MN__ASSERT_UNREACHED();
     }
     if (err) {
       goto error;
@@ -920,18 +919,17 @@ error:
   return err;
 }
 
-MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed)
+MN_INTERNAL re_error
+re__compile_dotstar(re__prog* prog, re__prog_data_id data_id)
 {
   re__compile_patches patches;
   re__prog_loc entry = re__prog_size(prog);
-  re__prog_data_id id = RE__PROG_DATA_ID_DOT_FWD_REJSURR_ACCNL;
   re__prog_inst inst;
   re_error err = RE_ERROR_NONE;
   MN_ASSERT(
       re__prog_get_entry(prog, RE__PROG_ENTRY_DOTSTAR) == RE__PROG_LOC_INVALID);
-  if (reversed) {
-    id = RE__PROG_DATA_ID_DOT_REV_REJSURR_ACCNL;
-  }
+  MN_ASSERT(
+      re__prog_get_entry(prog, RE__PROG_ENTRY_DEFAULT) != RE__PROG_LOC_INVALID);
   re__prog_inst_init_split(
       &inst, re__prog_get_entry(prog, RE__PROG_ENTRY_DEFAULT), entry + 1);
   if ((err = re__prog_add(prog, inst))) {
@@ -939,7 +937,8 @@ MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed)
   }
   re__compile_patches_init(&patches);
   if ((err = re__prog_data_decompress(
-           prog, re__prog_data[id], re__prog_data_size[id], &patches))) {
+           prog, re__prog_data[data_id], re__prog_data_size[data_id],
+           &patches))) {
     return err;
   }
   re__compile_patches_patch(&patches, prog, entry);
