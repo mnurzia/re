@@ -142,7 +142,8 @@ re_error re__match_prepare_progs(
   if (fwd_dotstar) {
     if (re__prog_get_entry(&reg->data->program, RE__PROG_ENTRY_DOTSTAR) ==
         RE__PROG_LOC_INVALID) {
-      if ((err = re__compile_dotstar(&reg->data->program, 0))) {
+      if ((err = re__compile_dotstar(
+               &reg->data->program, RE__PROG_DATA_ID_DOT_FWD_REJSURR_REJNL))) {
         return err;
       }
     }
@@ -160,7 +161,9 @@ re_error re__match_prepare_progs(
     if (re__prog_get_entry(
             &reg->data->program_reverse, RE__PROG_ENTRY_DOTSTAR) ==
         RE__PROG_LOC_INVALID) {
-      if ((err = re__compile_dotstar(&reg->data->program_reverse, 1))) {
+      if ((err = re__compile_dotstar(
+               &reg->data->program_reverse,
+               RE__PROG_DATA_ID_DOT_REV_REJSURR_REJNL))) {
         return err;
       }
     }
