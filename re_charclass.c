@@ -4,6 +4,7 @@ MN__VEC_IMPL_FUNC(re__rune_range, init)
 MN__VEC_IMPL_FUNC(re__rune_range, destroy)
 MN__VEC_IMPL_FUNC(re__rune_range, push)
 MN__VEC_IMPL_FUNC(re__rune_range, get)
+MN__VEC_IMPL_FUNC(re__rune_range, set)
 MN__VEC_IMPL_FUNC(re__rune_range, insert)
 MN__VEC_IMPL_FUNC(re__rune_range, size)
 MN__VEC_IMPL_FUNC(re__rune_range, clear)
@@ -372,146 +373,97 @@ MN_INTERNAL re_error re__charclass_builder_finish(
 {
   re_error err = RE_ERROR_NONE;
   /* Temporary range */
-  re_rune temp_min = -1;
-  re_rune temp_max = -1;
-  re_rune last_temp_max = -1;
-  mn_size i;
+  re__rune_range temp;
+  mn_size read_ptr;
+  mn_size write_ptr = 0;
   mn_size ranges_size = re__rune_range_vec_size(&builder->ranges);
-  re__rune_range new_range;
-  re__charclass_init(charclass);
-  for (i = 0; i < ranges_size; i++) {
-    re__rune_range cur = re__rune_range_vec_get(&builder->ranges, i);
+  re__charclass_inverter inverter;
+  temp.min = -1;
+  temp.max = -1;
+  /* We write back to the range buffer used for building, so we reserve an extra
+   * element for the possibility of the ending [x, RUNE_MAX] range */
+  if ((err = re__rune_range_vec_push(&builder->ranges, temp))) {
+    return err;
+  }
+  re__charclass_inverter_init(&inverter, builder->should_invert);
+  for (read_ptr = 0; read_ptr < ranges_size; read_ptr++) {
+    re__rune_range cur = re__rune_range_vec_get(&builder->ranges, read_ptr);
     MN_ASSERT(cur.min <= cur.max);
-    if (temp_min == -1) {
+    if (temp.min == -1) {
       /* First range */
-      temp_min = cur.min;
-      temp_max = cur.max;
+      temp.min = cur.min;
+      temp.max = cur.max;
       /* Result */
       /* temp_min      temp_max
        * ***************         */
-    } else if (cur.min <= temp_max) {
-      if (cur.max > temp_max) {
-        /* Current range intersects with temp_min/temp_max range */
-        /* temp_min      temp_max
+    } else if (cur.min <= temp.max) {
+      if (cur.max > temp.max) {
+        /* Current range intersects with temp.min/temp.max range */
+        /* temp.min      temp.max
          * ***************
          *             cur.min       cur.max
          *             ***************           */
         /* Extend range */
-        temp_max = cur.max;
+        temp.max = cur.max;
         /* Result: */
-        /* temp_min                  temp_max
+        /* temp.min                  temp.max
          * ***************************         */
       } else {
-        /* Current range is contained within temp_min/temp_max range */
-        /* temp_min      temp_max
+        /* Current range is contained within temp.min/temp.max range */
+        /* temp.min      temp.max
          * ***************
          *  cur.min cur.max
          *  *********         */
         /* Nothing needs to be done */
         /* Result: */
-        /* temp_min      temp_max
+        /* temp.min      temp.max
          * ***************         */
       }
-    } else if (cur.min == temp_max + 1) {
-      /* Current range is adjacent to temp_min/temp_max range */
-      /* temp_min      temp_max
+    } else if (cur.min == temp.max + 1) {
+      /* Current range is adjacent to temp.min/temp.max range */
+      /* temp.min      temp.max
        * ***************
        *                cur.min    cur.max
        *                ************       */
       /* Concatenate range */
-      temp_max = cur.max;
+      temp.max = cur.max;
       /* Result: */
-      /* temp_min                  temp_max
+      /* temp.min                  temp.max
        * ***************************         */
-    } else if (cur.min > temp_max) {
-      /* Current range is outside of temp_min/temp_max range */
-      /* temp_min      temp_max
+    } else if (cur.min > temp.max) {
+      /* Current range is outside of temp.min/temp.max range */
+      /* temp.min      temp.max
        * ***************
        *                      cur.min    cur.max
        *                      ************       */
-      /* Create a new range, and push the temp_min/temp_max range */
-      if (!builder->should_invert) {
-        new_range.min = temp_min;
-        new_range.max = temp_max;
-        if ((err = re__charclass_push(charclass, new_range))) {
-          goto destroy_out;
-        }
-      } else {
-        /* For inverted classes, we need to keep track of the previous
-         * temp_maximum bound so we can "fill in the gaps" */
-        if (last_temp_max == -1) {
-          new_range.min = 0;
-          new_range.max = temp_min - 1;
-        } else {
-          new_range.min = last_temp_max + 1;
-          new_range.max = temp_min - 1;
-        }
-        MN_ASSERT(new_range.min <= new_range.max + 1);
-        if (new_range.min <= new_range.max) {
-          if ((err = re__charclass_push(charclass, new_range))) {
-            goto destroy_out;
-          }
-        }
-        last_temp_max = temp_max;
+      /* Create a new range, and push the temp.min/temp.max range */
+      re__charclass_inverter_push(&inverter, temp);
+      if (re__charclass_inverter_hasnext(&inverter)) {
+        re__rune_range_vec_set(
+            &builder->ranges, write_ptr++,
+            re__charclass_inverter_next(&inverter));
       }
-      temp_min = cur.min;
-      temp_max = cur.max;
+      temp.min = cur.min;
+      temp.max = cur.max;
       /* Result */
-      /* old_temp_min  old_temp_max
+      /* old_temp.min  old_temp.max
        * ***************
-       *                      temp_min   temp_max
+       *                      temp.min   temp.max
        *                      ************         */
     }
   }
-  /* Finished: add the temporary range */
-  if (!builder->should_invert) {
-    if (temp_min == -1) {
-      /* empty class */
-      /* no ranges to add */
-    } else {
-      new_range.min = temp_min;
-      new_range.max = temp_max;
-      if ((err = re__charclass_push(charclass, new_range))) {
-        goto destroy_out;
-      }
-    }
-  } else {
-    /* If we are inverted, add the range *up to* the temporary range */
-    if (last_temp_max == -1) {
-      /* Initial inversion */
-      new_range.min = 0;
-      new_range.max = temp_min - 1;
-    } else {
-      /* Intermediate inversions */
-      new_range.min = last_temp_max + 1;
-      new_range.max = temp_min - 1;
-    }
-    MN_ASSERT(new_range.min <= new_range.max + 1);
-    if (new_range.min <= new_range.max) {
-      /* If the lo/hi are equal, then don't bother */
-      if ((err = re__charclass_push(charclass, new_range))) {
-        goto destroy_out;
-      }
-    }
-    /* Add the final inverted range, the one that goes from the maximum non-
-     * inverted range to infinity (RE_RUNE_MAX) */
-    if (new_range.max < RE_RUNE_MAX && temp_max < RE_RUNE_MAX) {
-      if (temp_max == -1) {
-        /* empty class */
-        new_range.min = 0;
-      } else {
-        new_range.min = temp_max + 1;
-      }
-      new_range.max = RE_RUNE_MAX;
-      if ((err = re__charclass_push(charclass, new_range))) {
-        goto destroy_out;
-      }
-    }
+  re__charclass_inverter_push(&inverter, temp);
+  if (re__charclass_inverter_hasnext(&inverter)) {
+    re__rune_range_vec_set(
+        &builder->ranges, write_ptr++, re__charclass_inverter_next(&inverter));
   }
-  return err;
-destroy_out:
-  re__charclass_destroy(charclass);
-  return err;
+  re__charclass_inverter_end(&inverter);
+  if (re__charclass_inverter_hasnext(&inverter)) {
+    re__rune_range_vec_set(
+        &builder->ranges, write_ptr++, re__charclass_inverter_next(&inverter));
+  }
+  return re__charclass_init_from_ranges(
+      charclass, re__rune_range_vec_get_data(&builder->ranges), write_ptr, 0);
 }
 
 int re__charclass_equals(
