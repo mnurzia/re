@@ -54,6 +54,11 @@ MN_INTERNAL re_error
 re__charclass_push(re__charclass* charclass, re__rune_range range)
 {
   re__rune_range temp;
+  MN_ASSERT(MN__IMPLIES(
+      re__rune_range_vec_size(&charclass->ranges),
+      re__rune_range_vec_get(
+          &charclass->ranges, re__rune_range_vec_size(&charclass->ranges) - 1)
+              .max < range.min));
   MN_ASSERT(range.min <= range.max);
   mn__memset((void*)&temp, 0, sizeof(temp));
   temp.min = range.min;
