@@ -352,14 +352,16 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
 
 #define _ASSERT_PASS_BEHAVIOR(expr, msg)                                       \
   do {                                                                         \
-    mptest__assert_pass(&mptest__state_g, #msg, #expr, __FILE__, __LINE__);    \
+    mptest__assert_pass(&mptest__state_g, msg, #expr, __FILE__, __LINE__);     \
   } while (0)
 
 #define _ASSERT_FAIL_BEHAVIOR(expr, msg)                                       \
   do {                                                                         \
-    mptest__assert_fail(&mptest__state_g, #msg, #expr, __FILE__, __LINE__);    \
+    mptest__assert_fail(&mptest__state_g, msg, #expr, __FILE__, __LINE__);     \
     return MPTEST__RESULT_FAIL;                                                \
   } while (0)
+
+#define _STRIFY(expr) #expr
 
 /* Used for binary assertions (<, >, <=, >=, ==, !=) in order to format error
  * messages correctly. */
@@ -375,9 +377,9 @@ MPTEST_API mptest_rand mptest__fuzz_rand(struct mptest__state* state);
 #define _ASSERT_BINOP(lhs, rhs, op)                                            \
   do {                                                                         \
     if (!((lhs)op(rhs))) {                                                     \
-      _ASSERT_FAIL_BEHAVIOR(lhs op rhs, lhs op rhs);                           \
+      _ASSERT_FAIL_BEHAVIOR(lhs op rhs, _STRIFY(lhs op rhs));                  \
     } else {                                                                   \
-      _ASSERT_PASS_BEHAVIOR(lhs op rhs, lhs op rhs);                           \
+      _ASSERT_PASS_BEHAVIOR(lhs op rhs, _STRIFY(lhs op rhs));                  \
     }                                                                          \
   } while (0)
 
@@ -786,6 +788,12 @@ MPTEST_API void mptest__sym_make_destroy(mptest_sym_build* build_out);
 
 #define MPTEST_INTERNAL_DATA static
 
+#if MPTEST_USE_APARSE
+/* bits/util/ntstr/strstr_n */
+MPTEST_INTERNAL const char*
+mptest__strstr_n(const char* s, const char* sub, mptest_size sub_size);
+#endif /* MPTEST_USE_APARSE */
+
 /* bits/util/preproc/token_paste */
 #define MPTEST__PASTE_0(a, b) a ## b
 #define MPTEST__PASTE(a, b) MPTEST__PASTE_0(a, b)
@@ -834,11 +842,6 @@ const mptest_char* mptest__str_view_get_data(const mptest__str_view* view);
 int mptest__str_view_cmp(const mptest__str_view* a, const mptest__str_view* b);
 #endif /* MPTEST_USE_SYM */
 #endif /* MPTEST_USE_DYN_ALLOC */
-
-#if MPTEST_USE_APARSE
-/* bits/util/ntstr/cmp_n */
-MPTEST_INTERNAL int mptest__scmp_n(const char* a, mptest_size a_size, const char* b);
-#endif /* MPTEST_USE_APARSE */
 
 /* bits/util/ntstr/len */
 MPTEST_INTERNAL mptest_size mptest__slen(const mptest_char* s);
@@ -1652,6 +1655,29 @@ MPTEST_INTERNAL int mptest__sym_parse_do(
 
 #endif /* MPTEST_IMPLEMENTATION */
 #if defined(MPTEST_IMPLEMENTATION)
+#if MPTEST_USE_APARSE
+/* bits/util/ntstr/strstr_n */
+MPTEST_INTERNAL const char*
+mptest__strstr_n(const char* s, const char* sub, mptest_size sub_size) {
+    while (*s) {
+        const char* sa = s;
+        mptest_size pos = 0;
+        while (*sa && (pos != sub_size)) {
+            if (*sa != sub[pos]) {
+                break;
+            }
+            sa++;
+            pos++;
+        }
+        if (pos == sub_size) {
+            return s;
+        }
+        s++;
+    }
+    return MPTEST_NULL;
+}
+#endif /* MPTEST_USE_APARSE */
+
 /* bits/types/char */
 MPTEST__STATIC_ASSERT(mptest__char_is_one_byte, sizeof(mptest_char) == 1);
 
@@ -1997,31 +2023,6 @@ int mptest__str_view_cmp(const mptest__str_view* view_a, const mptest__str_view*
  * that is 32 bits wide. */
 MPTEST__STATIC_ASSERT(mptest__int32_is_4_bytes, sizeof(mptest_int32) == 4);
 #endif /* MPTEST_USE_SYM */
-
-#if MPTEST_USE_APARSE
-/* bits/util/ntstr/cmp_n */
-MPTEST_INTERNAL int mptest__scmp_n(const char* a, mptest_size a_size, const char* b)
-{
-    mptest_size a_pos = 0;
-    while (1) {
-        if (a_pos == a_size) {
-            if (*b != '\0') {
-                return 0;
-            } else {
-                /* *b equals '\0' or '=' */
-                return 1;
-            }
-        }
-        if (*b == '\0' || a[a_pos] != *b) {
-            /* b ended first or a and b do not match */
-            return 0;
-        }
-        a_pos++;
-        b++;
-    }
-    return 0;
-}
-#endif /* MPTEST_USE_APARSE */
 
 /* bits/util/ntstr/len */
 MPTEST_INTERNAL mptest_size mptest__slen(const mptest_char* s) {
@@ -3616,7 +3617,7 @@ MPTEST_INTERNAL int mptest__aparse_match_test_name(
     return 1;
   }
   while (name) {
-    if (mptest__scmp_n(name->name, name->name_len, test_name)) {
+    if (mptest__strstr_n(test_name, name->name, name->name_len)) {
       return 1;
     }
     name = name->next;
@@ -3632,7 +3633,7 @@ MPTEST_INTERNAL int mptest__aparse_match_suite_name(
     return 1;
   }
   while (name) {
-    if (mptest__scmp_n(name->name, name->name_len, suite_name)) {
+    if (mptest__strstr_n(suite_name, name->name, name->name_len)) {
       return 1;
     }
     name = name->next;
