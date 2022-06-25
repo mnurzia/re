@@ -9,6 +9,8 @@ int re__prog_inst_from_sym(sym_walk* parent, re__prog_inst* prog_inst);
 int re__prog_to_sym(sym_build* parent, re__prog prog);
 int re__prog_from_sym(sym_walk* parent, re__prog* prog);
 
-SUITE(s_prog_inst);
+int re__prog_test_equals(re__prog* a, re__prog* b);
+
+SUITE(s_prog);
 
 #endif

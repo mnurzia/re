@@ -121,7 +121,8 @@ MN_INTERNAL mn_uint32 re__prog_inst_get_assert_ctx(const re__prog_inst* inst)
   return inst->_inst_data._assert_context;
 }
 
-MN_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b)
+MN_INTERNAL int
+re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b)
 {
   int eq = 1;
   if (re__prog_inst_get_type(a) != re__prog_inst_get_type(b)) {
@@ -160,7 +161,7 @@ MN__VEC_IMPL_FUNC(re__prog_inst, getcref)
 MN__VEC_IMPL_FUNC(re__prog_inst, set)
 MN__VEC_IMPL_FUNC(re__prog_inst, size)
 
-MN_INTERNAL re_error re__prog_init(re__prog* prog)
+MN_INTERNAL void re__prog_init(re__prog* prog)
 {
   re__prog_inst_vec_init(&prog->_instructions);
   {
@@ -169,7 +170,6 @@ MN_INTERNAL re_error re__prog_init(re__prog* prog)
       prog->_entrypoints[i] = RE__PROG_LOC_INVALID;
     }
   }
-  return RE_ERROR_NONE;
 }
 
 MN_INTERNAL void re__prog_destroy(re__prog* prog)
@@ -193,12 +193,6 @@ re__prog_get_const(const re__prog* prog, re__prog_loc loc)
   return re__prog_inst_vec_getcref(&prog->_instructions, loc);
 }
 
-MN_INTERNAL void
-re__prog_set(re__prog* prog, re__prog_loc loc, re__prog_inst inst)
-{
-  re__prog_inst_vec_set(&prog->_instructions, loc, inst);
-}
-
 MN_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst)
 {
   if (re__prog_size(prog) == RE__PROG_SIZE_MAX) {
@@ -206,20 +200,6 @@ MN_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst)
   } else {
     return re__prog_inst_vec_push(&prog->_instructions, inst);
   }
-}
-
-MN_INTERNAL int re__prog_equals(re__prog* a, re__prog* b)
-{
-  re__prog_loc i;
-  if (re__prog_size(a) != re__prog_size(b)) {
-    return 0;
-  }
-  for (i = 0; i < re__prog_size(a); i++) {
-    if (!re__prog_inst_equals(re__prog_get(a, i), re__prog_get(b, i))) {
-      return 0;
-    }
-  }
-  return 1;
 }
 
 MN_INTERNAL void
