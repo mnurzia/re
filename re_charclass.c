@@ -98,50 +98,90 @@ re__charclass_ascii_find(mn__str_view name_view)
   return found;
 }
 
-/* ranges must be sorted. */
+typedef struct re__charclass_inverter {
+  int should_invert;
+  re__rune_range temp;
+  re_rune last_max;
+} re__charclass_inverter;
+
+void re__charclass_inverter_init(
+    re__charclass_inverter* inverter, int should_invert)
+{
+  inverter->should_invert = should_invert;
+  inverter->temp.min = 0;
+  inverter->temp.max = 0;
+  inverter->last_max = -1;
+}
+void re__charclass_inverter_push(
+    re__charclass_inverter* inverter, re__rune_range range)
+{
+  if (inverter->should_invert) {
+    if (inverter->last_max == -1) {
+      inverter->temp.min = 0;
+    } else {
+      inverter->temp.min = inverter->last_max;
+    }
+    inverter->temp.max = range.min - 1;
+    inverter->last_max = range.max + 1;
+  } else {
+    inverter->temp.min = range.min;
+    inverter->temp.max = range.max;
+  }
+}
+void re__charclass_inverter_end(re__charclass_inverter* inverter)
+{
+  if (inverter->should_invert) {
+    if (inverter->last_max == -1) {
+      inverter->temp.min = 0;
+      inverter->temp.max = RE_RUNE_MAX;
+    } else {
+      inverter->temp.min = inverter->last_max;
+      inverter->temp.max = RE_RUNE_MAX;
+    }
+  } else {
+    inverter->last_max = 0;
+  }
+}
+
+int re__charclass_inverter_hasnext(re__charclass_inverter* inverter)
+{
+  if (inverter->should_invert) {
+    return inverter->temp.max >= inverter->temp.min;
+  } else {
+    return inverter->last_max == -1 && inverter->temp.max >= inverter->temp.min;
+  }
+}
+
+re__rune_range re__charclass_inverter_next(re__charclass_inverter* inverter)
+{
+  return inverter->temp;
+}
+
 MN_INTERNAL re_error re__charclass_init_from_ranges(
     re__charclass* charclass, const re__rune_range* ranges, mn_size ranges_size,
     int inverted)
 {
   re_error err = RE_ERROR_NONE;
   mn_size i;
-  re__rune_range temp;
-  re_rune last_max = -1;
-  /* Dump found ranges into a char class */
+  re__charclass_inverter inverter;
   re__charclass_init(charclass);
+  re__charclass_inverter_init(&inverter, inverted);
   for (i = 0; i < ranges_size; i++) {
-    if (inverted) {
-      if (last_max == -1) {
-        temp.min = 0;
-      } else {
-        temp.min = last_max;
-      }
-      temp.max = ranges[i].min - 1;
-      last_max = ranges[i].max + 1;
-    } else {
-      temp.min = ranges[i].min;
-      temp.max = ranges[i].max;
-    }
-    if (temp.max >= temp.min) {
-      if ((err = re__charclass_push(charclass, temp))) {
+    re__charclass_inverter_push(&inverter, ranges[i]);
+    if (re__charclass_inverter_hasnext(&inverter)) {
+      if ((err = re__charclass_push(
+               charclass, re__charclass_inverter_next(&inverter)))) {
         re__charclass_destroy(charclass);
         return err;
       }
     }
   }
-  if (inverted) {
-    if (last_max == -1) {
-      temp.min = 0;
-      temp.max = RE_RUNE_MAX;
-    } else {
-      temp.min = last_max;
-      temp.max = RE_RUNE_MAX;
-    }
-    if (temp.min != temp.max) {
-      if ((err = re__charclass_push(charclass, temp))) {
-        re__charclass_destroy(charclass);
-        return err;
-      }
+  re__charclass_inverter_end(&inverter);
+  if (re__charclass_inverter_hasnext(&inverter)) {
+    if ((err = re__charclass_push(
+             charclass, re__charclass_inverter_next(&inverter)))) {
+      re__charclass_destroy(charclass);
+      return err;
     }
   }
   return err;
@@ -153,43 +193,28 @@ MN_INTERNAL re_error re__charclass_init_from_ascii(
   re_error err = RE_ERROR_NONE;
   mn_size i;
   re__rune_range temp;
-  re_rune last_max = -1;
+  re__charclass_inverter inverter;
   /* Dump found ranges into a char class */
   re__charclass_init(charclass);
+  re__charclass_inverter_init(&inverter, inverted);
   for (i = 0; i < ascii_cc->num_classes; i++) {
-    if (inverted) {
-      if (last_max == -1) {
-        temp.min = 0;
-        temp.max = ascii_cc->classes[i * 2] - 1;
-      } else {
-        temp.min = last_max;
-        temp.max = ascii_cc->classes[i * 2] - 1;
-      }
-      last_max = ascii_cc->classes[i * 2 + 1] + 1;
-    } else {
-      temp.min = ascii_cc->classes[i * 2];
-      temp.max = ascii_cc->classes[i * 2 + 1];
-    }
-    if (temp.max >= temp.min) {
-      if ((err = re__charclass_push(charclass, temp))) {
+    temp.min = ascii_cc->classes[i * 2];
+    temp.max = ascii_cc->classes[i * 2 + 1];
+    re__charclass_inverter_push(&inverter, temp);
+    if (re__charclass_inverter_hasnext(&inverter)) {
+      if ((err = re__charclass_push(
+               charclass, re__charclass_inverter_next(&inverter)))) {
         re__charclass_destroy(charclass);
         return err;
       }
     }
   }
-  if (inverted) {
-    if (last_max == -1) {
-      temp.min = 0;
-      temp.max = RE_RUNE_MAX;
-    } else {
-      temp.min = last_max;
-      temp.max = RE_RUNE_MAX;
-    }
-    if (temp.min != temp.max) {
-      if ((err = re__charclass_push(charclass, temp))) {
-        re__charclass_destroy(charclass);
-        return err;
-      }
+  re__charclass_inverter_end(&inverter);
+  if (re__charclass_inverter_hasnext(&inverter)) {
+    if ((err = re__charclass_push(
+             charclass, re__charclass_inverter_next(&inverter)))) {
+      re__charclass_destroy(charclass);
+      return err;
     }
   }
   return err;
