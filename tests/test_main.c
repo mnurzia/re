@@ -19,7 +19,6 @@ int main(int argc, char** argv)
   MPTEST_MAIN_BEGIN_ARGS(argc, argv);
   RUN_SUITE(s_regr);
   RUN_SUITE(s_ast);
-  RUN_SUITE(s_ast_root);
   RUN_SUITE(s_charclass);
   RUN_SUITE(s_charclass_builder);
   RUN_SUITE(s_compile);
@@ -29,7 +28,7 @@ int main(int argc, char** argv)
   RUN_SUITE(s_range);
   RUN_SUITE(s_rune_data);
   RUN_SUITE(s_parse);
-  RUN_SUITE(s_prog_inst);
+  RUN_SUITE(s_prog);
   MPTEST_MAIN_END();
   return 0;
 }
