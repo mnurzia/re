@@ -539,7 +539,6 @@ re__ast_root_get_depth(const re__ast_root* ast_root, mn_int32* depth);
 
 MN_INTERNAL void re__ast_root_debug_dump(
     const re__ast_root* ast_root, mn_int32 root_ref, mn_int32 lvl);
-MN_INTERNAL int re__ast_root_verify(const re__ast_root* ast_root);
 
 #endif
 
@@ -795,7 +794,8 @@ MN_INTERNAL mn_uint32 re__prog_inst_get_match_idx(const re__prog_inst* inst);
 MN_INTERNAL mn_uint32 re__prog_inst_get_save_idx(const re__prog_inst* inst);
 
 /* Check if two instructions are equal */
-MN_INTERNAL int re__prog_inst_equals(re__prog_inst* a, re__prog_inst* b);
+MN_INTERNAL int
+re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b);
 
 /* ---------------------------------------------------------------------------
  * Program (re_prog.c)
@@ -822,7 +822,7 @@ typedef struct re__prog {
 } re__prog;
 
 /* Initialize a program. */
-MN_INTERNAL re_error re__prog_init(re__prog* prog);
+MN_INTERNAL void re__prog_init(re__prog* prog);
 
 /* Destroy a program. */
 MN_INTERNAL void re__prog_destroy(re__prog* prog);
@@ -840,9 +840,6 @@ re__prog_get_const(const re__prog* prog, re__prog_loc loc);
 
 /* Add an instruction to the end of the program. */
 MN_INTERNAL re_error re__prog_add(re__prog* prog, re__prog_inst inst);
-
-/* Check if a program is equal to another one. */
-MN_INTERNAL int re__prog_equals(re__prog* a, re__prog* b);
 
 /* Set the given entrypoint of a program to the given location. */
 MN_INTERNAL void
@@ -1167,7 +1164,8 @@ MN_INTERNAL re_error re__compile_regex(
     re__compile* compile, const re__ast_root* ast_root, re__prog* prog,
     int reversed);
 MN_INTERNAL int re__compile_gen_utf8(re_rune codep, mn_uint8* out_buf);
-MN_INTERNAL re_error re__compile_dotstar(re__prog* prog, int reversed);
+MN_INTERNAL re_error
+re__compile_dotstar(re__prog* prog, re__prog_data_id data_id);
 
 /* ---------------------------------------------------------------------------
  * NFA execution context (re_exec_nfa.c)
