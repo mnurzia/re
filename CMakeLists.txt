@@ -77,7 +77,7 @@ endif()
 
 if(COV)
   add_executable(re_cov ${SOURCES} ${TEST_SOURCES})
-  target_compile_definitions(re_cov PUBLIC MN__SPLIT_BUILD MN_DEBUG MN__COVERAGE DEFS)
+  target_compile_definitions(re_cov PUBLIC MN__SPLIT_BUILD MN__COVERAGE DEFS)
   target_compile_options(re_cov PUBLIC "${ANY_OPTS}" "${COV_OPTS}")
   target_compile_options(re_cov PUBLIC "$<$<CONFIG:RELEASE>:${RELEASE_OPTS}>")
   target_compile_options(re_cov PUBLIC "$<$<CONFIG:DEBUG>:${DEBUG_OPTS}>")
