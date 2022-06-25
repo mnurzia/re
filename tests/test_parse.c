@@ -57,6 +57,26 @@ error:
   PASS();
 }
 
+int re__parse_test_errm(const char* regex, const char* msg)
+{
+  re reg;
+  re_error err = RE_ERROR_NONE;
+  if ((err = re_init(&reg, regex))) {
+    if (err == RE_ERROR_NOMEM) {
+      goto error;
+    } else if (err == RE_ERROR_PARSE) {
+      /* fallthrough */
+    } else {
+      ASSERT_EQm(err, RE_ERROR_PARSE, msg);
+    }
+  } else {
+    ASSERT_EQm(err, RE_ERROR_PARSE, msg);
+  }
+error:
+  re_destroy(&reg);
+  PASS();
+}
+
 TEST(t_parse_empty)
 {
   PROPAGATE(re__parse_testm("", "(ast)", "empty regex should compile"));
@@ -677,16 +697,10 @@ TEST(t_parse_escape_hex_twodig_invalid_three)
 
 TEST(t_parse_escape_hex_twodig)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(
-      re_init(&reg, "\\x01\\x23\\x45\\x67\\x89\\xAB\\xCD\\xEF\\xab\\xcd\\xef"),
-      error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_test(
+      "\\x01\\x23\\x45\\x67\\x89\\xAB\\xCD\\xEF\\xab\\xcd\\xef",
       "(ast"
-      "   (str \"\\x01\\x23\\x45\\x67\\x89\\xAB\\xCD\\xEF\\xAB\\xCD\\xEF\"))");
-error:
-  re_destroy(&reg);
+      "   (str \"\\x01\\x23\\x45\\x67\\x89\\xAB\\xCD\\xEF\\xAB\\xCD\\xEF\"))"));
   PASS();
 }
 
@@ -744,71 +758,51 @@ TEST(t_parse_escape_absolute_text_end_in_charclass)
 
 TEST(t_parse_text_end)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "$"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "$",
       "(ast"
       "   (assert (text_end_absolute)))",
-      "$ should create a text_end_absolute ast");
-error:
-  re_destroy(&reg);
+      "$ should create a text_end_absolute ast"));
   PASS();
 }
 
 TEST(t_parse_text_end_multiline)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?m)$"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?m)$",
       "(ast"
       "   (assert (text_end)))",
-      "$ should create a text_end ast when multiline flag is in effect");
-error:
-  re_destroy(&reg);
+      "$ should create a text_end ast when multiline flag is in effect"));
   PASS();
 }
 
 TEST(t_parse_text_start)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "^"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "^",
       "(ast"
       "   (assert (text_start_absolute)))",
-      "^ should create a text_start_absolute ast");
-error:
-  re_destroy(&reg);
+      "^ should create a text_start_absolute ast"));
   PASS();
 }
 
 TEST(t_parse_text_start_multiline)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?m)^"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?m)^",
       "(ast"
       "   (assert (text_start)))",
-      "^ should create a text_start ast when multiline flag is in effect");
-error:
-  re_destroy(&reg);
+      "^ should create a text_start ast when multiline flag is in effect"));
   PASS();
 }
 
 TEST(t_parse_group)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(a)"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(a)",
       "(ast"
       "   (group () 0 (rune 'a')))",
-      "group should create a group");
-error:
-  re_destroy(&reg);
+      "group should create a group"));
   PASS();
 }
 
@@ -820,198 +814,146 @@ TEST(t_parse_group_unfinished)
 
 TEST(t_parse_group_unfinished_invalid)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "(\xff"), "error for invalid byte after group start",
-      error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(
+      re__parse_test_errm("(\xff", "error for invalid byte after group start"));
   PASS();
 }
 
 TEST(t_parse_group_unfinished_question_invalid)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "(?\xff"),
-      "error for invalid byte after group question start", error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_errm(
+      "(?\xff", "error for invalid byte after group question start"));
   PASS();
 }
 
 TEST(t_parse_group_flags_inline)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?U)a*"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?U)a*",
       "(ast"
       "  (quantifier 0 inf nongreedy"
       "    (rune 'a')))",
-      "inline flag should apply to outer nodes");
-error:
-  re_destroy(&reg);
+      "inline flag should apply to outer nodes"));
   PASS();
 }
 
 TEST(t_parse_group_flags_negated)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?U)a*(?-U)a*"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?U)a*(?-U)a*",
       "(ast"
       "  (concat ("
       "    (quantifier 0 inf nongreedy"
       "      (rune 'a'))"
       "    (quantifier 0 inf greedy"
       "      (rune 'a')))))",
-      "inline negated flag should undo previously set flag");
-error:
-  re_destroy(&reg);
+      "inline negated flag should undo previously set flag"));
   PASS();
 }
 
 TEST(t_parse_group_flags_nonmatching)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?:a)"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?:a)",
       "(ast"
       "  (group (nonmatching)"
       "    (rune 'a')))",
-      ": should set group to be nonmatching");
-error:
-  re_destroy(&reg);
+      ": should set group to be nonmatching"));
   PASS();
 }
 
 TEST(t_parse_group_flags_ungreedy)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?U)a*"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?U)a*",
       "(ast"
       "  (quantifier 0 inf nongreedy"
       "    (rune 'a')))",
-      "ungreedy flag should make quantifiers not greedy");
-error:
-  re_destroy(&reg);
+      "ungreedy flag should make quantifiers not greedy"));
   PASS();
 }
 
 TEST(t_parse_group_flags_ungreedy_negated)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?U)a*(?-U)a*"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?U)a*(?-U)a*",
       "(ast"
       "  (concat ("
       "    (quantifier 0 inf nongreedy"
       "      (rune 'a'))"
       "    (quantifier 0 inf greedy"
       "      (rune 'a')))))",
-      "negated ungreedy flag should make quantifiers greedy");
-error:
-  re_destroy(&reg);
+      "negated ungreedy flag should make quantifiers greedy"));
   PASS();
 }
 
 TEST(t_parse_group_flags_case_insensitive)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?i)a"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?i)a",
       "(ast"
       "  (charclass ("
       "    (rune_range 'A' 'A')"
       "    (rune_range 'a' 'a'))))",
-      "case insensitive flag should create a charclass");
-error:
-  re_destroy(&reg);
+      "case insensitive flag should create a charclass"));
   PASS();
 }
 
 TEST(t_parse_group_flags_case_insensitive_negated)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?i)a(?-i)a"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?i)a(?-i)a",
       "(ast"
       "  (concat ("
       "    (charclass ("
       "      (rune_range 'A' 'A')"
       "      (rune_range 'a' 'a')))"
       "    (rune 'a'))))",
-      "negated case insensitive flag should create bare characters");
-error:
-  re_destroy(&reg);
+      "negated case insensitive flag should create bare characters"));
   PASS();
 }
 
 TEST(t_parse_group_flags_multiline)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?m)^"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?m)^",
       "(ast"
       "  (assert (text_start)))",
-      "multiline flag should create an assert with text_start value");
-error:
-  re_destroy(&reg);
+      "multiline flag should create an assert with text_start value"));
   PASS();
 }
 
 TEST(t_parse_group_flags_multiline_negated)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?m)^(?-m)^"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?m)^(?-m)^",
       "(ast"
       "  (concat ("
       "    (assert (text_start))"
       "    (assert (text_start_absolute)))))",
-      "negated multiline flag should create text_start_absolute assert");
-error:
-  re_destroy(&reg);
+      "negated multiline flag should create text_start_absolute assert"));
   PASS();
 }
 
 TEST(t_parse_group_flags_stream)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?s)."), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?s).",
       "(ast"
       "  (any_char_newline))",
-      "stream flag should create an any_char_newline node");
-error:
-  re_destroy(&reg);
+      "stream flag should create an any_char_newline node"));
   PASS();
 }
 
 TEST(t_parse_group_flags_stream_negated)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(?s).(?-s)."), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(?s).(?-s).",
       "(ast"
       "  (concat ("
       "    (any_char_newline)"
       "    (any_char))))",
-      "negated stream flag should create any_char node");
-error:
-  re_destroy(&reg);
+      "negated stream flag should create any_char node"));
   PASS();
 }
 
@@ -1081,50 +1023,42 @@ TEST(t_parse_group_named_p_unfinished)
   PASS();
 }
 
-TEST(t_parse_group_unmatched)
+TEST(t_parse_group_unmatched_left)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEMm(re_init(&reg, ")"), "error for unmatched )", error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "a)"), "error for unmatched ) after contents", error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "())"), "error for unmatched ) after group", error);
-  re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "(aa((()a))))"),
-      "error for unmatched ) after complex nested groups", error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_errm("(", "error for unmatched ("));
+  PROPAGATE(re__parse_test_errm("(a", "error for unmatched ( before contents"));
+  PASS();
+}
+
+TEST(t_parse_group_unmatched_right)
+{
+  PROPAGATE(re__parse_test_errm(")", "error for unmatched )"));
+  PROPAGATE(re__parse_test_errm("a)", "error for unmatched ) after contents"));
+  PROPAGATE(re__parse_test_errm("())", "error for unmatched ) after group"));
+  PROPAGATE(re__parse_test_errm(
+      "(aa((()a))))", "error for unmatched ) after complex nested groups"));
   PASS();
 }
 
 TEST(t_parse_groups)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "(a)(b)"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "(a)(b)",
       "(ast"
       "    (concat"
       "        ("
       "            (group () 0 (rune 'a'))"
       "            (group () 1 (rune 'b')))))",
-      "two adjacent groups should create a concat with two groups");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "(a)(b)(c)"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+      "two adjacent groups should create a concat with two groups"));
+  PROPAGATE(re__parse_testm(
+      "(a)(b)(c)",
       "(ast"
       "    (concat"
       "        ("
       "            (group () 0 (rune 'a'))"
       "            (group () 1 (rune 'b'))"
       "            (group () 2 (rune 'c')))))",
-      "three adjacent groups should create a concat with three groups");
-error:
-  re_destroy(&reg);
+      "three adjacent groups should create a concat with three groups"));
   PASS();
 }
 
@@ -1181,24 +1115,18 @@ error:
 
 TEST(t_parse_star)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "a*"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+  PROPAGATE(re__parse_testm(
+      "a*",
       "(ast"
       "   (quantifier 0 inf greedy"
       "       (rune 'a')))",
-      "* operator should wrap previous nodes with quantifier");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "a*?"), error);
-  ASSERT_SYMEQm(
-      re__ast_root, reg.data->ast_root,
+      "* operator should wrap previous nodes with quantifier"));
+  PROPAGATE(re__parse_testm(
+      "a*?",
       "(ast"
       "   (quantifier 0 inf nongreedy"
       "       (rune 'a')))",
-      "*? operator should non-greedily wrap previous nodes with quantifier");
-error:
-  re_destroy(&reg);
+      "*? operator should non-greedily wrap previous nodes with quantifier"));
   PASS();
 }
 
@@ -1210,22 +1138,14 @@ TEST(t_parse_star_nothing)
 
 TEST(t_parse_question)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "a?"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast"
-      "   (quantifier 0 2 greedy"
-      "       (rune 'a')))");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "a??"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast"
-      "   (quantifier 0 2 nongreedy"
-      "       (rune 'a')))");
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test(
+      "a?", "(ast"
+            "   (quantifier 0 2 greedy"
+            "       (rune 'a')))"));
+  PROPAGATE(re__parse_test(
+      "a??", "(ast"
+             "   (quantifier 0 2 nongreedy"
+             "       (rune 'a')))"));
   PASS();
 }
 
@@ -1237,22 +1157,14 @@ TEST(t_parse_question_nothing)
 
 TEST(t_parse_plus)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "a+"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast"
-      "   (quantifier 1 inf greedy"
-      "       (rune 'a')))");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "a+?"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast"
-      "   (quantifier 1 inf nongreedy"
-      "       (rune 'a')))");
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test(
+      "a+", "(ast"
+            "   (quantifier 1 inf greedy"
+            "       (rune 'a')))"));
+  PROPAGATE(re__parse_test(
+      "a+?", "(ast"
+             "   (quantifier 1 inf nongreedy"
+             "       (rune 'a')))"));
   PASS();
 }
 
@@ -1540,94 +1452,53 @@ TEST(t_parse_err_charclass_unfinished)
 {
 #if 0
   re reg;
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "["), "error if charclass is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[", "error if charclass is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[["), "error if charclass with open bracket is missing ]",
-      error);
+  PROPAGATE(re__parse_test_errm("[[", "error if charclass with open bracket is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[]"), "error if charclass with close bracket is missing ]",
-      error);
+  PROPAGATE(re__parse_test_errm("[]", "error if charclass with close bracket is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[^"), "error if charclass with caret is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[^", "error if charclass with caret is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[\\"), "error if charclass with escape is missing ]",
-      error);
+  PROPAGATE(re__parse_test_errm("[\\", "error if charclass with escape is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[^\\"),
-      "error if charclass with caret and escape is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[^\\", "error if charclass with caret and escape is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[\\a"), "error if charclass with escape char is missing ]",
-      error);
+  PROPAGATE(re__parse_test_errm("[\\a", "error if charclass with escape char is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[^\\a"),
-      "error if charclass with caret and escape is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[^\\a", "error if charclass with caret and escape is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[a"), "error if charclass with letter is missing ]",
-      error);
+  PROPAGATE(re__parse_test_errm("[a", "error if charclass with letter is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[a-"),
-      "error if charclass with unfinished range is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[a-", "error if charclass with unfinished range is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[a-z"), "error if charclass with range is missing ]",
-      error);
+  PROPAGATE(re__parse_test_errm("[a-z", "error if charclass with range is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[ab-z"),
-      "error if charclass with letter and range is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[ab-z", "error if charclass with letter and range is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[a-yz"),
-      "error if charclass with range and letter is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[a-yz", "error if charclass with range and letter is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[^ab-z"),
-      "error if negated charclass with letter and range is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[^ab-z", "error if negated charclass with letter and range is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[^a-yz"),
-      "error if negated charclass with range and letter is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[^a-yz", "error if negated charclass with range and letter is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[:alnum:]"),
-      "error if charclass with named charclass is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[[:alnum:]", "error if charclass with named charclass is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[:"), "error if empty named charclass is missing :]",
-      error);
+  PROPAGATE(re__parse_test_errm("[[:", "error if empty named charclass is missing :]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[:^"), "error if named inverted charclass is missing :]",
-      error);
+  PROPAGATE(re__parse_test_errm("[[:^", "error if named inverted charclass is missing :]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[:aa"), "error if named charclass is missing :]", error);
+  PROPAGATE(re__parse_test_errm("[[:aa", "error if named charclass is missing :]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[:aa:"), "error if named charclass is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[[:aa:", "error if named charclass is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[::"), "error if named charclass is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[[::", "error if named charclass is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[::]"), "error if named charclass is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[[::]", "error if named charclass is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[:^aa:"), "error if named charclass is missing ]", error);
+  PROPAGATE(re__parse_test_errm("[[:^aa:", "error if named charclass is missing ]"));
   re_destroy(&reg);
-  ASSERT_PARSE_ERR_NOMEMm(
-      re_init(&reg, "[[:^aa"), "error if named inverted charclass is missing ]",
-      error);
+  PROPAGATE(re__parse_test_errm("[[:^aa", "error if named inverted charclass is missing ]"));
 error:
   re_destroy(&reg);
 #endif
@@ -1636,28 +1507,22 @@ error:
 
 TEST(t_parse_charclass_inverted)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "[^a]"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (charclass ((rune_range 0 96) (rune_range 98 0x10FFFF))))");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "[^a-z]"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (charclass ((rune_range 0 96) (rune_range 123 0x10FFFF))))");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "[^a-zA-Z]"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (charclass ((rune_range 0 64)"
-      "                (rune_range 91 96)"
-      "                (rune_range 123 0x10FFFF))))");
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test(
+      "[^a]", "(ast "
+              "  (charclass ("
+              "  (rune_range 0 96)"
+              "  (rune_range 98 0x10FFFF))))"));
+  PROPAGATE(re__parse_test(
+      "[^a-z]", "(ast "
+                "  (charclass ("
+                "  (rune_range 0 96)"
+                "  (rune_range 123 0x10FFFF))))"));
+  PROPAGATE(re__parse_test(
+      "[^a-zA-Z]", "(ast "
+                   "  (charclass ("
+                   "  (rune_range 0 64)"
+                   "  (rune_range 91 96)"
+                   "  (rune_range 123 0x10FFFF))))"));
   PASS();
 }
 
@@ -1811,10 +1676,7 @@ error_str_only:
 
 TEST(t_parse_end_maybe_question)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEM(re_init_sz_flags(&reg, "(\x00\x00?", 4, 0), error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_err("(\x00\x00?"));
   PASS();
 }
 
@@ -1892,82 +1754,55 @@ TEST(t_parse_alt_after_concat)
 
 TEST(t_parse_err_alt_nostartend)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "|"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (alt ("
-      "       (concat ())"
-      "       (concat ()))))");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "(|)"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (group () 0"
-      "        (alt ("
-      "           (concat ())"
-      "           (concat ())))))");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "|a|"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (alt ("
-      "       (concat ())"
-      "       (rune 0x61)"
-      "       (concat ()))))");
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test(
+      "|", "(ast "
+           "    (alt ("
+           "       (concat ())"
+           "       (concat ()))))"));
+  PROPAGATE(re__parse_test(
+      "(|)", "(ast "
+             "    (group () 0"
+             "        (alt ("
+             "           (concat ())"
+             "           (concat ())))))"));
+  PROPAGATE(re__parse_test(
+      "|a|", "(ast "
+             "    (alt ("
+             "       (concat ())"
+             "       (rune 0x61)"
+             "       (concat ()))))"));
   PASS();
 }
 
 TEST(t_parse_err_alt_nostart)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "|a"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (alt ("
-      "       (concat ())"
-      "       (rune 0x61))))");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "|a|a"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (alt ("
-      "       (concat ())"
-      "       (rune 0x61)"
-      "       (rune 0x61))))");
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test(
+      "|a", "(ast "
+            "  (alt ("
+            "   (concat ())"
+            "   (rune 0x61))))"));
+  PROPAGATE(re__parse_test(
+      "|a|a", "(ast "
+              "  (alt ("
+              "    (concat ())"
+              "    (rune 0x61)"
+              "    (rune 0x61))))"));
   PASS();
 }
 
 TEST(t_parse_err_alt_noend)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, "a|"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (alt ("
-      "       (rune 0x61)"
-      "       (concat ())))))");
-  re_destroy(&reg);
-  ASSERT_ERR_NOMEM(re_init(&reg, "a|a|"), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast "
-      "    (alt ("
-      "       (rune 0x61)"
-      "       (rune 0x61)"
-      "       (concat ())))))");
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test(
+      "a|", "(ast "
+            "  (alt ("
+            "    (rune 0x61)"
+            "    (concat ())))))"));
+  PROPAGATE(re__parse_test(
+      "a|a|", "(ast "
+              "  (alt ("
+              "    (rune 0x61)"
+              "    (rune 0x61)"
+              "    (concat ())))))"));
   PASS();
 }
 
@@ -1975,7 +1810,7 @@ TEST(t_parse_utf_valid_1)
 {
   PROPAGATE(re__parse_test(
       "$", "(ast"
-           "    (assert (text_end_absolute)))"));
+           "  (assert (text_end_absolute)))"));
   PASS();
 }
 
@@ -1983,7 +1818,7 @@ TEST(t_parse_utf_valid_2)
 {
   PROPAGATE(re__parse_test(
       "\xc2\xa3", "(ast"
-                  "    (rune 163))"));
+                  "  (rune 163))"));
   PASS();
 }
 
@@ -1991,75 +1826,51 @@ TEST(t_parse_utf_valid_3)
 {
   PROPAGATE(re__parse_test(
       "\xe0\xa4\xb9", "(ast"
-                      "    (rune 2361))"));
+                      "  (rune 2361))"));
   PASS();
 }
 
 TEST(t_parse_utf_valid_4)
 {
-  re reg;
-  ASSERT_ERR_NOMEM(re_init(&reg, EX_UTF8_VALID_4), error);
-  ASSERT_SYMEQ(
-      re__ast_root, reg.data->ast_root,
-      "(ast"
-      "    (rune 66376))");
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test(
+      EX_UTF8_VALID_4, "(ast"
+                       "  (rune 66376))"));
   PASS();
 }
 
 TEST(t_parse_utf_invalid_overlong)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_OVERLONG), error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_err(EX_UTF8_INVALID_OVERLONG));
   PASS();
 }
 
 TEST(t_parse_utf_invalid_surrogate)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_SURROGATE), error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_err(EX_UTF8_INVALID_SURROGATE));
   PASS();
 }
 
 TEST(t_parse_utf_invalid_toobig)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_TOOBIG), error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_err(EX_UTF8_INVALID_TOOBIG));
   PASS();
 }
 
 TEST(t_parse_utf_invalid_unfinished)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_UNFINISHED), error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_err(EX_UTF8_INVALID_UNFINISHED));
   PASS();
 }
 
 TEST(t_parse_utf_invalid_unfinished_overlong)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEM(
-      re_init(&reg, EX_UTF8_INVALID_UNFINISHED_OVERLONG), error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_err(EX_UTF8_INVALID_UNFINISHED_OVERLONG));
   PASS();
 }
 
 TEST(t_parse_utf_invalid_undefined)
 {
-  re reg;
-  ASSERT_PARSE_ERR_NOMEM(re_init(&reg, EX_UTF8_INVALID_UNDEFINED), error);
-error:
-  re_destroy(&reg);
+  PROPAGATE(re__parse_test_err(EX_UTF8_INVALID_UNDEFINED));
   PASS();
 }
 
@@ -2291,7 +2102,8 @@ SUITE(s_parse)
   RUN_TEST(t_parse_text_start_multiline);
   RUN_TEST(t_parse_group);
   RUN_TEST(t_parse_group_unfinished);
-  RUN_TEST(t_parse_group_unmatched);
+  RUN_TEST(t_parse_group_unmatched_left);
+  RUN_TEST(t_parse_group_unmatched_right);
   RUN_TEST(t_parse_group_unfinished_invalid);
   RUN_TEST(t_parse_group_unfinished_question_invalid);
   RUN_TEST(t_parse_group_flags_inline);
