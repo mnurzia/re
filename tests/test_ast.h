@@ -11,6 +11,4 @@ int re__ast_root_from_sym(sym_walk* parent, re__ast_root* ast_root);
 int re__assert_type_to_sym(sym_build* parent, re__assert_type assert_type);
 int re__assert_type_from_sym(sym_walk* parent, re__assert_type* assert_type);
 
-SUITE(s_ast_root);
-
 #endif

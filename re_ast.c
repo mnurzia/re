@@ -229,6 +229,10 @@ re__ast_root_get_const(const re__ast_root* ast_root, mn_int32 ast_ref)
 MN_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, mn_int32 ast_ref)
 {
   re__ast* empty = re__ast_root_get(ast_root, ast_ref);
+  MN_ASSERT(empty->first_child_ref == RE__AST_NONE);
+  MN_ASSERT(empty->last_child_ref == RE__AST_NONE);
+  MN_ASSERT(empty->next_sibling_ref == RE__AST_NONE);
+  MN_ASSERT(empty->prev_sibling_ref == RE__AST_NONE);
   if (ast_root->root_ref == ast_ref) {
     ast_root->root_ref = RE__AST_NONE;
   }
@@ -249,11 +253,6 @@ MN_INTERNAL void re__ast_root_replace(
   replacement.prev_sibling_ref = loc->prev_sibling_ref;
   replacement.last_child_ref = loc->last_child_ref;
   *loc = replacement;
-}
-
-MN_INTERNAL mn_int32 re__ast_root_size(const re__ast_root* ast_root)
-{
-  return (mn_int32)re__ast_vec_size(&ast_root->ast_vec);
 }
 
 MN_INTERNAL re_error
@@ -340,11 +339,6 @@ MN_INTERNAL re_error re__ast_root_add_wrap(
   if ((err = re__ast_root_new(ast_root, ast_outer, out_ref))) {
     return err;
   }
-  /* If parent is root, then we *must* be wrapping root. */
-  /*if (parent_ref == RE__AST_NONE) {
-      MN_ASSERT(inner_ref == ast_root->root_ref);
-      ast_root->root_ref = *out_ref;
-  }*/
   inner = re__ast_root_get(ast_root, inner_ref);
   outer = re__ast_root_get(ast_root, *out_ref);
   if (parent_ref != RE__AST_NONE) {
@@ -466,9 +460,8 @@ re__ast_root_get_depth(const re__ast_root* ast_root, mn_int32* depth)
     if (top_child_ref != RE__AST_NONE) {
       const re__ast* top_child =
           re__ast_root_get_const(ast_root, top_child_ref);
-      if ((err = mn_int32_vec_push(&stk, top_child->next_sibling_ref))) {
-        goto error;
-      }
+      /* this will never fire an error */
+      mn_int32_vec_push(&stk, top_child->next_sibling_ref);
       if (top_child->first_child_ref != RE__AST_NONE) {
         /* child has children */
         if ((err = mn_int32_vec_push(&stk, top_child->first_child_ref))) {
@@ -737,20 +730,5 @@ cont:
     return re__ast_root_verify_depth(ast_root, ast_root->root_ref, ast_root->depth_max);
 }
 #endif
-
-MN_INTERNAL int re__ast_root_verify_depth(
-    const re__ast_root* ast_root, mn_int32 start_ref, mn_int32 depth)
-{
-  MN__UNUSED(ast_root);
-  MN__UNUSED(start_ref);
-  MN__UNUSED(depth);
-  return 1;
-}
-
-MN_INTERNAL int re__ast_root_verify(const re__ast_root* ast_root)
-{
-  MN__UNUSED(ast_root);
-  return 1;
-}
 
 #endif

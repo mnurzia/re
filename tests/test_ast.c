@@ -3,6 +3,8 @@
 #include "test_charclass.h"
 #include "test_range.h"
 
+SUITE(s_ast_root);
+
 const char* ast_sym_types[RE__AST_TYPE_MAX] = {"none",
                                                "rune",
                                                "str",
@@ -179,13 +181,15 @@ int re__ast_root_to_sym(sym_build* parent, re__ast_root ast_root)
 {
   sym_build build;
   int err;
+  mn_int32 ref = ast_root.root_ref;
   SYM_PUT_EXPR(parent, &build);
   SYM_PUT_TYPE(&build, "ast");
-  if (ast_root.root_ref != RE__AST_NONE) {
-    re__ast* ast = re__ast_root_get(&ast_root, ast_root.root_ref);
+  while (ref != RE__AST_NONE) {
+    re__ast* ast = re__ast_root_get(&ast_root, ref);
     if ((err = re__ast_root_to_sym_r(&build, &ast_root, ast))) {
       return err;
     }
+    ref = ast->next_sibling_ref;
   }
   return SYM_OK;
 }
@@ -307,6 +311,8 @@ int re__ast_root_from_sym_r(
     re__ast_init_assert(&ast, assert_type);
   } else if (type == RE__AST_TYPE_ANY_CHAR) {
     re__ast_init_any_char(&ast);
+  } else if (type == RE__AST_TYPE_ANY_CHAR_NEWLINE) {
+    re__ast_init_any_char_newline(&ast);
   } else if (type == RE__AST_TYPE_ANY_BYTE) {
     re__ast_init_any_byte(&ast);
   } else {
@@ -353,6 +359,21 @@ int re__ast_root_from_sym(sym_walk* parent, re__ast_root* ast_root)
     }
   }
   return SYM_OK;
+}
+
+int re__ast_root_verify_depth(
+    const re__ast_root* ast_root, mn_int32 start_ref, mn_int32 depth)
+{
+  MN__UNUSED(ast_root);
+  MN__UNUSED(start_ref);
+  MN__UNUSED(depth);
+  return 1;
+}
+
+int re__ast_root_verify(const re__ast_root* ast_root)
+{
+  MN__UNUSED(ast_root);
+  return 1;
 }
 
 TEST(t_ast_init_rune)
@@ -464,6 +485,15 @@ TEST(t_ast_init_any_char)
   PASS();
 }
 
+TEST(t_ast_init_any_char_newline)
+{
+  re__ast ast;
+  re__ast_init_any_char_newline(&ast);
+  ASSERT_EQ(ast.type, RE__AST_TYPE_ANY_CHAR_NEWLINE);
+  re__ast_destroy(&ast);
+  PASS();
+}
+
 TEST(t_ast_init_any_byte)
 {
   re__ast ast;
@@ -486,6 +516,7 @@ SUITE(s_ast_init)
   RUN_TEST(t_ast_init_group_named);
   FUZZ_TEST(t_ast_init_assert);
   FUZZ_TEST(t_ast_init_any_char);
+  FUZZ_TEST(t_ast_init_any_char_newline);
   FUZZ_TEST(t_ast_init_any_byte);
 }
 
@@ -546,6 +577,35 @@ TEST(t_ast_assert_type)
   PASS();
 }
 
+TEST(t_ast_group_flags)
+{
+  re__ast ast;
+  re__ast_group_flags group_flags =
+      RE__AST_GROUP_FLAG_NAMED | RE__AST_GROUP_FLAG_NONMATCHING;
+  re__ast_init_group(&ast, 0, group_flags);
+  ASSERT_EQ(re__ast_get_group_flags(&ast), group_flags);
+  re__ast_destroy(&ast);
+  PASS();
+}
+
+TEST(t_ast_group_idx)
+{
+  re__ast ast;
+  re__ast_init_group(&ast, 10, 0);
+  ASSERT_EQ(re__ast_get_group_idx(&ast), 10);
+  re__ast_destroy(&ast);
+  PASS();
+}
+
+TEST(t_ast_str_ref)
+{
+  re__ast ast;
+  re__ast_init_str(&ast, 10);
+  ASSERT_EQ(re__ast_get_str_ref(&ast), 10);
+  re__ast_destroy(&ast);
+  PASS();
+}
+
 SUITE(s_ast)
 {
   RUN_SUITE(s_ast_init);
@@ -553,6 +613,10 @@ SUITE(s_ast)
   FUZZ_TEST(t_ast_quantifier_minmax);
   FUZZ_TEST(t_ast_get_rune);
   FUZZ_TEST(t_ast_assert_type);
+  FUZZ_TEST(t_ast_group_flags);
+  FUZZ_TEST(t_ast_group_idx);
+  FUZZ_TEST(t_ast_str_ref);
+  RUN_SUITE(s_ast_root);
 }
 
 TEST(t_ast_root_init)
@@ -588,7 +652,9 @@ TEST(t_ast_root_addget)
   for (i = 0; i < l; i++) {
     mn_int32 ref = refs[i];
     re__ast* ast = re__ast_root_get(&ast_root, ref);
+    const re__ast* ast_c = re__ast_root_get_const(&ast_root, ref);
     ASSERT_EQ(re__ast_get_rune(ast), i);
+    ASSERT_EQ(re__ast_get_rune(ast_c), i);
   }
   ASSERT(re__ast_root_verify(&ast_root));
 error:
@@ -667,7 +733,373 @@ error:
   PASS();
 }
 
+TEST(t_ast_root_strs)
+{
+  re__ast_root ast_root;
+  mn_int32 ast_ref;
+  mn_size i;
+  mn_size niters = RAND_PARAM(100);
+  mn__str new_str;
+  mn__str_init(&new_str);
+  re__ast_root_init(&ast_root);
+  for (i = 0; i < niters; i++) {
+    char* contents = "TESTTESTTESTTESTTESTTEST"; /* force past SSO */
+    mn_int32 str_ref;
+    re__ast new_ast;
+    mn__str* actual_str;
+    mn__str_view a, b;
+    ASSERT_ERR_NOMEM(mn__str_init_s(&new_str, contents), error);
+    /* clear */
+    ASSERT_ERR_NOMEM(re__ast_root_add_str(&ast_root, new_str, &str_ref), error);
+    mn__str_init(&new_str);
+    re__ast_init_str(&new_ast, str_ref);
+    ASSERT_ERR_NOMEM(
+        re__ast_root_add_child(&ast_root, RE__AST_NONE, new_ast, &ast_ref),
+        error);
+    actual_str = re__ast_root_get_str(&ast_root, str_ref);
+    mn__str_view_init(&a, actual_str);
+    mn__str_view_init_s(&b, contents);
+    ASSERT_EQ(mn__str_view_cmp(&a, &b), 0);
+    a = re__ast_root_get_str_view(&ast_root, str_ref);
+    ASSERT_EQ(mn__str_view_cmp(&a, &b), 0);
+  }
+error:
+  mn__str_destroy(&new_str);
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_classes)
+{
+  re__ast_root ast_root;
+  mn_int32 ast_ref;
+  mn_size i;
+  mn_size niters = RAND_PARAM(100);
+  re__charclass new_class;
+  re__charclass expected_class;
+  re__charclass_init(&new_class);
+  re__charclass_init(&expected_class);
+  re__ast_root_init(&ast_root);
+  for (i = 0; i < niters; i++) {
+    mn_int32 class_ref;
+    re__ast new_ast;
+    int invert = RAND_PARAM(2);
+    const re__charclass* actual_class;
+    re__charclass_ascii_type atype = RAND_PARAM(RE__CHARCLASS_ASCII_TYPE_MAX);
+    ASSERT_ERR_NOMEM(
+        re__charclass_init_from_class(&new_class, atype, invert), error_root);
+    ASSERT_ERR_NOMEM(
+        re__charclass_init_from_class(&expected_class, atype, invert),
+        error_new);
+    ASSERT_ERR_NOMEM(
+        re__ast_root_add_charclass(&ast_root, new_class, &class_ref),
+        error_expected);
+    re__charclass_init(&new_class);
+    re__ast_init_charclass(&new_ast, class_ref);
+    ASSERT_ERR_NOMEM(
+        re__ast_root_add_child(&ast_root, RE__AST_NONE, new_ast, &ast_ref),
+        error_expected);
+    actual_class = re__ast_root_get_charclass(&ast_root, class_ref);
+    {
+      mn_size j;
+      ASSERT_EQ(
+          re__charclass_get_num_ranges(actual_class),
+          re__charclass_get_num_ranges(&expected_class));
+      for (j = 0; j < re__charclass_get_num_ranges(actual_class); j++) {
+        re__rune_range actual_range = re__charclass_get_ranges(actual_class)[j];
+        re__rune_range expected_range =
+            re__charclass_get_ranges(&expected_class)[j];
+        ASSERT_EQ(actual_range.max, expected_range.max);
+        ASSERT_EQ(actual_range.min, expected_range.min);
+      }
+    }
+  }
+error_expected:
+  re__charclass_destroy(&expected_class);
+error_new:
+  re__charclass_destroy(&new_class);
+error_root:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_groupnames)
+{
+  re__ast_root ast_root;
+  mn_int32 ast_ref;
+  mn_size i;
+  mn_size niters = RAND_PARAM(100);
+  mn__str_view new_view, actual_view;
+  re__ast_root_init(&ast_root);
+  for (i = 0; i < niters; i++) {
+    char* contents = "TESTTESTTESTTESTTESTTEST";
+    re__ast new_ast;
+    mn__str_view_init_s(&new_view, contents);
+    /* clear */
+    ASSERT_ERR_NOMEM(re__ast_root_add_group(&ast_root, new_view), error);
+    re__ast_init_group(&new_ast, (mn_uint32)i, 0);
+    ASSERT_ERR_NOMEM(
+        re__ast_root_add_child(&ast_root, RE__AST_NONE, new_ast, &ast_ref),
+        error);
+    actual_view = re__ast_root_get_group(&ast_root, (mn_uint32)i);
+    ASSERT_EQ(mn__str_view_cmp(&new_view, &actual_view), 0);
+    ASSERT_EQ(re__ast_root_get_num_groups(&ast_root), i + 1);
+  }
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
 /* TODO: test root_link_siblings, root_set_child, root_wrap, root_size */
+
+TEST(t_ast_root_replace)
+{
+  re__ast_root ast_root;
+  re__ast new_ast;
+  re__ast* actual_ast;
+  mn_int32 alt_ref;
+  mn_int32 dummy_ref;
+  re__ast_root_init(&ast_root);
+  re__ast_init_concat(&new_ast);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, new_ast, &alt_ref),
+      error);
+  re__ast_init_rune(&new_ast, 0x10);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, alt_ref, new_ast, &dummy_ref), error);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, alt_ref, new_ast, &dummy_ref), error);
+  re__ast_init_alt(&new_ast);
+  re__ast_root_replace(&ast_root, 1, new_ast);
+  actual_ast = re__ast_root_get(&ast_root, alt_ref);
+  ASSERT_EQ(actual_ast->type, RE__AST_TYPE_CONCAT);
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_depth_one)
+{
+  re__ast_root ast_root;
+  mn_int32 depth;
+  re__ast_root_init(&ast_root);
+  ASSERT_ERR_NOMEM(re__ast_root_get_depth(&ast_root, &depth), error);
+  ASSERT_EQ(depth, 1);
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_depth_two)
+{
+  re__ast_root ast_root;
+  mn_int32 depth;
+  mn_int32 last;
+  re__ast node;
+  re__ast leaf;
+  re__ast_root_init(&ast_root);
+  re__ast_init_concat(&node);
+  re__ast_init_rune(&leaf, 'a');
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, node, &last), error);
+  ASSERT_ERR_NOMEM(re__ast_root_add_child(&ast_root, last, leaf, &last), error);
+  ASSERT_ERR_NOMEM(re__ast_root_get_depth(&ast_root, &depth), error);
+  ASSERT_EQ(depth, 2);
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_depth_n)
+{
+  re__ast_root ast_root;
+  mn_int32 depth;
+  mn_int32 last = RE__AST_NONE;
+  re__ast node;
+  re__ast leaf;
+  int niters = RAND_PARAM(200);
+  int i;
+  re__ast_root_init(&ast_root);
+  re__ast_init_concat(&node);
+  re__ast_init_rune(&leaf, 'a');
+  ASSERT_ERR_NOMEM(re__ast_root_add_child(&ast_root, last, node, &last), error);
+  for (i = 0; i < niters; i++) {
+    ASSERT_ERR_NOMEM(
+        re__ast_root_add_child(&ast_root, last, node, &last), error);
+  }
+  ASSERT_ERR_NOMEM(re__ast_root_add_child(&ast_root, last, leaf, &last), error);
+  ASSERT_ERR_NOMEM(re__ast_root_get_depth(&ast_root, &depth), error);
+  ASSERT_EQ(depth, niters + 2);
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_depth_n_lat)
+{
+  re__ast_root ast_root;
+  mn_int32 depth;
+  mn_int32 last = RE__AST_NONE;
+  re__ast node;
+  re__ast leaf;
+  int niters = RAND_PARAM(200);
+  int i;
+  re__ast_root_init(&ast_root);
+  re__ast_init_concat(&node);
+  re__ast_init_rune(&leaf, 'a');
+  ASSERT_ERR_NOMEM(re__ast_root_add_child(&ast_root, last, node, &last), error);
+  for (i = 0; i < niters; i++) {
+    mn_int32 prevlast = last;
+    int miters = RAND_PARAM(16);
+    int j;
+    for (j = 0; j < miters; j++) {
+      ASSERT_ERR_NOMEM(
+          re__ast_root_add_child(&ast_root, prevlast, leaf, &last), error);
+    }
+    ASSERT_ERR_NOMEM(
+        re__ast_root_add_child(&ast_root, prevlast, node, &last), error);
+  }
+  ASSERT_ERR_NOMEM(re__ast_root_add_child(&ast_root, last, leaf, &last), error);
+  ASSERT_ERR_NOMEM(re__ast_root_get_depth(&ast_root, &depth), error);
+  ASSERT_EQ(depth, niters + 2);
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_remove_empty_list)
+{
+  re__ast_root ast_root;
+  re__ast ast;
+  mn_int32 ref;
+  re__ast_root_init(&ast_root);
+  re__ast_init_rune(&ast, 'a');
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &ref), error);
+  re__ast_root_remove(&ast_root, ref);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, ast, &ref), error);
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_add_wrap_parent_root)
+{
+  re__ast_root ast_root;
+  re__ast rune, concat;
+  mn_int32 rune_ref;
+  mn_int32 concat_ref;
+  re__ast_root_init(&ast_root);
+  re__ast_init_rune(&rune, 'a');
+  re__ast_init_concat(&concat);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, rune, &rune_ref), error);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_wrap(
+          &ast_root, RE__AST_NONE, rune_ref, concat, &concat_ref),
+      error);
+  ASSERT_SYMEQ(
+      re__ast_root, ast_root,
+      "(ast"
+      "  (concat ("
+      "    (rune 'a'))))");
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_add_wrap_parent_not_root)
+{
+  re__ast_root ast_root;
+  re__ast rune, concat;
+  mn_int32 rune_ref;
+  mn_int32 concat_ref_outer;
+  mn_int32 concat_ref_inner;
+  re__ast_root_init(&ast_root);
+  re__ast_init_rune(&rune, 'a');
+  re__ast_init_concat(&concat);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(
+          &ast_root, RE__AST_NONE, concat, &concat_ref_outer),
+      error);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, concat_ref_outer, rune, &rune_ref),
+      error);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_wrap(
+          &ast_root, concat_ref_outer, rune_ref, concat, &concat_ref_inner),
+      error);
+  ASSERT_SYMEQ(
+      re__ast_root, ast_root,
+      "(ast"
+      "  (concat ("
+      "    (concat ("
+      "      (rune 'a'))))))");
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_add_wrap_parent_root_sibling)
+{
+  re__ast_root ast_root;
+  re__ast rune, concat;
+  mn_int32 rune_ref;
+  mn_int32 rune_ref_sibling;
+  mn_int32 concat_ref;
+  re__ast_root_init(&ast_root);
+  re__ast_init_rune(&rune, 'a');
+  re__ast_init_concat(&concat);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, rune, &rune_ref), error);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, rune, &rune_ref_sibling),
+      error);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_wrap(
+          &ast_root, RE__AST_NONE, rune_ref_sibling, concat, &concat_ref),
+      error);
+  ASSERT_SYMEQ(
+      re__ast_root, ast_root,
+      "(ast"
+      "  (rune 'a')"
+      "  (concat ("
+      "    (rune 'a'))))");
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+TEST(t_ast_root_add_wrap_parent_root_before_sibling)
+{
+  re__ast_root ast_root;
+  re__ast rune, concat;
+  mn_int32 rune_ref;
+  mn_int32 rune_ref_sibling;
+  mn_int32 concat_ref;
+  re__ast_root_init(&ast_root);
+  re__ast_init_rune(&rune, 'a');
+  re__ast_init_concat(&concat);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, rune, &rune_ref), error);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_child(&ast_root, RE__AST_NONE, rune, &rune_ref_sibling),
+      error);
+  ASSERT_ERR_NOMEM(
+      re__ast_root_add_wrap(
+          &ast_root, RE__AST_NONE, rune_ref, concat, &concat_ref),
+      error);
+  ASSERT_SYMEQ(
+      re__ast_root, ast_root,
+      "(ast"
+      "  (concat ("
+      "    (rune 'a')))"
+      "  (rune 'a'))");
+error:
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
 
 SUITE(s_ast_root)
 {
@@ -675,4 +1107,17 @@ SUITE(s_ast_root)
   FUZZ_TEST(t_ast_root_addget);
   FUZZ_TEST(t_ast_root_remove);
   FUZZ_TEST(t_ast_root_thrash);
+  FUZZ_TEST(t_ast_root_strs);
+  FUZZ_TEST(t_ast_root_groupnames);
+  FUZZ_TEST(t_ast_root_classes);
+  FUZZ_TEST(t_ast_root_replace);
+  RUN_TEST(t_ast_root_depth_one);
+  RUN_TEST(t_ast_root_depth_two);
+  RUN_TEST(t_ast_root_depth_n);
+  RUN_TEST(t_ast_root_depth_n_lat);
+  RUN_TEST(t_ast_root_remove_empty_list);
+  RUN_TEST(t_ast_root_add_wrap_parent_root);
+  RUN_TEST(t_ast_root_add_wrap_parent_not_root);
+  RUN_TEST(t_ast_root_add_wrap_parent_root_sibling);
+  RUN_TEST(t_ast_root_add_wrap_parent_root_before_sibling);
 }
