@@ -767,7 +767,7 @@ error:
   re__ast_root_destroy(&ast_root);
   PASS();
 }
-#if 0
+
 TEST(t_ast_root_classes)
 {
   re__ast_root ast_root;
@@ -776,8 +776,10 @@ TEST(t_ast_root_classes)
   mn_size niters = RAND_PARAM(100);
   re__charclass new_class;
   re__charclass expected_class;
-  re__charclass_init(&new_class);
-  re__charclass_init(&expected_class);
+  re__charclass_builder builder;
+  re__rune_data rune_data;
+  re__rune_data_init(&rune_data);
+  re__charclass_builder_init(&builder, &rune_data);
   re__ast_root_init(&ast_root);
   for (i = 0; i < niters; i++) {
     mn_int32 class_ref;
@@ -785,15 +787,21 @@ TEST(t_ast_root_classes)
     int invert = RAND_PARAM(2);
     const re__charclass* actual_class;
     re__charclass_ascii_type atype = RAND_PARAM(RE__CHARCLASS_ASCII_TYPE_MAX);
+    re__charclass_builder_begin(&builder);
     ASSERT_ERR_NOMEM(
-        re__charclass_init_from_class(&new_class, atype, invert), error_root);
+        re__charclass_builder_insert_ascii_class(&builder, atype, invert),
+        error_root);
     ASSERT_ERR_NOMEM(
-        re__charclass_init_from_class(&expected_class, atype, invert),
+        re__charclass_builder_finish(&builder, &new_class), error_root);
+    re__charclass_builder_begin(&builder);
+    ASSERT_ERR_NOMEM(
+        re__charclass_builder_insert_ascii_class(&builder, atype, invert),
         error_new);
+    ASSERT_ERR_NOMEM(
+        re__charclass_builder_finish(&builder, &expected_class), error_new);
     ASSERT_ERR_NOMEM(
         re__ast_root_add_charclass(&ast_root, new_class, &class_ref),
         error_expected);
-    re__charclass_init(&new_class);
     re__ast_init_charclass(&new_ast, class_ref);
     ASSERT_ERR_NOMEM(
         re__ast_root_add_child(&ast_root, RE__AST_NONE, new_ast, &ast_ref),
@@ -812,16 +820,22 @@ TEST(t_ast_root_classes)
         ASSERT_EQ(actual_range.min, expected_range.min);
       }
     }
+    re__charclass_destroy(&expected_class);
   }
+  goto error_root;
 error_expected:
   re__charclass_destroy(&expected_class);
+  goto error_root;
 error_new:
   re__charclass_destroy(&new_class);
+  goto error_root;
 error_root:
+  re__charclass_builder_destroy(&builder);
+  re__rune_data_destroy(&rune_data);
   re__ast_root_destroy(&ast_root);
   PASS();
 }
-#endif
+
 TEST(t_ast_root_groupnames)
 {
   re__ast_root ast_root;
@@ -1108,7 +1122,7 @@ SUITE(s_ast_root)
   FUZZ_TEST(t_ast_root_thrash);
   FUZZ_TEST(t_ast_root_strs);
   FUZZ_TEST(t_ast_root_groupnames);
-  /*FUZZ_TEST(t_ast_root_classes); */
+  FUZZ_TEST(t_ast_root_classes);
   FUZZ_TEST(t_ast_root_replace);
   RUN_TEST(t_ast_root_depth_one);
   RUN_TEST(t_ast_root_depth_two);
