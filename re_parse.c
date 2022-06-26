@@ -1434,7 +1434,7 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
              &parse->charclass_builder, &new_charclass))) {
       return err;
     }
-    if (re__charclass_get_num_ranges(&new_charclass) == 1) {
+    if (re__charclass_size(&new_charclass) == 1) {
       re__rune_range first_range = re__charclass_get_ranges(&new_charclass)[0];
       if (first_range.min == first_range.max) {
         re__ast_init_rune(&new_node, first_range.min);

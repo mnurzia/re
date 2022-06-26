@@ -108,18 +108,13 @@ typedef enum re__charclass_ascii_type {
 /* Destroy the given character class */
 MN_INTERNAL void re__charclass_destroy(re__charclass* charclass);
 
-/* Push a range onto the end of the given character class */
-MN_INTERNAL re_error
-re__charclass_push(re__charclass* charclass, re__rune_range range);
-
 /* Return the array of ranges stored in this character class, pointer is invalid
  * after calls to re__charclass_push() */
 MN_INTERNAL const re__rune_range*
 re__charclass_get_ranges(const re__charclass* charclass);
 
 /* Get the number of ranges in the character class */
-MN_INTERNAL mn_size
-re__charclass_get_num_ranges(const re__charclass* charclass);
+MN_INTERNAL mn_size re__charclass_size(const re__charclass* charclass);
 
 /* Check if the given character class is equal to the other */
 MN_INTERNAL int re__charclass_equals(

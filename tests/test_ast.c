@@ -802,9 +802,9 @@ TEST(t_ast_root_classes)
     {
       mn_size j;
       ASSERT_EQ(
-          re__charclass_get_num_ranges(actual_class),
-          re__charclass_get_num_ranges(&expected_class));
-      for (j = 0; j < re__charclass_get_num_ranges(actual_class); j++) {
+          re__charclass_size(actual_class),
+          re__charclass_size(&expected_class));
+      for (j = 0; j < re__charclass_size(actual_class); j++) {
         re__rune_range actual_range = re__charclass_get_ranges(actual_class)[j];
         re__rune_range expected_range =
             re__charclass_get_ranges(&expected_class)[j];

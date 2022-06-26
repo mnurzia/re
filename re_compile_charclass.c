@@ -740,7 +740,7 @@ re_error re__compile_charclass_gen(
   re__compile_charclass_tree_vec_clear(&char_comp->tree);
   re__compile_charclass_cache_clear(char_comp);
   /* Iterate through charclass' ranges and add them all to the tree. */
-  for (i = 0; i < re__charclass_get_num_ranges(charclass); i++) {
+  for (i = 0; i < re__charclass_size(charclass); i++) {
     re__rune_range r = ranges[i];
     if ((err = re__compile_charclass_split_rune_range(char_comp, r))) {
       return err;

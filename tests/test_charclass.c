@@ -10,7 +10,7 @@ int re__charclass_to_sym(sym_build* parent, const re__charclass charclass)
     sym_build range_list;
     mptest_size i;
     SYM_PUT_EXPR(&build, &range_list);
-    for (i = 0; i < re__charclass_get_num_ranges(&charclass); i++) {
+    for (i = 0; i < re__charclass_size(&charclass); i++) {
       re__rune_range rr = re__charclass_get_ranges(&charclass)[i];
       SYM_PUT_SUB(&range_list, re__rune_range, rr);
     }
@@ -1113,7 +1113,7 @@ TEST(t_charclass_get_num_ranges)
   re__charclass cc;
   re_error err = RE_ERROR_NONE;
   re__charclass_init(&cc);
-  ASSERT_EQ(re__charclass_get_num_ranges(&cc), 0);
+  ASSERT_EQ(re__charclass_size(&cc), 0);
   for (i = 0; i < l; i++) {
     re__rune_range rr;
     rr.min = (re_rune)RAND_PARAM(0x10FFFF);
@@ -1122,7 +1122,7 @@ TEST(t_charclass_get_num_ranges)
       goto error;
     }
   }
-  ASSERT_EQ(re__charclass_get_num_ranges(&cc), l);
+  ASSERT_EQ(re__charclass_size(&cc), l);
 error:
   re__charclass_destroy(&cc);
   PASS();

@@ -54,7 +54,7 @@ re__charclass_get_ranges(const re__charclass* charclass)
   return charclass->ranges;
 }
 
-MN_INTERNAL mn_size re__charclass_get_num_ranges(const re__charclass* charclass)
+MN_INTERNAL mn_size re__charclass_size(const re__charclass* charclass)
 {
   return charclass->ranges_size;
 }
@@ -427,8 +427,8 @@ MN_INTERNAL re_error re__charclass_builder_finish(
 int re__charclass_equals(
     const re__charclass* charclass, const re__charclass* other)
 {
-  mn_size cs = re__charclass_get_num_ranges(charclass);
-  mn_size os = re__charclass_get_num_ranges(other);
+  mn_size cs = re__charclass_size(charclass);
+  mn_size os = re__charclass_size(other);
   mn_size i;
   if (cs != os) {
     return 0;
@@ -467,7 +467,7 @@ MN_INTERNAL int re__charclass_verify(const re__charclass* charclass)
   re__rune_range last;
   last.min = -1;
   last.max = -1;
-  for (i = 0; i < re__charclass_get_num_ranges(charclass); i++) {
+  for (i = 0; i < re__charclass_size(charclass); i++) {
     re__rune_range rr = re__charclass_get_ranges(charclass)[i];
     if (rr.min <= last.max) {
       return 0;
