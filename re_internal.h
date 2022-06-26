@@ -668,30 +668,18 @@ typedef enum re__prog_inst_type {
   RE__PROG_INST_TYPE_MAX
 } re__prog_inst_type;
 
-/* Opcode-specific data */
-typedef union re__prog_inst_data {
-  /* RE__PROG_INST_TYPE_BYTE: a single byte */
-  mn_uint8 _byte;
-  /* RE__PROG_INST_TYPE_BYTE_RANGE: a range of bytes */
-  re__byte_range _range;
-  /* RE__PROG_INST_TYPE_SPLIT: secondary branch target */
-  re__prog_loc _secondary;
-  /* RE__PROG_INST_TYPE_MATCH: match index */
-  mn_uint32 _match_idx;
-  /* RE__PROG_INST_TYPE_ASSERT: assert context set */
-  mn_uint32 _assert_context;
-  /* RE__PROG_INST_TYPE_SAVE: save index */
-  mn_uint32 _save_idx;
-} re__prog_inst_data;
-
 /* Program instruction structure */
+/* Layout:
+ * 31                              0
+ *  PPPPPPPPPPPPPPPPPPPPPPPPPPPPPTTT
+ * 31                              0
+ *  DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+ * P = primary branch target
+ * T = type
+ * D = data */
 typedef struct re__prog_inst {
-  /* Opcode */
-  re__prog_inst_type _inst_type;
-  /* Primary branch target */
-  re__prog_loc _primary;
-  /* Data about instruction */
-  re__prog_inst_data _inst_data;
+  mn_uint32 data0;
+  mn_uint32 data1;
 } re__prog_inst;
 
 MN__VEC_DECL(re__prog_inst);

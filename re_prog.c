@@ -1,39 +1,42 @@
 #include "re_internal.h"
 
+#define RE__PROG_INST_TYPE_MASK 7
+
 MN_INTERNAL void
 re__prog_inst_init(re__prog_inst* inst, re__prog_inst_type inst_type)
 {
-  inst->_inst_type = inst_type;
-  inst->_primary = RE__PROG_LOC_INVALID;
+  inst->data0 = inst_type & 7;
+#if MN_DEBUG
+  inst->data1 = 0;
+#endif
 }
 
 MN_INTERNAL void re__prog_inst_init_byte(re__prog_inst* inst, mn_uint8 byte)
 {
   re__prog_inst_init(inst, RE__PROG_INST_TYPE_BYTE);
-  inst->_inst_data._byte = byte;
+  inst->data1 = byte;
 }
 
 MN_INTERNAL void
 re__prog_inst_init_byte_range(re__prog_inst* inst, re__byte_range br)
 {
   re__prog_inst_init(inst, RE__PROG_INST_TYPE_BYTE_RANGE);
-  inst->_inst_data._range.min = br.min;
-  inst->_inst_data._range.max = br.max;
+  inst->data1 = (mn_uint32)br.min | ((mn_uint32)br.max << 16);
 }
 
 MN_INTERNAL void re__prog_inst_init_split(
     re__prog_inst* inst, re__prog_loc primary, re__prog_loc secondary)
 {
   re__prog_inst_init(inst, RE__PROG_INST_TYPE_SPLIT);
-  inst->_primary = primary;
-  inst->_inst_data._secondary = secondary;
+  inst->data0 = (inst->data0 & 7) | (primary << 3);
+  inst->data1 = secondary;
 }
 
 MN_INTERNAL void
 re__prog_inst_init_match(re__prog_inst* inst, mn_uint32 match_idx)
 {
   re__prog_inst_init(inst, RE__PROG_INST_TYPE_MATCH);
-  inst->_inst_data._match_idx = match_idx;
+  inst->data1 = match_idx;
 }
 
 MN_INTERNAL void re__prog_inst_init_fail(re__prog_inst* inst)
@@ -45,80 +48,80 @@ MN_INTERNAL void
 re__prog_inst_init_assert(re__prog_inst* inst, mn_uint32 assert_context)
 {
   re__prog_inst_init(inst, RE__PROG_INST_TYPE_ASSERT);
-  inst->_inst_data._assert_context = assert_context;
+  inst->data1 = assert_context;
 }
 
 MN_INTERNAL void
 re__prog_inst_init_save(re__prog_inst* inst, mn_uint32 save_idx)
 {
   re__prog_inst_init(inst, RE__PROG_INST_TYPE_SAVE);
-  inst->_inst_data._save_idx = save_idx;
+  inst->data1 = save_idx;
 }
 
 MN_INTERNAL re__prog_loc re__prog_inst_get_primary(const re__prog_inst* inst)
 {
-  return inst->_primary;
+  return inst->data0 >> 3;
 }
 
 MN_INTERNAL void
 re__prog_inst_set_primary(re__prog_inst* inst, re__prog_loc loc)
 {
-  inst->_primary = loc;
+  inst->data0 = (inst->data0 & 7) | (loc << 3);
 }
 
 MN_INTERNAL mn_uint8 re__prog_inst_get_byte(const re__prog_inst* inst)
 {
-  MN_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE);
-  return inst->_inst_data._byte;
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_BYTE);
+  return (mn_uint8)(inst->data1 & 0xFF);
 }
 
 MN_INTERNAL mn_uint8 re__prog_inst_get_byte_min(const re__prog_inst* inst)
 {
-  MN_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE_RANGE);
-  return inst->_inst_data._range.min;
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_BYTE_RANGE);
+  return inst->data1 & 0xFF;
 }
 
 MN_INTERNAL mn_uint8 re__prog_inst_get_byte_max(const re__prog_inst* inst)
 {
-  MN_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_BYTE_RANGE);
-  return inst->_inst_data._range.max;
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_BYTE_RANGE);
+  return (mn_uint8)((inst->data1 >> 16) & 0xFF);
 }
 
 MN_INTERNAL re__prog_loc
 re__prog_inst_get_split_secondary(const re__prog_inst* inst)
 {
-  MN_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_SPLIT);
-  return inst->_inst_data._secondary;
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_SPLIT);
+  return inst->data1;
 }
 
 MN_INTERNAL void
 re__prog_inst_set_split_secondary(re__prog_inst* inst, re__prog_loc loc)
 {
-  MN_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_SPLIT);
-  inst->_inst_data._secondary = loc;
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_SPLIT);
+  inst->data1 = loc;
 }
 
 MN_INTERNAL re__prog_inst_type re__prog_inst_get_type(const re__prog_inst* inst)
 {
-  return inst->_inst_type;
+  return inst->data0 & 7;
 }
 
 MN_INTERNAL mn_uint32 re__prog_inst_get_match_idx(const re__prog_inst* inst)
 {
-  MN_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_MATCH);
-  return inst->_inst_data._match_idx;
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_MATCH);
+  return inst->data1;
 }
 
 MN_INTERNAL mn_uint32 re__prog_inst_get_save_idx(const re__prog_inst* inst)
 {
-  MN_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_SAVE);
-  return inst->_inst_data._save_idx;
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_SAVE);
+  return inst->data1;
 }
 
 MN_INTERNAL mn_uint32 re__prog_inst_get_assert_ctx(const re__prog_inst* inst)
 {
-  MN_ASSERT(inst->_inst_type == RE__PROG_INST_TYPE_ASSERT);
-  return inst->_inst_data._assert_context;
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_ASSERT);
+  return inst->data1;
 }
 
 MN_INTERNAL int
