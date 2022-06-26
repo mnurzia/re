@@ -67,7 +67,7 @@ TEST(t_compile_charclass_init)
   re__compile_charclass_destroy(&cc);
   PASS();
 }
-
+#if 0
 TEST(t_compile_charclass_gen)
 {
   re__prog prog;
@@ -124,10 +124,11 @@ TEST(t_compile_charclass_split_ranges) {
     re__compile_charclass_destroy(&cc);
     PASS();
 }*/
+#endif
 
 SUITE(s_compile_charclass)
 {
   RUN_TEST(t_compile_charclass_init);
-  RUN_TEST(t_compile_charclass_gen);
+  /*RUN_TEST(t_compile_charclass_gen);*/
   /*RUN_TEST(t_compile_charclass_split_ranges);*/
 }

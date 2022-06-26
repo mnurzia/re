@@ -41,43 +41,22 @@ static const re__charclass_ascii re__charclass_ascii_defaults[] = {
 #define RE__CHARCLASS_ASCII_DEFAULTS_SIZE                                      \
   (sizeof(re__charclass_ascii_defaults) / sizeof(re__charclass_ascii))
 
-MN_INTERNAL void re__charclass_init(re__charclass* charclass)
-{
-  re__rune_range_vec_init(&charclass->ranges);
-}
-
 MN_INTERNAL void re__charclass_destroy(re__charclass* charclass)
 {
-  re__rune_range_vec_destroy(&charclass->ranges);
-}
-
-MN_INTERNAL re_error
-re__charclass_push(re__charclass* charclass, re__rune_range range)
-{
-  re__rune_range temp;
-  MN_ASSERT(MN__IMPLIES(
-      re__rune_range_vec_size(&charclass->ranges),
-      re__rune_range_vec_get(
-          &charclass->ranges, re__rune_range_vec_size(&charclass->ranges) - 1)
-              .max < range.min));
-  MN_ASSERT(range.min <= range.max);
-  mn__memset((void*)&temp, 0, sizeof(temp));
-  temp.min = range.min;
-  temp.max = range.max;
-  return re__rune_range_vec_push(&charclass->ranges, range);
+  if (charclass->ranges) {
+    MN_FREE(charclass->ranges);
+  }
 }
 
 MN_INTERNAL const re__rune_range*
 re__charclass_get_ranges(const re__charclass* charclass)
 {
-  const re__rune_range* out = re__rune_range_vec_get_data(&charclass->ranges);
-  MN_ASSERT(out != NULL);
-  return out;
+  return charclass->ranges;
 }
 
 MN_INTERNAL mn_size re__charclass_get_num_ranges(const re__charclass* charclass)
 {
-  return re__rune_range_vec_size(&charclass->ranges);
+  return charclass->ranges_size;
 }
 
 MN_INTERNAL const re__charclass_ascii*
@@ -156,88 +135,6 @@ int re__charclass_inverter_hasnext(re__charclass_inverter* inverter)
 re__rune_range re__charclass_inverter_next(re__charclass_inverter* inverter)
 {
   return inverter->temp;
-}
-
-MN_INTERNAL re_error re__charclass_init_from_ranges(
-    re__charclass* charclass, const re__rune_range* ranges, mn_size ranges_size,
-    int inverted)
-{
-  re_error err = RE_ERROR_NONE;
-  mn_size i;
-  re__charclass_inverter inverter;
-  re__charclass_init(charclass);
-  re__charclass_inverter_init(&inverter, inverted);
-  for (i = 0; i < ranges_size; i++) {
-    re__charclass_inverter_push(&inverter, ranges[i]);
-    if (re__charclass_inverter_hasnext(&inverter)) {
-      if ((err = re__charclass_push(
-               charclass, re__charclass_inverter_next(&inverter)))) {
-        re__charclass_destroy(charclass);
-        return err;
-      }
-    }
-  }
-  re__charclass_inverter_end(&inverter);
-  if (re__charclass_inverter_hasnext(&inverter)) {
-    if ((err = re__charclass_push(
-             charclass, re__charclass_inverter_next(&inverter)))) {
-      re__charclass_destroy(charclass);
-      return err;
-    }
-  }
-  return err;
-}
-
-MN_INTERNAL re_error re__charclass_init_from_ascii(
-    re__charclass* charclass, const re__charclass_ascii* ascii_cc, int inverted)
-{
-  re_error err = RE_ERROR_NONE;
-  mn_size i;
-  re__rune_range temp;
-  re__charclass_inverter inverter;
-  /* Dump found ranges into a char class */
-  re__charclass_init(charclass);
-  re__charclass_inverter_init(&inverter, inverted);
-  for (i = 0; i < ascii_cc->num_classes; i++) {
-    temp.min = ascii_cc->classes[i * 2];
-    temp.max = ascii_cc->classes[i * 2 + 1];
-    re__charclass_inverter_push(&inverter, temp);
-    if (re__charclass_inverter_hasnext(&inverter)) {
-      if ((err = re__charclass_push(
-               charclass, re__charclass_inverter_next(&inverter)))) {
-        re__charclass_destroy(charclass);
-        return err;
-      }
-    }
-  }
-  re__charclass_inverter_end(&inverter);
-  if (re__charclass_inverter_hasnext(&inverter)) {
-    if ((err = re__charclass_push(
-             charclass, re__charclass_inverter_next(&inverter)))) {
-      re__charclass_destroy(charclass);
-      return err;
-    }
-  }
-  return err;
-}
-
-MN_INTERNAL re_error re__charclass_init_from_class(
-    re__charclass* charclass, re__charclass_ascii_type type, int inverted)
-{
-  return re__charclass_init_from_ascii(
-      charclass, &re__charclass_ascii_defaults[type], inverted);
-}
-
-/* Returns RE_ERROR_INVALID if not found */
-MN_INTERNAL re_error re__charclass_init_from_str(
-    re__charclass* charclass, mn__str_view name, int inverted)
-{
-  const re__charclass_ascii* found = re__charclass_ascii_find(name);
-  /* Found is NULL if we didn't find anything during the loop */
-  if (found == MN_NULL) {
-    return RE_ERROR_INVALID;
-  }
-  return re__charclass_init_from_ascii(charclass, found, inverted);
 }
 
 MN_INTERNAL void re__charclass_builder_init(
@@ -343,31 +240,83 @@ MN_INTERNAL re_error re__charclass_builder_insert_range(
 /* Insert a set of ranges into a builder. */
 MN_INTERNAL re_error re__charclass_builder_insert_ranges(
     re__charclass_builder* builder, const re__rune_range* ranges,
-    mn_size ranges_size)
+    mn_size ranges_size, int inverted)
 {
   mn_size i;
   re_error err = RE_ERROR_NONE;
+  re__charclass_inverter inverter;
+  re__charclass_inverter_init(&inverter, inverted);
   for (i = 0; i < ranges_size; i++) {
     /* Iterate through ranges, adding them all */
     /* Perhaps could be optimized more */
-    re__rune_range cur_range = ranges[i];
-    if ((err = re__charclass_builder_insert_range(builder, cur_range))) {
+    re__charclass_inverter_push(&inverter, ranges[i]);
+    if (re__charclass_inverter_hasnext(&inverter)) {
+      if ((err = re__charclass_builder_insert_range(
+               builder, re__charclass_inverter_next(&inverter)))) {
+        return err;
+      }
+    }
+  }
+  re__charclass_inverter_end(&inverter);
+  if (re__charclass_inverter_hasnext(&inverter)) {
+    if ((err = re__charclass_builder_insert_range(
+             builder, re__charclass_inverter_next(&inverter)))) {
       return err;
     }
   }
   return err;
 }
 
-/* Insert a character class into a builder. */
-/* Used when putting a named character class inside of an unnamed one. */
-MN_INTERNAL re_error re__charclass_builder_insert_class(
-    re__charclass_builder* builder, re__charclass* charclass)
+MN_INTERNAL re_error re__charclass_builder_insert_ascii_internal(
+    re__charclass_builder* builder, const re__charclass_ascii* ascii_cc,
+    int inverted)
 {
-  return re__charclass_builder_insert_ranges(
-      builder, re__rune_range_vec_get_data(&charclass->ranges),
-      re__rune_range_vec_size(&charclass->ranges));
+  re_error err = RE_ERROR_NONE;
+  mn_size i;
+  re__rune_range temp;
+  re__charclass_inverter inverter;
+  re__charclass_inverter_init(&inverter, inverted);
+  for (i = 0; i < ascii_cc->num_classes; i++) {
+    temp.min = ascii_cc->classes[i * 2];
+    temp.max = ascii_cc->classes[i * 2 + 1];
+    re__charclass_inverter_push(&inverter, temp);
+    if (re__charclass_inverter_hasnext(&inverter)) {
+      if ((err = re__charclass_builder_insert_range(
+               builder, re__charclass_inverter_next(&inverter)))) {
+        return err;
+      }
+    }
+  }
+  re__charclass_inverter_end(&inverter);
+  if (re__charclass_inverter_hasnext(&inverter)) {
+    if ((err = re__charclass_builder_insert_range(
+             builder, re__charclass_inverter_next(&inverter)))) {
+      return err;
+    }
+  }
+  return err;
 }
 
+MN_INTERNAL re_error re__charclass_builder_insert_ascii_class(
+    re__charclass_builder* builder, re__charclass_ascii_type type, int inverted)
+{
+  return re__charclass_builder_insert_ascii_internal(
+      builder, &re__charclass_ascii_defaults[type], inverted);
+}
+
+/* Returns RE_ERROR_INVALID if not found */
+MN_INTERNAL re_error re__charclass_builder_insert_ascii_class_by_str(
+    re__charclass_builder* builder, mn__str_view name, int inverted)
+{
+  const re__charclass_ascii* found = re__charclass_ascii_find(name);
+  /* Found is NULL if we didn't find anything during the loop */
+  if (found == MN_NULL) {
+    return RE_ERROR_INVALID;
+  }
+  return re__charclass_builder_insert_ascii_internal(builder, found, inverted);
+}
+
+/* I'm proud of this function. */
 MN_INTERNAL re_error re__charclass_builder_finish(
     re__charclass_builder* builder, re__charclass* charclass)
 {
@@ -462,8 +411,17 @@ MN_INTERNAL re_error re__charclass_builder_finish(
     re__rune_range_vec_set(
         &builder->ranges, write_ptr++, re__charclass_inverter_next(&inverter));
   }
-  return re__charclass_init_from_ranges(
-      charclass, re__rune_range_vec_get_data(&builder->ranges), write_ptr, 0);
+  charclass->ranges =
+      (re__rune_range*)MN_MALLOC(sizeof(re__rune_range) * write_ptr);
+  if (charclass->ranges == MN_NULL) {
+    return RE_ERROR_NOMEM;
+  }
+  charclass->ranges_size = write_ptr;
+  for (read_ptr = 0; read_ptr < write_ptr; read_ptr++) {
+    charclass->ranges[read_ptr] =
+        re__rune_range_vec_get_data(&builder->ranges)[read_ptr];
+  }
+  return err;
 }
 
 int re__charclass_equals(

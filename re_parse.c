@@ -663,25 +663,17 @@ MN_INTERNAL re_error re__parse_create_charclass_ascii(
   re__ast new_node;
   mn_int32 new_class_ref;
   re__charclass new_class;
-  if ((err = re__charclass_init_from_class(&new_class, ascii_cc, inverted))) {
+  re__charclass_builder_begin(&parse->charclass_builder);
+  if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
+    re__charclass_builder_fold(&parse->charclass_builder);
+  }
+  if ((err = re__charclass_builder_insert_ascii_class(
+           &parse->charclass_builder, ascii_cc, inverted))) {
     return err;
   }
-  if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
-    re__charclass folded_class;
-    re__charclass_builder_begin(&parse->charclass_builder);
-    re__charclass_builder_fold(&parse->charclass_builder);
-    if ((err = re__charclass_builder_insert_class(
-             &parse->charclass_builder, &new_class))) {
-      re__charclass_destroy(&new_class);
-      return err;
-    }
-    if ((err = re__charclass_builder_finish(
-             &parse->charclass_builder, &folded_class))) {
-      re__charclass_destroy(&new_class);
-      return err;
-    }
-    re__charclass_destroy(&new_class);
-    new_class = folded_class;
+  if ((err = re__charclass_builder_finish(
+           &parse->charclass_builder, &new_class))) {
+    return err;
   }
   if ((err = re__ast_root_add_charclass(
            &parse->reg->data->ast_root, new_class, &new_class_ref))) {
@@ -691,24 +683,6 @@ MN_INTERNAL re_error re__parse_create_charclass_ascii(
   /* ast_root now owns new_class */
   re__ast_init_charclass(&new_node, new_class_ref);
   return re__parse_link_node(parse, new_node);
-}
-
-/* Insert an ASCII charclass into the builder. */
-MN_INTERNAL re_error re__parse_insert_charclass_ascii(
-    re__parse* parse, re__charclass_ascii_type ascii_cc, int inverted)
-{
-  re_error err = RE_ERROR_NONE;
-  re__charclass new_class;
-  if ((err = re__charclass_init_from_class(&new_class, ascii_cc, inverted))) {
-    return err;
-  }
-  if ((err = re__charclass_builder_insert_class(
-           &parse->charclass_builder, &new_class))) {
-    re__charclass_destroy(&new_class);
-    return err;
-  }
-  re__charclass_destroy(&new_class);
-  return err;
 }
 
 /* Either insert a Unicode property into the builder or create a new charclass
@@ -758,46 +732,22 @@ MN_INTERNAL re_error re__parse_unicode_property(
     return err;
   }
   if (within_charclass) {
-    if (!inverted) {
-      return re__charclass_builder_insert_ranges(
-          &parse->charclass_builder, ranges, ranges_size);
-    } else {
-      re__charclass temp;
-      if ((err = re__charclass_init_from_ranges(
-               &temp, ranges, ranges_size, inverted))) {
-        return err;
-      }
-      err =
-          re__charclass_builder_insert_class(&parse->charclass_builder, &temp);
-      re__charclass_destroy(&temp);
-      return err;
-    }
+    return re__charclass_builder_insert_ranges(
+        &parse->charclass_builder, ranges, ranges_size, inverted);
   } else {
     re__charclass out;
     re__ast new_node;
     mn_int32 out_charclass_ref;
-    if (!inverted && !(re__parse_get_frame(parse)->flags &
-                       RE__PARSE_FLAG_CASE_INSENSITIVE)) {
-      if ((err =
-               re__charclass_init_from_ranges(&out, ranges, ranges_size, 0))) {
-        return err;
-      }
-    } else {
-      re__charclass_builder_begin(&parse->charclass_builder);
-      if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
-        re__charclass_builder_fold(&parse->charclass_builder);
-      }
-      if (inverted) {
-        re__charclass_builder_invert(&parse->charclass_builder);
-      }
-      if ((err = re__charclass_builder_insert_ranges(
-               &parse->charclass_builder, ranges, ranges_size))) {
-        return err;
-      }
-      if ((err =
-               re__charclass_builder_finish(&parse->charclass_builder, &out))) {
-        return err;
-      }
+    re__charclass_builder_begin(&parse->charclass_builder);
+    if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
+      re__charclass_builder_fold(&parse->charclass_builder);
+    }
+    if ((err = re__charclass_builder_insert_ranges(
+             &parse->charclass_builder, ranges, ranges_size, inverted))) {
+      return err;
+    }
+    if ((err = re__charclass_builder_finish(&parse->charclass_builder, &out))) {
+      return err;
     }
     if ((err = re__ast_root_add_charclass(
              &parse->reg->data->ast_root, out, &out_charclass_ref))) {
@@ -987,8 +937,9 @@ MN_INTERNAL re_error re__parse_escape(
           return err;
         }
       } else {
-        if ((err = re__parse_insert_charclass_ascii(
-                 parse, RE__CHARCLASS_ASCII_TYPE_DIGIT, 1))) {
+        if ((err = re__charclass_builder_insert_ascii_class(
+                 &parse->charclass_builder, RE__CHARCLASS_ASCII_TYPE_DIGIT,
+                 1))) {
           return err;
         }
       }
@@ -1054,8 +1005,9 @@ MN_INTERNAL re_error re__parse_escape(
           return err;
         }
       } else {
-        if ((err = re__parse_insert_charclass_ascii(
-                 parse, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 1))) {
+        if ((err = re__charclass_builder_insert_ascii_class(
+                 &parse->charclass_builder, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE,
+                 1))) {
           return err;
         }
       }
@@ -1072,8 +1024,9 @@ MN_INTERNAL re_error re__parse_escape(
           return err;
         }
       } else {
-        if ((err = re__parse_insert_charclass_ascii(
-                 parse, RE__CHARCLASS_ASCII_TYPE_WORD, 1))) {
+        if ((err = re__charclass_builder_insert_ascii_class(
+                 &parse->charclass_builder, RE__CHARCLASS_ASCII_TYPE_WORD,
+                 1))) {
           return err;
         }
       }
@@ -1102,8 +1055,9 @@ MN_INTERNAL re_error re__parse_escape(
           return err;
         }
       } else {
-        if ((err = re__parse_insert_charclass_ascii(
-                 parse, RE__CHARCLASS_ASCII_TYPE_DIGIT, 0))) {
+        if ((err = re__charclass_builder_insert_ascii_class(
+                 &parse->charclass_builder, RE__CHARCLASS_ASCII_TYPE_DIGIT,
+                 0))) {
           return err;
         }
       }
@@ -1133,8 +1087,9 @@ MN_INTERNAL re_error re__parse_escape(
           return err;
         }
       } else {
-        if ((err = re__parse_insert_charclass_ascii(
-                 parse, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE, 0))) {
+        if ((err = re__charclass_builder_insert_ascii_class(
+                 &parse->charclass_builder, RE__CHARCLASS_ASCII_TYPE_PERL_SPACE,
+                 0))) {
           return err;
         }
       }
@@ -1157,8 +1112,9 @@ MN_INTERNAL re_error re__parse_escape(
           return err;
         }
       } else {
-        if ((err = re__parse_insert_charclass_ascii(
-                 parse, RE__CHARCLASS_ASCII_TYPE_WORD, 0))) {
+        if ((err = re__charclass_builder_insert_ascii_class(
+                 &parse->charclass_builder, RE__CHARCLASS_ASCII_TYPE_WORD,
+                 0))) {
           return err;
         }
       }
@@ -1364,12 +1320,11 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
         }
         {
           mn__str_view name_view;
-          re__charclass ascii_cc;
           mn__str_view_init_n(
               &name_view, mn__str_view_get_data(&parse->str) + name_start_pos,
               name_end_pos - name_start_pos);
-          if ((err = re__charclass_init_from_str(
-                   &ascii_cc, name_view, inverted))) {
+          if ((err = re__charclass_builder_insert_ascii_class_by_str(
+                   &parse->charclass_builder, name_view, inverted))) {
             if (err == RE_ERROR_INVALID) {
               /* couldn't find charclass with name */
               return re__parse_error(
@@ -1378,12 +1333,6 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
               return err;
             }
           }
-          if ((err = re__charclass_builder_insert_class(
-                   &parse->charclass_builder, &ascii_cc))) {
-            re__charclass_destroy(&ascii_cc);
-            return err;
-          }
-          re__charclass_destroy(&ascii_cc);
           continue;
         }
       } else if (ch == '-') {

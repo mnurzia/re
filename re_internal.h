@@ -77,7 +77,8 @@ void re__rune_range_debug_dump(re__rune_range rr);
  * ------------------------------------------------------------------------ */
 typedef struct re__charclass {
   /* Non-overlapping, sorted set of ranges. */
-  re__rune_range_vec ranges;
+  re__rune_range* ranges;
+  mn_size ranges_size;
 } re__charclass;
 /* Implementation detail: since the list of ranges is in this normal form
  * (non-overlapping and sorted) doing certain operations is quick, especially
@@ -103,26 +104,6 @@ typedef enum re__charclass_ascii_type {
   RE__CHARCLASS_ASCII_TYPE_XDIGIT,
   RE__CHARCLASS_ASCII_TYPE_MAX
 } re__charclass_ascii_type;
-
-/* Initialize the given character class */
-MN_INTERNAL void re__charclass_init(re__charclass* charclass);
-
-/* Initialize the given character class from a set of sorted ranges. */
-MN_INTERNAL re_error re__charclass_init_from_ranges(
-    re__charclass* charclass, const re__rune_range* ranges, mn_size ranges_size,
-    int inverted);
-
-/* Initialize the given character class from the ASCII charclass index, indexed
- * from enum re__charclass_ascii_type, optionally inverted */
-MN_INTERNAL re_error re__charclass_init_from_class(
-    re__charclass* charclass, re__charclass_ascii_type type, int inverted);
-
-/* Initialize the given character class from the given string, the string should
- * be one of the default character class names (ripped from POSIX/C standard),
- * see re__charclass_ascii_defaults[] in re__charclass.c, returns
- * RE_ERROR_INVALID if not found */
-MN_INTERNAL re_error re__charclass_init_from_str(
-    re__charclass* charclass, mn__str_view name, int inverted);
 
 /* Destroy the given character class */
 MN_INTERNAL void re__charclass_destroy(re__charclass* charclass);
@@ -221,14 +202,17 @@ MN_INTERNAL void re__charclass_builder_fold(re__charclass_builder* builder);
 MN_INTERNAL re_error re__charclass_builder_insert_range(
     re__charclass_builder* builder, re__rune_range range);
 
-/* Insert another character class into this one */
-MN_INTERNAL re_error re__charclass_builder_insert_class(
-    re__charclass_builder* builder, re__charclass* charclass);
-
-/* Inserta set of ranges into this */
+/* Insert a set of ranges into this */
 MN_INTERNAL re_error re__charclass_builder_insert_ranges(
     re__charclass_builder* builder, const re__rune_range* ranges,
-    mn_size ranges_size);
+    mn_size ranges_size, int inverted);
+
+MN_INTERNAL re_error re__charclass_builder_insert_ascii_class(
+    re__charclass_builder* builder, re__charclass_ascii_type type,
+    int inverted);
+
+MN_INTERNAL re_error re__charclass_builder_insert_ascii_class_by_str(
+    re__charclass_builder* builder, mn__str_view name, int inverted);
 
 /* Finish building, and output results to the given character class */
 MN_INTERNAL re_error re__charclass_builder_finish(

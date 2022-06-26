@@ -1188,6 +1188,12 @@ TEST(t_parse_any_char)
   PASS();
 }
 
+TEST(t_parse_charclass_empty)
+{
+  PROPAGATE(re__parse_test_err("[]"));
+  PASS();
+}
+
 TEST(t_parse_charclass_one)
 {
   PROPAGATE(re__parse_test(
@@ -2137,6 +2143,7 @@ SUITE(s_parse)
   RUN_TEST(t_parse_plus_nothing);
   RUN_TEST(t_parse_invalid_after_quantifier);
   RUN_TEST(t_parse_any_char);
+  RUN_TEST(t_parse_charclass_empty);
   RUN_TEST(t_parse_charclass_one);
   RUN_TEST(t_parse_charclass_one_fold);
   RUN_TEST(t_parse_charclass_unfinished_invalid);

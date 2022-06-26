@@ -21,28 +21,36 @@ int re__charclass_to_sym(sym_build* parent, const re__charclass charclass)
 int re__charclass_from_sym(sym_walk* parent, re__charclass* charclass)
 {
   sym_walk walk;
-  int err = SYM_OK;
   SYM_GET_EXPR(parent, &walk);
   SYM_CHECK_TYPE(&walk, "charclass");
-  re__charclass_init(charclass);
-  if ((err = re__charclass_from_sym_ranges_only(&walk, charclass))) {
-    return err;
-  }
-  return err;
+  return re__charclass_from_sym_ranges_only(&walk, charclass);
 }
 
 int re__charclass_from_sym_ranges_only(sym_walk* walk, re__charclass* charclass)
 {
+  re__charclass_builder builder;
+  re__rune_data rune_data;
   sym_walk range_list;
+  re_error err = RE_ERROR_NONE;
+  re__rune_data_init(&rune_data);
+  re__charclass_builder_init(&builder, &rune_data);
   SYM_GET_EXPR(walk, &range_list);
   while (SYM_MORE(&range_list)) {
     re__rune_range rr;
     SYM_GET_SUB(&range_list, re__rune_range, &rr);
-    re__charclass_push(charclass, rr);
+    if ((err = re__charclass_builder_insert_range(&builder, rr))) {
+      return err;
+    }
   }
-  return SYM_OK;
+  if ((err = re__charclass_builder_finish(&builder, charclass))) {
+    return err;
+  }
+  re__charclass_builder_destroy(&builder);
+  re__rune_data_destroy(&rune_data);
+  return err;
 }
 
+#if 0
 TEST(t_charclass_init)
 {
   re__charclass charclass;
@@ -1149,6 +1157,8 @@ error:
   PASS();
 }
 
+#endif
+
 TEST(t_charclass_builder_init)
 {
   re__charclass_builder builder;
@@ -1228,13 +1238,4 @@ SUITE(s_charclass_builder)
   FUZZ_TEST(t_charclass_builder_insert_range);
 }
 
-SUITE(s_charclass)
-{
-  RUN_TEST(t_charclass_init);
-  RUN_SUITE(s_charclass_init_from_class);
-  RUN_SUITE(s_charclass_init_from_str);
-  FUZZ_TEST(t_charclass_destroy);
-  FUZZ_TEST(t_charclass_push);
-  FUZZ_TEST(t_charclass_get_num_ranges);
-  FUZZ_TEST(t_charclass_equals);
-}
+SUITE(s_charclass) {}
