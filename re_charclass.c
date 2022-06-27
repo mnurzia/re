@@ -128,7 +128,7 @@ int re__charclass_inverter_hasnext(re__charclass_inverter* inverter)
   if (inverter->should_invert) {
     return inverter->temp.max >= inverter->temp.min;
   } else {
-    return inverter->last_max == -1 && inverter->temp.max >= inverter->temp.min;
+    return inverter->last_max == -1;
   }
 }
 
@@ -214,6 +214,8 @@ just_push:
 MN_INTERNAL re_error re__charclass_builder_insert_range(
     re__charclass_builder* builder, re__rune_range range)
 {
+  MN_ASSERT(range.min >= 0);
+  MN_ASSERT(range.max <= RE_RUNE_MAX);
   if (builder->should_fold) {
     re_rune i;
     for (i = range.min; i <= range.max; i++) {
@@ -265,6 +267,21 @@ MN_INTERNAL re_error re__charclass_builder_insert_ranges(
     }
   }
   return err;
+}
+
+MN_INTERNAL re_error re__charclass_builder_insert_property(
+    re__charclass_builder* builder, mn__str_view str, int inverted)
+{
+  re_error err = RE_ERROR_NONE;
+  re__rune_range* ranges;
+  mn_size ranges_size;
+  if ((err = re__rune_data_get_property(
+           builder->rune_data, mn__str_view_get_data(&str),
+           mn__str_view_size(&str), &ranges, &ranges_size))) {
+    return err;
+  }
+  return re__charclass_builder_insert_ranges(
+      builder, ranges, ranges_size, inverted);
 }
 
 MN_INTERNAL re_error re__charclass_builder_insert_ascii_internal(
@@ -346,6 +363,7 @@ MN_INTERNAL re_error re__charclass_builder_finish(
       /* temp_min      temp_max
        * ***************         */
     } else if (cur.min <= temp.max) {
+      /* Some kind of intersection */
       if (cur.max > temp.max) {
         /* Current range intersects with temp.min/temp.max range */
         /* temp.min      temp.max
@@ -379,7 +397,7 @@ MN_INTERNAL re_error re__charclass_builder_finish(
       /* Result: */
       /* temp.min                  temp.max
        * ***************************         */
-    } else if (cur.min > temp.max) {
+    } else { /* cur.min > temp.max */
       /* Current range is outside of temp.min/temp.max range */
       /* temp.min      temp.max
        * ***************
@@ -401,25 +419,34 @@ MN_INTERNAL re_error re__charclass_builder_finish(
        *                      ************         */
     }
   }
-  re__charclass_inverter_push(&inverter, temp);
-  if (re__charclass_inverter_hasnext(&inverter)) {
-    re__rune_range_vec_set(
-        &builder->ranges, write_ptr++, re__charclass_inverter_next(&inverter));
+  if (temp.min != -1) {
+    re__charclass_inverter_push(&inverter, temp);
+    if (re__charclass_inverter_hasnext(&inverter)) {
+      re__rune_range_vec_set(
+          &builder->ranges, write_ptr++,
+          re__charclass_inverter_next(&inverter));
+    }
   }
   re__charclass_inverter_end(&inverter);
   if (re__charclass_inverter_hasnext(&inverter)) {
     re__rune_range_vec_set(
         &builder->ranges, write_ptr++, re__charclass_inverter_next(&inverter));
   }
-  charclass->ranges =
-      (re__rune_range*)MN_MALLOC(sizeof(re__rune_range) * write_ptr);
-  if (charclass->ranges == MN_NULL) {
-    return RE_ERROR_NOMEM;
-  }
-  charclass->ranges_size = write_ptr;
-  for (read_ptr = 0; read_ptr < write_ptr; read_ptr++) {
-    charclass->ranges[read_ptr] =
-        re__rune_range_vec_get_data(&builder->ranges)[read_ptr];
+  if (write_ptr) {
+    charclass->ranges =
+        (re__rune_range*)MN_MALLOC(sizeof(re__rune_range) * write_ptr);
+    if (charclass->ranges == MN_NULL) {
+      return RE_ERROR_NOMEM;
+    }
+    charclass->ranges_size = write_ptr;
+    for (read_ptr = 0; read_ptr < write_ptr; read_ptr++) {
+      charclass->ranges[read_ptr] =
+          re__rune_range_vec_get_data(&builder->ranges)[read_ptr];
+    }
+  } else {
+    /* don't bother calling malloc(0) */
+    charclass->ranges = MN_NULL;
+    charclass->ranges_size = 0;
   }
   return err;
 }
@@ -435,7 +462,7 @@ int re__charclass_equals(
   }
   for (i = 0; i < cs; i++) {
     re__rune_range cr = re__charclass_get_ranges(charclass)[i];
-    re__rune_range or = re__charclass_get_ranges(charclass)[i];
+    re__rune_range or = re__charclass_get_ranges(other)[i];
     if (!re__rune_range_equals(cr, or)) {
       return 0;
     }

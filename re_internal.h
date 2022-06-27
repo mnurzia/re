@@ -197,10 +197,9 @@ MN_INTERNAL void re__charclass_builder_fold(re__charclass_builder* builder);
 MN_INTERNAL re_error re__charclass_builder_insert_range(
     re__charclass_builder* builder, re__rune_range range);
 
-/* Insert a set of ranges into this */
-MN_INTERNAL re_error re__charclass_builder_insert_ranges(
-    re__charclass_builder* builder, const re__rune_range* ranges,
-    mn_size ranges_size, int inverted);
+/* Insert a Unicode property into this character class */
+MN_INTERNAL re_error re__charclass_builder_insert_property(
+    re__charclass_builder* builder, mn__str_view str, int inverted);
 
 MN_INTERNAL re_error re__charclass_builder_insert_ascii_class(
     re__charclass_builder* builder, re__charclass_ascii_type type,

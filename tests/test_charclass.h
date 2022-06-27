@@ -10,6 +10,5 @@ int re__charclass_from_sym_ranges_only(
     sym_walk* walk, re__charclass* charclass);
 
 SUITE(s_charclass);
-SUITE(s_charclass_builder);
 
 #endif

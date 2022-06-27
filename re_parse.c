@@ -696,6 +696,7 @@ MN_INTERNAL re_error re__parse_unicode_property(
   mn_size name_end;
   re__rune_range* ranges;
   mn_size ranges_size;
+  mn__str_view view;
   if (!accept_classes) {
     return re__parse_error(
         parse, "cannot use Unicode property as range ending "
@@ -731,9 +732,18 @@ MN_INTERNAL re_error re__parse_unicode_property(
     }
     return err;
   }
+  mn__str_view_init_n(
+      &view, mn__str_view_get_data(&parse->str) + name_start,
+      name_end - name_start);
   if (within_charclass) {
-    return re__charclass_builder_insert_ranges(
-        &parse->charclass_builder, ranges, ranges_size, inverted);
+    if ((err = re__charclass_builder_insert_property(
+             &parse->charclass_builder, view, inverted))) {
+      if (err == RE_ERROR_INVALID) {
+        return re__parse_error(parse, "invalid Unicode property name");
+      }
+      return err;
+    }
+    return err;
   } else {
     re__charclass out;
     re__ast new_node;
@@ -742,8 +752,11 @@ MN_INTERNAL re_error re__parse_unicode_property(
     if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
       re__charclass_builder_fold(&parse->charclass_builder);
     }
-    if ((err = re__charclass_builder_insert_ranges(
-             &parse->charclass_builder, ranges, ranges_size, inverted))) {
+    if ((err = re__charclass_builder_insert_property(
+             &parse->charclass_builder, view, inverted))) {
+      if (err == RE_ERROR_INVALID) {
+        return re__parse_error(parse, "invalid Unicode property name");
+      }
       return err;
     }
     if ((err = re__charclass_builder_finish(&parse->charclass_builder, &out))) {

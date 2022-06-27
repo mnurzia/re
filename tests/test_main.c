@@ -20,7 +20,6 @@ int main(int argc, char** argv)
   RUN_SUITE(s_regr);
   RUN_SUITE(s_ast);
   RUN_SUITE(s_charclass);
-  RUN_SUITE(s_charclass_builder);
   RUN_SUITE(s_compile);
   RUN_SUITE(s_compile_charclass);
   RUN_SUITE(s_match);
