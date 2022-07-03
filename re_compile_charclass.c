@@ -1,11 +1,21 @@
 #include "re_internal.h"
 
+#if MN_DEBUG
+
+#include <stdio.h>
+
+void re__compile_charclass_dump(
+    re__compile_charclass* char_comp, mn_uint32 tree_idx, mn_int32 indent);
+
+#endif
+
 MN__VEC_IMPL_FUNC(re__compile_charclass_tree, init)
 MN__VEC_IMPL_FUNC(re__compile_charclass_tree, destroy)
 MN__VEC_IMPL_FUNC(re__compile_charclass_tree, clear)
 MN__VEC_IMPL_FUNC(re__compile_charclass_tree, size)
 MN__VEC_IMPL_FUNC(re__compile_charclass_tree, getref)
 MN__VEC_IMPL_FUNC(re__compile_charclass_tree, push)
+MN__VEC_IMPL_FUNC(re__compile_charclass_tree, reserve)
 
 MN__VEC_IMPL_FUNC(re__compile_charclass_hash_entry, init)
 MN__VEC_IMPL_FUNC(re__compile_charclass_hash_entry, destroy)
@@ -82,9 +92,15 @@ re_error re__compile_charclass_new_node(
     }
   } else {
     re__compile_charclass_tree* parent;
-    parent = re__compile_charclass_tree_get(char_comp, parent_ref);
-    prev_sibling_ref = parent->child_ref;
-    parent->child_ref = *out_new_node_ref;
+    do {
+      parent = re__compile_charclass_tree_get(char_comp, parent_ref);
+      prev_sibling_ref = parent->child_ref;
+      parent->child_ref = *out_new_node_ref;
+      parent_ref = parent->sibling_ref;
+      if (1) {
+        break;
+      }
+    } while (parent_ref != RE__COMPILE_CHARCLASS_TREE_NONE);
   }
   re__compile_charclass_tree_init(&new_node, byte_range);
   new_node.sibling_ref = prev_sibling_ref;
@@ -109,7 +125,8 @@ re_error re__compile_charclass_add_rune_range(
   re_error err = RE_ERROR_NONE;
   MN_ASSERT(num_y_bits <= 7);
   if (num_x_bits == 0) {
-    /* terminal nodes can never intersect, so we're covered here */
+    /* terminal nodes can never intersect when the input to this algorithm is a
+     * set of sorted disjoint ranges, so we're covered here */
     re__byte_range br;
     br.min = byte_min;
     br.max = byte_max;
@@ -158,6 +175,17 @@ re_error re__compile_charclass_add_rune_range(
       brs[1].min = byte_min + 1, brs[1].max = byte_max;
       rrs[1].min = 0, rrs[1].max = x_mask;
       num_sub_trees = 2;
+    } else if (y_min == y_max - 1) {
+      /* Range occupies exactly two starting bytes */
+      /* Output:
+       * -----[Ymin-Ymin]----{tree for [Xmin-FF]}
+       *           |
+       *      [Ymax-Ymax]----{tree for [00-Xmax]} */
+      brs[0].min = byte_min, brs[0].max = byte_min;
+      rrs[0].min = x_min, rrs[0].max = x_mask;
+      brs[1].min = byte_min + 1, brs[1].max = byte_max;
+      rrs[1].min = 0, rrs[1].max = x_max;
+      num_sub_trees = 2;
     } else {
       /* Range doesn't begin on all zeroes or all ones, and takes up more
        * than 2 different starting bytes */
@@ -189,51 +217,26 @@ re_error re__compile_charclass_add_rune_range(
               re__compile_charclass_tree_get(char_comp, parent_ref);
           prev_sibling_ref = parent->child_ref;
         }
-        if (prev_sibling_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
-          /* might have to split */
-          re__compile_charclass_tree* prev_sibling =
-              re__compile_charclass_tree_get(char_comp, prev_sibling_ref);
-          if (re__byte_range_intersects(prev_sibling->byte_range, brs[i])) {
-            re__byte_range intersection =
-                re__byte_range_intersection(prev_sibling->byte_range, brs[i]);
-            re__byte_range rest;
-            rest.min = intersection.max + 1;
-            rest.max = brs[i].max;
-            if ((err = re__compile_charclass_add_rune_range(
-                     char_comp, prev_sibling_ref, rrs[i], next_num_x_bits,
-                     next_num_y_bits))) {
-              return err;
-            }
-            if ((err = re__compile_charclass_new_node(
-                     char_comp, parent_ref, rest, &child_ref, 0))) {
-              return err;
-            }
-            if ((err = re__compile_charclass_add_rune_range(
-                     char_comp, child_ref, rrs[i], next_num_x_bits,
-                     next_num_y_bits))) {
-              return err;
-            }
-          } else {
-            if ((err = re__compile_charclass_new_node(
-                     char_comp, parent_ref, brs[i], &child_ref, 0))) {
-              return err;
-            }
-            if ((err = re__compile_charclass_add_rune_range(
-                     char_comp, child_ref, rrs[i], next_num_x_bits,
-                     next_num_y_bits))) {
-              return err;
-            }
-          }
+        if ((prev_sibling_ref != RE__COMPILE_CHARCLASS_TREE_NONE) &&
+            re__byte_range_intersects(
+                re__compile_charclass_tree_get(char_comp, prev_sibling_ref)
+                    ->byte_range,
+                brs[i])) {
+          /* Edge case, this range intersects with the previous range in terms
+           * of its x-bytes, so don't create a new node */
+          child_ref = prev_sibling_ref;
         } else {
+          /* Create a new node */
           if ((err = re__compile_charclass_new_node(
                    char_comp, parent_ref, brs[i], &child_ref, 0))) {
             return err;
           }
-          if ((err = re__compile_charclass_add_rune_range(
-                   char_comp, child_ref, rrs[i], next_num_x_bits,
-                   next_num_y_bits))) {
-            return err;
-          }
+        }
+        /* Add the range to the tree */
+        if ((err = re__compile_charclass_add_rune_range(
+                 char_comp, child_ref, rrs[i], next_num_x_bits,
+                 next_num_y_bits))) {
+          return err;
         }
       }
     }
@@ -254,7 +257,7 @@ int re__compile_charclass_tree_equals(
     re__compile_charclass_tree* a_child =
         re__compile_charclass_tree_get(char_comp, a_child_ref);
     re__compile_charclass_tree* b_child =
-        re__compile_charclass_tree_get(char_comp, a_child_ref);
+        re__compile_charclass_tree_get(char_comp, b_child_ref);
     if (!re__compile_charclass_tree_equals(char_comp, a_child, b_child)) {
       return 0;
     }
@@ -318,7 +321,8 @@ void re__compile_charclass_hash_tree(
                 re__compile_charclass_tree_get(char_comp, child->child_ref);
             re__compile_charclass_tree* sibling_child =
                 re__compile_charclass_tree_get(char_comp, sibling->child_ref);
-            if (child_child->aux == sibling_child->aux) {
+            if (RE__WEAKEN_HASH(child_child->aux) ==
+                RE__WEAKEN_HASH(sibling_child->aux)) {
               if (re__compile_charclass_tree_equals(
                       char_comp, child_child, sibling_child)) {
                 /* Siblings have identical children and can be merged */
@@ -340,7 +344,7 @@ void re__compile_charclass_hash_tree(
       if (child->sibling_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
         /* I know nothing about cryptography. Whether or not this is an
          * actually good value is unknown. */
-        hash_obj.next_hash = 0x0F0F0F0F;
+        hash_obj.next_hash = 0xF0F0F0F0;
       } else {
         sibling = re__compile_charclass_tree_get(char_comp, sibling_ref);
         hash_obj.next_hash = sibling->aux;
@@ -419,9 +423,7 @@ re__prog_loc re__compile_charclass_cache_get(
   mn_int32 sparse_index;
   /* Final index in the dense array, if the tree is found in the cache */
   mn_int32 dense_index;
-  if (root_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
-    return RE__PROG_LOC_INVALID;
-  }
+  MN_ASSERT(root_ref != RE__COMPILE_CHARCLASS_TREE_NONE);
   root = re__compile_charclass_tree_get(char_comp, root_ref);
   sparse_index = root->aux % RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE;
   dense_index = RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE;
@@ -446,7 +448,7 @@ re__prog_loc re__compile_charclass_cache_get(
         re__compile_charclass_tree* root_cache =
             re__compile_charclass_tree_vec_getref(
                 &char_comp->tree, (mn_size)hash_entry_prev->root_ref);
-        if (root_cache->aux == root->aux) {
+        if (RE__WEAKEN_HASH(root_cache->aux) == RE__WEAKEN_HASH(root->aux)) {
           if (re__compile_charclass_tree_equals(char_comp, root_cache, root)) {
             /* If both hashes and then their trees are equal, we
              * have already compiled this tree and can return its
@@ -474,6 +476,28 @@ re__prog_loc re__compile_charclass_cache_get(
     return RE__PROG_LOC_INVALID;
   }
 }
+
+#if MN_DEBUG || MN__COVERAGE
+
+void re__compile_charclass_randomize_sparse(re__compile_charclass* char_comp)
+{
+  /* Debug: initialize sparse with "undefined" (but deterministic) values */
+  mn_int32 i;
+  if (char_comp->cache_sparse == MN_NULL) {
+    return;
+  }
+  for (i = 0; i < RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE; i++) {
+    char_comp->cache_sparse[i] = i;
+    if (i % 2 == 0) {
+      /* Make some values negative */
+      char_comp->cache_sparse[i] -=
+          (RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE / 2);
+    }
+  }
+}
+
+#endif
+
 /* Add a program location to the cache, after it has been compiled. */
 re_error re__compile_charclass_cache_add(
     re__compile_charclass* char_comp, mn_uint32 root_ref, re__prog_loc prog_loc)
@@ -490,6 +514,9 @@ re_error re__compile_charclass_cache_add(
     /* Sparse cache is empty, so let's allocate it on-demand. */
     char_comp->cache_sparse = (mn_int32*)MN_MALLOC(
         sizeof(mn_int32) * RE__COMPILE_CHARCLASS_CACHE_SPARSE_SIZE);
+#if MN_DEBUG || MN__COVERAGE
+    re__compile_charclass_randomize_sparse(char_comp);
+#endif
     if (char_comp->cache_sparse == MN_NULL) {
       return RE_ERROR_NOMEM;
     }
@@ -503,18 +530,17 @@ re_error re__compile_charclass_cache_add(
         &char_comp->cache_dense, (mn_size)dense_index);
     if (hash_entry_prev->sparse_index == sparse_index) {
       while (1) {
-        re__compile_charclass_tree* root_cache = re__compile_charclass_tree_get(
-            char_comp, hash_entry_prev->root_ref);
-        if (root_cache->aux == root->aux) {
-          if (re__compile_charclass_tree_equals(char_comp, root_cache, root)) {
-            /* We found the item in the cache? This should never
-             * happen. To ensure optimality, we should only ever add
-             * items to the cache once. */
-            requires_link = 0;
-            MN__ASSERT_UNREACHED();
-            break;
-          }
-        }
+        /* We found the item in the cache? This should never
+         * happen. To ensure optimality, we should only ever add
+         * items to the cache once. */
+        MN_ASSERT(!(
+            re__compile_charclass_tree_get(char_comp, hash_entry_prev->root_ref)
+                    ->aux == root->aux &&
+            re__compile_charclass_tree_equals(
+                char_comp,
+                re__compile_charclass_tree_get(
+                    char_comp, hash_entry_prev->root_ref),
+                root)));
         if (hash_entry_prev->next == RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE) {
           requires_link = 1;
           dense_index = RE__COMPILE_CHARCLASS_HASH_ENTRY_NONE;
@@ -683,11 +709,81 @@ void re__compile_charclass_clear_aux(
   }
 }
 
-re_error re__compile_charclass_transpose(
+re_error
+re__compile_charclass_transpose_pass_1(re__compile_charclass* char_comp)
+{
+  re_error err = RE_ERROR_NONE;
+  mn_uint32 rev_start_idx =
+      (mn_uint32)re__compile_charclass_tree_vec_size(&char_comp->tree);
+  mn_uint32 i;
+  if ((err = re__compile_charclass_tree_vec_reserve(
+           &char_comp->tree, rev_start_idx * 2))) {
+    return err;
+  }
+  for (i = 1; i < rev_start_idx + 1; i++) {
+    re__compile_charclass_tree node;
+    re__compile_charclass_tree* orig =
+        re__compile_charclass_tree_get(char_comp, i);
+    orig->aux = i + rev_start_idx - 1;
+    re__compile_charclass_tree_init(&node, orig->byte_range);
+    re__compile_charclass_tree_vec_push(&char_comp->tree, node);
+  }
+  return err;
+}
+
+void re__compile_charclass_transpose_pass_2(
     re__compile_charclass* char_comp, mn_uint32 parent_ref)
 {
   mn_uint32 child_ref;
+  if (parent_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
+    /* root */
+    child_ref = char_comp->root_ref;
+  } else {
+    child_ref =
+        re__compile_charclass_tree_get(char_comp, parent_ref)->child_ref;
+  }
+  while (child_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
+    re__compile_charclass_tree* child =
+        re__compile_charclass_tree_get(char_comp, child_ref);
+    re__compile_charclass_tree* child_rev =
+        re__compile_charclass_tree_get(char_comp, child->aux);
+    if (child->child_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
+      /* Terminal, add to root */
+      if (char_comp->rev_root_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
+        char_comp->rev_root_ref = child->aux;
+        char_comp->rev_root_last_child_ref = child->aux;
+      } else {
+        child_rev->sibling_ref = char_comp->rev_root_ref;
+        char_comp->rev_root_ref = child->aux;
+      }
+    } else {
+      /* Transpose children */
+      re__compile_charclass_transpose_pass_2(char_comp, child_ref);
+      {
+        /* For each child, link back */
+        mn_uint32 child_child_ref = child->child_ref;
+        while (child_child_ref != RE__COMPILE_CHARCLASS_TREE_NONE) {
+          re__compile_charclass_tree* child_child =
+              re__compile_charclass_tree_get(char_comp, child_child_ref);
+          re__compile_charclass_tree* child_child_rev =
+              re__compile_charclass_tree_get(char_comp, child_child->aux);
+          child_child_rev->child_ref = child->aux;
+          child_child_ref = child_child->sibling_ref;
+        }
+      }
+    }
+    child_ref = child->sibling_ref;
+  }
+}
+
+re_error re__compile_charclass_transpose(
+    re__compile_charclass* char_comp, mn_uint32 parent_ref,
+    mn_uint32* aux_prev_in)
+{
+  mn_uint32 child_ref;
   re_error err = RE_ERROR_NONE;
+  mn_uint32 aux_head = RE__COMPILE_CHARCLASS_TREE_NONE;
+  mn_uint32 aux_prev;
   if (parent_ref == RE__COMPILE_CHARCLASS_TREE_NONE) {
     child_ref = char_comp->root_ref;
   } else {
@@ -706,26 +802,60 @@ re_error re__compile_charclass_transpose(
                &new_ref, 1))) {
         return err;
       }
-      child->aux = new_ref;
-    } else {
-      re__compile_charclass_tree* child_child;
-      child_child = re__compile_charclass_tree_get(char_comp, child->child_ref);
-      if (child_child->aux == RE__COMPILE_CHARCLASS_TREE_NONE) {
-        if ((err = re__compile_charclass_transpose(char_comp, child_ref))) {
-          return err;
-        }
-      }
-      /* ALERT!!! child may have changed!!! */
+      /* Prevent UAF, child may have changed */
       child = re__compile_charclass_tree_get(char_comp, child_ref);
-      child_child = re__compile_charclass_tree_get(char_comp, child->child_ref);
-      if ((err = re__compile_charclass_new_node(
-               char_comp, child_child->aux, child->byte_range, &new_ref, 1))) {
+    } else {
+      if ((err = re__compile_charclass_transpose(
+               char_comp, child_ref, &aux_prev))) {
         return err;
       }
-      child->aux = new_ref;
+      child = re__compile_charclass_tree_get(char_comp, child_ref);
+      child->aux = aux_prev;
+      /* ALERT!!! child may have changed!!! */
+      child = re__compile_charclass_tree_get(char_comp, child_ref);
+      {
+        /* Back-link new node to previously created ones */
+        mn_uint32 aux_ptr = child->aux;
+        re__byte_range br = child->byte_range;
+        while (aux_ptr != RE__COMPILE_CHARCLASS_TREE_NONE) {
+          re__compile_charclass_tree* aux_tree =
+              re__compile_charclass_tree_get(char_comp, aux_ptr);
+          mn_uint32 next_aux = aux_tree->aux;
+          if ((err = re__compile_charclass_new_node(
+                   char_comp, aux_ptr, br, &new_ref, 1))) {
+            return err;
+          }
+          aux_ptr = next_aux;
+        }
+      }
+      child = re__compile_charclass_tree_get(char_comp, child_ref);
     }
+    {
+      re__compile_charclass_tree* new_rev =
+          re__compile_charclass_tree_get(char_comp, new_ref);
+      new_rev->aux = aux_head;
+      aux_head = new_ref;
+    }
+    child_ref = child->sibling_ref;
+  }
+  if (aux_prev_in != MN_NULL) {
+    *aux_prev_in = aux_head;
   }
   return err;
+}
+
+void re__compile_charclass_reset(re__compile_charclass* char_comp)
+{
+  /* These are all idempotent. Cool word, right? I just learned it */
+  re__compile_charclass_tree_vec_clear(&char_comp->tree);
+  re__compile_charclass_cache_clear(char_comp);
+#if MN_DEBUG || MN__COVERAGE
+  re__compile_charclass_randomize_sparse(char_comp);
+#endif
+  char_comp->root_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
+  char_comp->root_last_child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
+  char_comp->rev_root_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
+  char_comp->rev_root_last_child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
 }
 
 /* Compile a single character class. */
@@ -736,9 +866,7 @@ re_error re__compile_charclass_gen(
   re_error err = RE_ERROR_NONE;
   mn_size i;
   const re__rune_range* ranges = re__charclass_get_ranges(charclass);
-  /* These are all idempotent. Cool word, right? I just learned it */
-  re__compile_charclass_tree_vec_clear(&char_comp->tree);
-  re__compile_charclass_cache_clear(char_comp);
+  re__compile_charclass_reset(char_comp);
   /* Iterate through charclass' ranges and add them all to the tree. */
   for (i = 0; i < re__charclass_size(charclass); i++) {
     re__rune_range r = ranges[i];
@@ -760,30 +888,29 @@ re_error re__compile_charclass_gen(
     } else {
       re__compile_charclass_clear_aux(
           char_comp, RE__COMPILE_CHARCLASS_TREE_NONE);
-      if ((err = re__compile_charclass_transpose(
-               char_comp, RE__COMPILE_CHARCLASS_TREE_NONE))) {
+      if ((err = re__compile_charclass_transpose_pass_1(char_comp))) {
         return err;
       }
+      re__compile_charclass_transpose_pass_2(
+          char_comp, RE__COMPILE_CHARCLASS_TREE_NONE);
       if ((err = re__compile_charclass_generate_prog(
-               char_comp, prog, char_comp->rev_root_ref, &out_pc,
+               char_comp, prog, char_comp->rev_root_last_child_ref, &out_pc,
                patches_out))) {
         return err;
       }
     }
     /* Done!!! all that effort for just a few instructions. */
   }
+
   return err;
 }
 
 void re__compile_charclass_init(re__compile_charclass* char_comp)
 {
   re__compile_charclass_tree_vec_init(&char_comp->tree);
-  char_comp->root_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
-  char_comp->root_last_child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
-  char_comp->cache_sparse = MN_NULL;
-  char_comp->rev_root_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
-  char_comp->rev_root_last_child_ref = RE__COMPILE_CHARCLASS_TREE_NONE;
   re__compile_charclass_hash_entry_vec_init(&char_comp->cache_dense);
+  char_comp->cache_sparse = MN_NULL;
+  re__compile_charclass_reset(char_comp);
 }
 
 void re__compile_charclass_destroy(re__compile_charclass* char_comp)
@@ -795,7 +922,9 @@ void re__compile_charclass_destroy(re__compile_charclass* char_comp)
   re__compile_charclass_tree_vec_destroy(&char_comp->tree);
 }
 
-#if RE_DEBUG
+#if MN_DEBUG
+
+#include <stdio.h>
 
 void re__compile_charclass_dump(
     re__compile_charclass* char_comp, mn_uint32 tree_idx, mn_int32 indent)
@@ -834,7 +963,8 @@ void re__compile_charclass_dump(
         mn_int32 dense_loc = char_comp->cache_sparse[i];
         re__compile_charclass_hash_entry* hash_entry;
         if (dense_loc >= (mn_int32)re__compile_charclass_hash_entry_vec_size(
-                             &char_comp->cache_dense)) {
+                             &char_comp->cache_dense) ||
+            dense_loc < 0) {
           continue;
         }
         hash_entry = re__compile_charclass_hash_entry_vec_getref(
