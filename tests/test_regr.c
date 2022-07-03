@@ -8,6 +8,7 @@ TEST(t_regr_parse_fuzz_0000)
   re_destroy(&reg);
   PASS();
 }
+
 /* 2022-05-24: libfuzzer */
 TEST(t_regr_parse_fuzz_0001)
 {
@@ -16,6 +17,7 @@ TEST(t_regr_parse_fuzz_0001)
   re_destroy(&reg);
   PASS();
 }
+
 TEST(t_regr_parse_fuzz_0002)
 {
   re reg;

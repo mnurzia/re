@@ -187,10 +187,26 @@ int re__rune_range_from_sym(mptest_sym_walk* parent, re__rune_range* rr)
 
 re__rune_range re__rune_range_random(void)
 {
-  re__rune_range br;
-  br.min = (mn_int32)RAND_PARAM(0x10FFFF);
-  br.max = (mn_int32)RAND_PARAM((0x10FFFF - (mptest_rand)br.min)) + br.min;
-  return br;
+  int class = RAND_PARAM(4);
+  mptest_rand min;
+  mptest_rand max;
+  re__rune_range rr;
+  if (class == 0) {
+    min = 0;
+    max = 0x7F;
+  } else if (class == 1) {
+    min = 0x80;
+    max = 0x7FF;
+  } else if (class == 2) {
+    min = 0x800;
+    max = 0xFFFF;
+  } else {
+    min = 0x10000;
+    max = 0x10FFFF;
+  }
+  rr.min = (mn_int32)RAND_PARAM(max - min);
+  rr.max = (mn_int32)RAND_PARAM((max - (mptest_rand)rr.min)) + rr.min;
+  return rr;
 }
 
 TEST(t_rune_range_equals)
