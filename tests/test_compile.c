@@ -64,8 +64,32 @@ int re__compile_test(const char* ast, const char* prog, int reversed)
   SYM(re__ast_root, ast, &ast_root);
   re__compile_init(&compile);
   re__prog_init(&prog_actual);
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, reversed)) ==
+  if ((err = re__compile_regex(
+           &compile, &ast_root, &prog_actual, reversed, RE__AST_NONE)) ==
       RE_ERROR_NOMEM) {
+    goto error;
+  } else if (err) {
+    FAIL();
+  }
+  ASSERT_SYMEQ(re__prog, prog_actual, prog);
+error:
+  re__prog_destroy(&prog_actual);
+  re__compile_destroy(&compile);
+  re__ast_root_destroy(&ast_root);
+  PASS();
+}
+
+int re__compile_test_set(const char* ast, const char* prog, int reversed)
+{
+  re__ast_root ast_root;
+  re__compile compile;
+  re__prog prog_actual;
+  re_error err = RE_ERROR_NONE;
+  SYM(re__ast_root, ast, &ast_root);
+  re__compile_init(&compile);
+  re__prog_init(&prog_actual);
+  if ((err = re__compile_regex(
+           &compile, &ast_root, &prog_actual, reversed, 0)) == RE_ERROR_NOMEM) {
     goto error;
   } else if (err) {
     FAIL();
@@ -177,7 +201,8 @@ TEST(t_compile_rune_unicode)
   } else if (err) {
     FAIL();
   }
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
+  if ((err = re__compile_regex(
+           &compile, &ast_root, &prog_actual, 0, RE__AST_NONE)) ==
       RE_ERROR_NOMEM) {
     goto error;
   } else if (err) {
@@ -294,7 +319,8 @@ TEST(t_compile_str_thrash)
   } else if (err) {
     FAIL();
   }
-  if ((err = re__compile_regex(&compile, &ast_root, &prog_actual, 0)) ==
+  if ((err = re__compile_regex(
+           &compile, &ast_root, &prog_actual, 0, RE__AST_NONE)) ==
       RE_ERROR_NOMEM) {
     goto error;
   } else if (err) {
@@ -339,6 +365,20 @@ TEST(t_compile_concat_reversed)
       "  (byte 'a' 3)"
       "  (match 1 0))",
       1));
+  PASS();
+}
+
+TEST(t_compile_alt_one)
+{
+  PROPAGATE(re__compile_test(
+      "(ast"
+      "  (alt ("
+      "    (rune 'a'))))",
+      "(prog"
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (match 1 0))",
+      0));
   PASS();
 }
 
@@ -1020,6 +1060,112 @@ error:
   PASS();
 }
 
+TEST(t_compile_set_one)
+{
+  PROPAGATE(re__compile_test_set(
+      "(ast"
+      "  (alt ("
+      "    (rune 'a'))))",
+      "(prog"
+      "  (fail)"
+      "  (byte 'a' 2)"
+      "  (match 1 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_set_two)
+{
+  PROPAGATE(re__compile_test_set(
+      "(ast"
+      "  (alt ("
+      "    (rune 'a')"
+      "    (rune 'b'))))",
+      "(prog"
+      "  (fail)"
+      "  (split 2 4)"
+      "  (byte 'a' 3)"
+      "  (match 1 0)"
+      "  (byte 'b' 5)"
+      "  (match 2 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_set_three)
+{
+  PROPAGATE(re__compile_test_set(
+      "(ast"
+      "  (alt ("
+      "    (rune 'a')"
+      "    (rune 'b')"
+      "    (rune 'c'))))",
+      "(prog"
+      "  (fail)"
+      "  (split 2 4)"
+      "  (byte 'a' 3)"
+      "  (match 1 0)"
+      "  (split 5 7)"
+      "  (byte 'b' 6)"
+      "  (match 2 0)"
+      "  (byte 'c' 8)"
+      "  (match 3 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_set_complex_0)
+{
+  PROPAGATE(re__compile_test_set(
+      "(ast"
+      "  (alt ("
+      "    (str blah)"
+      "    (assert (text_end))"
+      "    (concat ("
+      "      (rune 'a')"
+      "      (rune 'b')"
+      "      (rune 'c'))))))",
+      "(prog"
+      "  (fail)"
+      "  (split 2 7)"
+      "  (byte 'b' 3)"
+      "  (byte 'l' 4)"
+      "  (byte 'a' 5)"
+      "  (byte 'h' 6)"
+      "  (match 1 0)"
+      "  (split 8 10)"
+      "  (assert (text_end) 9)"
+      "  (match 2 0)"
+      "  (byte 'a' 11)"
+      "  (byte 'b' 12)"
+      "  (byte 'c' 13)"
+      "  (match 3 0))",
+      0));
+  PASS();
+}
+
+TEST(t_compile_set_complex_1)
+{
+  PROPAGATE(re__compile_test_set(
+      "(ast"
+      "  (alt ("
+      "    (quantifier 0 inf greedy (rune 'a'))"
+      "    (str test))))",
+      "(prog"
+      "  (fail)"
+      "  (split 2 5)"
+      "  (split 3 4)"
+      "  (byte 'a' 2)"
+      "  (match 1 0)"
+      "  (byte 't' 6)"
+      "  (byte 'e' 7)"
+      "  (byte 's' 8)"
+      "  (byte 't' 9)"
+      "  (match 2 0))",
+      0));
+  PASS();
+}
+
 SUITE(s_compile)
 {
   RUN_TEST(t_compile_gen_utf8_one);
@@ -1036,6 +1182,7 @@ SUITE(s_compile)
   FUZZ_TEST(t_compile_str_thrash);
   RUN_TEST(t_compile_concat);
   RUN_TEST(t_compile_concat_reversed);
+  RUN_TEST(t_compile_alt_one);
   RUN_TEST(t_compile_alt);
   RUN_TEST(t_compile_alts);
   RUN_TEST(t_compile_alts_after);
@@ -1074,4 +1221,9 @@ SUITE(s_compile)
   RUN_TEST(t_compile_any_byte);
   RUN_TEST(t_compile_any_byte_reversed);
   RUN_TEST(t_compile_dotstar);
+  RUN_TEST(t_compile_set_one);
+  RUN_TEST(t_compile_set_two);
+  RUN_TEST(t_compile_set_three);
+  RUN_TEST(t_compile_set_complex_0);
+  RUN_TEST(t_compile_set_complex_1);
 }
