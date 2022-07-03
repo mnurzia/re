@@ -1280,7 +1280,9 @@ typedef enum re__exec_dfa_flags {
   RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT = 4,
   RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE = 8,
   RE__EXEC_DFA_FLAG_MATCH = 16,
-  RE__EXEC_DFA_FLAG_MATCH_PRIORITY = 32
+  RE__EXEC_DFA_FLAG_MATCH_PRIORITY = 32,
+  RE__EXEC_DFA_FLAG_EMPTY = 64,
+  RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR = 128
 } re__exec_dfa_flags;
 
 /* DFA state. */
@@ -1288,11 +1290,8 @@ struct re__exec_dfa_state {
   re__exec_dfa_state_ptr next[RE__EXEC_SYM_MAX];
   re__exec_dfa_flags flags;
   mn_uint32 match_index;
-  mn_uint32 match_priority;
   mn_uint32* thrd_locs_begin;
   mn_uint32* thrd_locs_end;
-  mn_uint32 empty;
-  re__prog_entry start_entry;
 };
 
 typedef struct re__exec_dfa_cache_entry {

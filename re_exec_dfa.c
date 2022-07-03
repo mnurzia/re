@@ -63,11 +63,12 @@ void re__exec_dfa_state_init(
     state->next[i] = MN_NULL;
   }
   state->flags = 0;
-  state->match_index = 0;
-  state->match_priority = 0;
   state->thrd_locs_begin = thrd_locs_begin;
   state->thrd_locs_end = thrd_locs_end;
-  state->empty = state->thrd_locs_begin == state->thrd_locs_end;
+  if (state->thrd_locs_begin == state->thrd_locs_end) {
+    state->flags |= RE__EXEC_DFA_FLAG_EMPTY;
+  }
+  state->match_index = 0;
 }
 
 re_error re__exec_dfa_stash_loc_set(
@@ -263,9 +264,9 @@ re_error re__exec_dfa_get_state(
                exec, thrds, thrds_size, &new_state))) {
         return err;
       }
-      new_state->flags = flags;
+      /* Set input flags (start state, etc) */
+      new_state->flags |= flags;
       new_state->match_index = match_index;
-      new_state->match_priority = match_priority;
       probe->hash = hash;
       probe->state_ptr = new_state;
       exec->cache_stored++;
@@ -342,13 +343,15 @@ re_error re__exec_dfa_start(
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT) {
       dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT;
     }
+    if (entry == RE__PROG_ENTRY_DOTSTAR) {
+      dfa_flags |= RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR;
+    }
     if ((err = re__exec_nfa_start(&exec->nfa, entry))) {
       return err;
     }
     if ((err = re__exec_dfa_get_state(exec, dfa_flags, start_state))) {
       return err;
     }
-    exec->start_states[start_state_idx]->start_entry = entry;
   }
   exec->current_state = exec->start_states[start_state_idx];
   return err;
@@ -392,7 +395,8 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym)
         &exec->nfa, current_state->thrd_locs_begin,
         (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
     re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
-    re__exec_nfa_set_match_priority(&exec->nfa, current_state->match_priority);
+    re__exec_nfa_set_match_priority(
+        &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
     if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, next_sym, 0))) {
       return err;
     }
@@ -417,7 +421,7 @@ MN_INTERNAL mn_uint32 re__exec_dfa_get_match_index(re__exec_dfa* exec)
 
 MN_INTERNAL mn_uint32 re__exec_dfa_get_match_priority(re__exec_dfa* exec)
 {
-  return exec->current_state->match_priority;
+  return exec->current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY;
 }
 
 MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec)
@@ -450,7 +454,9 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec)
   }
   printf("  Flags: 0x%04X\n", state->flags);
   printf("  Match Index: %i\n", state->match_index);
-  printf("  Match Priority: %i\n", state->match_priority);
+  printf(
+      "  Match Priority: %i\n",
+      state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
   printf(
       "  Threads: %u\n    ",
       (unsigned int)(state->thrd_locs_end - state->thrd_locs_begin));
