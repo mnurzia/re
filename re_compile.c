@@ -190,6 +190,7 @@ MN_INTERNAL void re__compile_init(re__compile* compile)
   /* purposefully don't initialize returned_frame */
   /* compile->returned_frame; */
   compile->reversed = 0;
+  compile->set = RE__AST_NONE;
 }
 
 MN_INTERNAL void re__compile_destroy(re__compile* compile)
@@ -428,15 +429,19 @@ MN_INTERNAL re_error re__compile_do_alt(
   /* if (!compile->reversed || compile->reversed) { */
   if (frame->ast_child_ref == RE__AST_NONE) {
     /* Before *first* child */
-    /* Initialize split instruction */
-    re__prog_inst new_inst;
-    re__prog_inst_init_split(
-        &new_inst, re__prog_size(prog) + 1, /* Outgoing branch (1) */
-        RE__PROG_LOC_INVALID /* Will become outgoing branch (2) */
-    );
-    /* Add the Split instruction */
-    if ((err = re__prog_add(prog, new_inst))) {
-      return err;
+    if (re__ast_root_get_const(compile->ast_root, ast->first_child_ref)
+            ->next_sibling_ref != RE__AST_NONE) {
+      /* Alt has more than one child */
+      /* Initialize split instruction */
+      re__prog_inst new_inst;
+      re__prog_inst_init_split(
+          &new_inst, re__prog_size(prog) + 1, /* Outgoing branch (1) */
+          RE__PROG_LOC_INVALID /* Will become outgoing branch (2) */
+      );
+      /* Add the Split instruction */
+      if ((err = re__prog_add(prog, new_inst))) {
+        return err;
+      }
     }
     compile->should_push_child = 1;
     compile->should_push_child_ref = ast->first_child_ref;
@@ -444,6 +449,23 @@ MN_INTERNAL re_error re__compile_do_alt(
   } else {
     const re__ast* prev_child =
         re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
+    if (compile->set != frame->ast_base_ref) {
+      /* Collect outgoing branches (5, 6, 7, 8, 9, 10). */
+      re__compile_patches_merge(
+          &frame->patches, prog, &compile->returned_frame.patches);
+    } else {
+      /* This alt node is the set alt, so generate a match instruction after
+       * every completed child */
+      re__prog_inst new_inst;
+      /* Add a match instruction, and link all returned patches to that */
+      /* Increment rep_idx because set match offsets start at 1, not 0 */
+      re__prog_inst_init_match(&new_inst, (mn_uint32)++frame->rep_idx);
+      if ((err = re__prog_add(prog, new_inst))) {
+        return err;
+      }
+      re__compile_patches_patch(
+          &compile->returned_frame.patches, prog, re__prog_size(prog) - 1);
+    }
     if (prev_child->next_sibling_ref != RE__AST_NONE) {
       /* Before intermediate children */
       /* Patch the secondary branch target of the old SPLIT
@@ -456,9 +478,6 @@ MN_INTERNAL re_error re__compile_do_alt(
       const re__ast* child;
       /* Patch outgoing branch (2). */
       re__prog_inst_set_split_secondary(old_inst, re__prog_size(prog));
-      /* Collect outgoing branches (5, 6, 7, 8). */
-      re__compile_patches_merge(
-          &frame->patches, prog, &compile->returned_frame.patches);
       child = re__ast_root_get_const(
           compile->ast_root, prev_child->next_sibling_ref);
       if (child->next_sibling_ref != RE__AST_NONE) {
@@ -478,11 +497,6 @@ MN_INTERNAL re_error re__compile_do_alt(
       compile->should_push_child = 1;
       compile->should_push_child_ref = prev_child->next_sibling_ref;
       frame->ast_child_ref = prev_child->next_sibling_ref;
-    } else {
-      /* After last child */
-      /* Collect outgoing branches (9, 10). */
-      re__compile_patches_merge(
-          &frame->patches, prog, &compile->returned_frame.patches);
     }
   }
   return err;
@@ -765,7 +779,7 @@ MN_INTERNAL re_error re__compile_do_any_byte(
 
 MN_INTERNAL re_error re__compile_regex(
     re__compile* compile, const re__ast_root* ast_root, re__prog* prog,
-    int reversed)
+    int reversed, mn_int32 set_root)
 {
   re_error err = RE_ERROR_NONE;
   re__compile_frame initial_frame;
@@ -776,6 +790,8 @@ MN_INTERNAL re_error re__compile_regex(
   compile->ast_root = ast_root;
   /* Set reversed flag, more economical to set here */
   compile->reversed = reversed;
+  /* Set set root */
+  compile->set = set_root;
   /* Allocate memory for frames */
   /* depth_max + 1 because we include an extra frame for terminals within the
    * deepest multi-child node */
@@ -880,11 +896,15 @@ MN_INTERNAL re_error re__compile_regex(
   }
   /* There should be no more frames. */
   MN_ASSERT(compile->frame_ptr == 0);
-  /* Link the returned patches to a final MATCH instruction. */
-  re__compile_patches_patch(
-      &compile->returned_frame.patches, prog, re__prog_size(prog));
-  {
+  /* If in set mode, returned patches should not have anything. */
+  MN_ASSERT(MN__IMPLIES(
+      compile->set != RE__AST_NONE,
+      compile->returned_frame.patches.first_inst == RE__PROG_LOC_INVALID));
+  if (compile->set == RE__AST_NONE) {
     re__prog_inst match_inst;
+    /* Link the returned patches to a final MATCH instruction. */
+    re__compile_patches_patch(
+        &compile->returned_frame.patches, prog, re__prog_size(prog));
     re__prog_inst_init_match(&match_inst, 1);
     if ((err = re__prog_add(prog, match_inst))) {
       goto error;
@@ -899,23 +919,6 @@ error:
     MN_FREE(compile->frames);
   }
   compile->frames = MN_NULL;
-  /*
-  if (err == RE__ERROR_PROGMAX) {
-      re__str err_str;
-      if ((err = re__str_init_s(&err_str, "compiled program length exceeds
-  maximum of " RE__STRINGIFY(RE__PROG_SIZE_MAX) " instructions"))) {
-          re__set_error_generic(compile->re, err);
-          return err;
-      }
-      re__set_error_str(compile->re, &err_str);
-      err = RE_ERROR_COMPILE;
-      re__str_destroy(&err_str);
-  }
-  if (err == RE_ERROR_COMPILE) {
-      MN_ASSERT(re__str_size(&compile->re->data->error_string));
-  } else {
-      re__set_error_generic(compile->re, err);
-  }*/
   return err;
 }
 
