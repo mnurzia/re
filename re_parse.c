@@ -1557,11 +1557,19 @@ construct:
 MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
 {
   re_error err = RE_ERROR_NONE;
+  mn_int32 start_ref = parse->reg->data->ast_root.root_ref;
   /* Set string */
   parse->str = str;
   parse->str_pos = 0;
-  if ((err = re__parse_push_frame(
-           parse, parse->reg->data->ast_root.root_ref, 0))) {
+  /* Reset frame vector */
+  while (re__parse_frame_vec_size(&parse->frames)) {
+    re__parse_frame_vec_pop(&parse->frames);
+  }
+  if (parse->reg->data->set != RE__AST_NONE) {
+    /* Set mode, push the set root. */
+    start_ref = parse->reg->data->set;
+  }
+  if ((err = re__parse_push_frame(parse, start_ref, 0))) {
     return err;
   }
   while (1) {
