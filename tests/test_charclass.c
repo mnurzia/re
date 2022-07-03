@@ -39,14 +39,18 @@ int re__charclass_from_sym_ranges_only(sym_walk* walk, re__charclass* charclass)
     re__rune_range rr;
     SYM_GET_SUB(&range_list, re__rune_range, &rr);
     if ((err = re__charclass_builder_insert_range(&builder, rr))) {
-      return err;
+      goto error;
     }
   }
   if ((err = re__charclass_builder_finish(&builder, charclass))) {
-    return err;
+    goto error;
   }
+error:
   re__charclass_builder_destroy(&builder);
   re__rune_data_destroy(&rune_data);
+  if (err == RE_ERROR_NOMEM) {
+    return SYM_NOMEM;
+  }
   return err;
 }
 
