@@ -7,6 +7,16 @@
 #define RE__ERROR_COMPRESSION_FORMAT (RE_ERROR_INTERNAL - 1)
 #define RE__ERROR_PROGMAX (RE_ERROR_INTERNAL - 2)
 
+/* Chop the first couple bits off of a hash value. */
+/* These are only used for testing in order to generate intentional collisions.
+ * In this program collisions are not a security concern, but we'd still like
+ * them to be robust. */
+#if MN_TEST
+#define RE__WEAKEN_HASH(h) (h >> 16)
+#else
+#define RE__WEAKEN_HASH(h) h
+#endif
+
 /* ---------------------------------------------------------------------------
  * Byte ranges (re_range.c)
  * ------------------------------------------------------------------------ */
@@ -846,10 +856,13 @@ MN_INTERNAL void re__compile_patches_append(
     re__compile_patches* patches, re__prog* prog, re__prog_loc to,
     int secondary);
 
+MN_INTERNAL void re__compile_patches_patch(
+    re__compile_patches* patches, re__prog* prog, re__prog_loc to);
+
 #if RE_DEBUG
 
-MN_INTERNAL void
-re__compile_patches_dump(re__compile_patches* patches, re__prog* prog);
+MN_INTERNAL
+void re__compile_patches_dump(re__compile_patches* patches, re__prog* prog);
 
 #endif
 
@@ -1084,6 +1097,8 @@ typedef struct re__compile_frame {
   re__prog_loc end;
   /* For repetitions: the number of times the node's child has been generated
    * already */
+  /* For alts: if in set mode, the index of the current alternation so that it
+   * may be used to initialize the MATCH instruction */
   mn_int32 rep_idx;
 } re__compile_frame;
 
@@ -1122,13 +1137,16 @@ typedef struct re__compile {
   re__compile_frame returned_frame;
   /* Whether or not we are compiling in reverse mode. */
   int reversed;
+  /* Pointer to the set root, also indicates if we are compiling in set mode
+   * (slightly different alt semantics) */
+  mn_int32 set;
 } re__compile;
 
 MN_INTERNAL void re__compile_init(re__compile* compile);
 MN_INTERNAL void re__compile_destroy(re__compile* compile);
 MN_INTERNAL re_error re__compile_regex(
     re__compile* compile, const re__ast_root* ast_root, re__prog* prog,
-    int reversed);
+    int reversed, mn_int32 set_root);
 MN_INTERNAL int re__compile_gen_utf8(re_rune codep, mn_uint8* out_buf);
 MN_INTERNAL re_error
 re__compile_dotstar(re__prog* prog, re__prog_data_id data_id);
@@ -1321,10 +1339,11 @@ MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec);
 MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
 
 /* ---------------------------------------------------------------------------
- * Top-level data (re_re.c)
+ * Top-level data (re_api.c)
  * ------------------------------------------------------------------------ */
 /* Internal data structure */
 struct re_data {
+  mn_int32 set;
   re__parse parse;
   re__rune_data rune_data;
   re__ast_root ast_root;
