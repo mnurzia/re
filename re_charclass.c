@@ -477,9 +477,10 @@ int re__charclass_equals(
 void re__charclass_dump(const re__charclass* charclass, mn_size lvl)
 {
   mn_size i;
-  mn_size sz = re__rune_range_vec_size(&charclass->ranges);
+  mn_size sz = charclass->ranges_size;
+  printf("Charclass %p\n", (void*)charclass);
   for (i = 0; i < sz; i++) {
-    re__rune_range cur = re__rune_range_vec_get(&charclass->ranges, i);
+    re__rune_range cur = charclass->ranges[i];
     mn_size j;
     for (j = 0; j < lvl; j++) {
       printf("  ");
