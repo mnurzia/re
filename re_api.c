@@ -40,6 +40,33 @@ MN_INTERNAL void re__set_error_generic(re* reg, re_error err)
   }
 }
 
+re_error re__init(re* reg, int is_set)
+{
+  re_error err = RE_ERROR_NONE;
+  reg->data = (re_data*)MN_MALLOC(sizeof(re_data));
+  if (!reg->data) {
+    return RE_ERROR_NOMEM;
+  }
+  reg->data->set = RE__AST_NONE;
+  re__error_init(reg);
+  re__rune_data_init(&reg->data->rune_data);
+  re__parse_init(&reg->data->parse, reg);
+  re__ast_root_init(&reg->data->ast_root);
+  re__prog_init(&reg->data->program);
+  re__prog_init(&reg->data->program_reverse);
+  re__compile_init(&reg->data->compile);
+  if (is_set) {
+    re__ast alt;
+    re__ast_init_alt(&alt);
+    if ((err = re__ast_root_add_child(
+             &reg->data->ast_root, reg->data->ast_root.root_ref, alt,
+             &reg->data->set))) {
+      return err;
+    }
+  }
+  return err;
+}
+
 re_error re_init(re* reg, const char* regex_nt)
 {
   return re_init_sz_flags(reg, regex_nt, mn__str_slen(regex_nt), 0);
@@ -57,29 +84,39 @@ re_error re_init_sz_flags(
 {
   re_error err = RE_ERROR_NONE;
   mn__str_view regex_view;
-  MN__UNUSED(syntax_flags);
-  reg->data = (re_data*)MN_MALLOC(sizeof(re_data));
-  if (!reg->data) {
-    return RE_ERROR_NOMEM;
+  if ((err = re__init(reg, 0))) {
+    return err;
   }
-  re__error_init(reg);
+  MN__UNUSED(syntax_flags);
   mn__str_view_init_n(&regex_view, regex, regex_size);
-  re__rune_data_init(&reg->data->rune_data);
-  re__parse_init(&reg->data->parse, reg);
-  re__ast_root_init(&reg->data->ast_root);
-  re__prog_init(&reg->data->program);
-  re__prog_init(&reg->data->program_reverse);
-  re__compile_init(&reg->data->compile);
   if ((err = re__parse_str(&reg->data->parse, regex_view))) {
     return err;
   }
   return err;
 }
 
-re_error re_init_set(re* reg)
+re_error re_init_set(re* reg) { return re__init(reg, 1); }
+
+re_error re_set_add(re* reg, const char* regex_nt)
 {
-  MN__UNUSED(reg);
-  return RE_ERROR_NONE;
+  return re_set_add_flags(reg, regex_nt, 0);
+}
+
+re_error
+re_set_add_flags(re* reg, const char* regex_nt, re_syntax_flags syntax_flags)
+{
+  return re_set_add_sz_flags(
+      reg, regex_nt, mn__str_slen(regex_nt), syntax_flags);
+}
+
+re_error re_set_add_sz_flags(
+    re* reg, const char* regex, mn_size regex_size,
+    re_syntax_flags syntax_flags)
+{
+  mn__str_view regex_view;
+  MN__UNUSED(syntax_flags);
+  mn__str_view_init_n(&regex_view, regex, regex_size);
+  return re__parse_str(&reg->data->parse, regex_view);
 }
 
 void re_destroy(re* reg)
@@ -134,7 +171,7 @@ re_error re__match_prepare_progs(
     if (!re__prog_size(&reg->data->program)) {
       if ((err = re__compile_regex(
                &reg->data->compile, &reg->data->ast_root, &reg->data->program,
-               0))) {
+               0, reg->data->set))) {
         return err;
       }
     }
@@ -152,7 +189,7 @@ re_error re__match_prepare_progs(
     if (!re__prog_size(&reg->data->program_reverse)) {
       if ((err = re__compile_regex(
                &reg->data->compile, &reg->data->ast_root,
-               &reg->data->program_reverse, 1))) {
+               &reg->data->program_reverse, 1, reg->data->set))) {
         return err;
       }
     }
