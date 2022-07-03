@@ -543,14 +543,16 @@ def encode_property(matching_chars):
     return array_out
 
 def uleb128(array_out, value):
+    out_b = []
     while True:
         masked = value & 0x7F
         value >>= 7
         if value:
-            array_out.append(masked | 0x80)
+            out_b.append(masked | 0x80)
         else:
-            array_out.append(masked)
+            out_b.append(masked)
             break
+    array_out.extend(reversed(out_b))
 
 def rle_encode(array_in):
     array_out = bytearray()

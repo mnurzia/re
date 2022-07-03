@@ -5,9 +5,9 @@ rm -f cov.profraw
 rm -f oom.profraw
 rm -f cov.profdata
 rm -f lcov.info
-$1 -s $(../tools/convert_suite_name.sh $2)
+$1
 mv default.profraw cov.profraw
-$1 -s $(../tools/convert_suite_name.sh $2) --leak-check-oom
+$1 --leak-check-oom
 mv default.profraw oom.profraw
 llvm-profdata merge cov.profraw oom.profraw -o cov.profdata
 llvm-cov export re_cov -instr-profile=cov.profdata -format=lcov > lcov.info
