@@ -709,11 +709,15 @@ MPTEST_API void mptest__sym_make_destroy(mptest_sym_build* build_out);
   do {                                                                         \
     mptest_sym_build temp_build;                                               \
     mptest_sym_walk temp_walk;                                                 \
+    int _sym_err;                                                              \
     if (mptest__sym_make_init(                                                 \
             &temp_build, &temp_walk, str, __FILE__, __LINE__, MPTEST_NULL)) {      \
       return MPTEST__RESULT_ERROR;                                             \
     }                                                                          \
-    if (type##_from_sym(&temp_walk, out_var)) {                                \
+    if ((_sym_err = type##_from_sym(&temp_walk, out_var))) {                   \
+      if (_sym_err == SYM_NOMEM) {                                             \
+        return MPTEST__RESULT_PASS;                                            \
+      }                                                                        \
       return MPTEST__RESULT_ERROR;                                             \
     }                                                                          \
     mptest__sym_make_destroy(&temp_build);                                     \
@@ -770,6 +774,7 @@ MPTEST_API void mptest__sym_make_destroy(mptest_sym_build* build_out);
 #define SYM_WRONG_TYPE 6
 #define SYM_NO_MORE 7
 #define SYM_INVALID 8
+#define SYM_NOMEM 9
 
 #endif
 
@@ -825,8 +830,8 @@ int mptest__str_cmp(const mptest__str* str_a, const mptest__str* str_b);
 mptest_size mptest__str_slen(const mptest_char* chars);
 void mptest__str_clear(mptest__str* str);
 
-#if MPTEST_USE_SYM
 #if MPTEST_USE_DYN_ALLOC
+#if MPTEST_USE_SYM
 /* bits/container/str_view */
 typedef struct mptest__str_view {
     const mptest_char* _data;
@@ -840,8 +845,8 @@ void mptest__str_view_init_null(mptest__str_view* view);
 mptest_size mptest__str_view_size(const mptest__str_view* view);
 const mptest_char* mptest__str_view_get_data(const mptest__str_view* view);
 int mptest__str_view_cmp(const mptest__str_view* a, const mptest__str_view* b);
-#endif /* MPTEST_USE_SYM */
 #endif /* MPTEST_USE_DYN_ALLOC */
+#endif /* MPTEST_USE_SYM */
 
 /* bits/util/ntstr/len */
 MPTEST_INTERNAL mptest_size mptest__slen(const mptest_char* s);
@@ -980,8 +985,8 @@ MPTEST_INTERNAL aparse_error aparse__error_print_long_opt(aparse__state* state, 
 MPTEST_INTERNAL aparse_error aparse__error_print_sub_args(aparse__state* state, const aparse__arg* arg);
 #endif /* MPTEST_USE_APARSE */
 
-#if MPTEST_USE_SYM
 #if MPTEST_USE_DYN_ALLOC
+#if MPTEST_USE_SYM
 /* bits/container/vec */
 #define MPTEST__VEC_TYPE(T) \
     MPTEST__PASTE(T, _vec)
@@ -1297,8 +1302,8 @@ MPTEST_INTERNAL aparse_error aparse__error_print_sub_args(aparse__state* state, 
         MPTEST__VEC_SETSIZE(T, vec, cap); \
         return 0; \
     }
-#endif /* MPTEST_USE_SYM */
 #endif /* MPTEST_USE_DYN_ALLOC */
+#endif /* MPTEST_USE_SYM */
 
 /* mptest */
 #ifndef MPTEST_INTERNAL_H
@@ -1961,8 +1966,8 @@ void mptest__str_clear(mptest__str* str) {
     MPTEST__STR_DATA(str)[0] = '\0';
 }
 
-#if MPTEST_USE_SYM
 #if MPTEST_USE_DYN_ALLOC
+#if MPTEST_USE_SYM
 /* bits/container/str_view */
 void mptest__str_view_init(mptest__str_view* view, const mptest__str* other) {
     view->_size = mptest__str_size(other);
@@ -2014,8 +2019,8 @@ int mptest__str_view_cmp(const mptest__str_view* view_a, const mptest__str_view*
     }
     return 0;
 }
-#endif /* MPTEST_USE_SYM */
 #endif /* MPTEST_USE_DYN_ALLOC */
+#endif /* MPTEST_USE_SYM */
 
 #if MPTEST_USE_SYM
 /* bits/types/fixed/int32 */
@@ -4421,6 +4426,7 @@ mptest__state_after_test(struct mptest__state* state, mptest__result res)
     has_leaks = mptest__leakcheck_has_leaks(state);
     if (has_leaks) {
       if (res == MPTEST__RESULT_PASS) {
+        res = MPTEST__RESULT_FAIL;
         state->fail_reason = MPTEST__FAIL_REASON_LEAKED;
       }
     }
