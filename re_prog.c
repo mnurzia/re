@@ -21,6 +21,7 @@ MN_INTERNAL void
 re__prog_inst_init_byte_range(re__prog_inst* inst, re__byte_range br)
 {
   re__prog_inst_init(inst, RE__PROG_INST_TYPE_BYTE_RANGE);
+  MN_ASSERT(br.min <= br.max);
   inst->data1 = (mn_uint32)br.min | ((mn_uint32)br.max << 16);
 }
 
