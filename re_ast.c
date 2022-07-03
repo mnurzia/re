@@ -231,8 +231,6 @@ MN_INTERNAL void re__ast_root_remove(re__ast_root* ast_root, mn_int32 ast_ref)
   re__ast* empty = re__ast_root_get(ast_root, ast_ref);
   MN_ASSERT(empty->first_child_ref == RE__AST_NONE);
   MN_ASSERT(empty->last_child_ref == RE__AST_NONE);
-  MN_ASSERT(empty->next_sibling_ref == RE__AST_NONE);
-  MN_ASSERT(empty->prev_sibling_ref == RE__AST_NONE);
   if (ast_root->root_ref == ast_ref) {
     ast_root->root_ref = RE__AST_NONE;
   }
@@ -245,9 +243,6 @@ MN_INTERNAL void re__ast_root_replace(
     re__ast_root* ast_root, mn_int32 ast_ref, re__ast replacement)
 {
   re__ast* loc = re__ast_root_get(ast_root, ast_ref);
-  MN_ASSERT(loc->next_sibling_ref == RE__AST_NONE);
-  MN_ASSERT(loc->first_child_ref == RE__AST_NONE);
-  MN_ASSERT(loc->last_child_ref == RE__AST_NONE);
   replacement.next_sibling_ref = loc->next_sibling_ref;
   replacement.first_child_ref = loc->first_child_ref;
   replacement.prev_sibling_ref = loc->prev_sibling_ref;
