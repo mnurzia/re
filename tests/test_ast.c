@@ -579,8 +579,7 @@ TEST(t_ast_assert_type)
 TEST(t_ast_group_flags)
 {
   re__ast ast;
-  re__ast_group_flags group_flags =
-      RE__AST_GROUP_FLAG_NAMED | RE__AST_GROUP_FLAG_NONMATCHING;
+  re__ast_group_flags group_flags = RE__AST_GROUP_FLAG_NONMATCHING;
   re__ast_init_group(&ast, 0, group_flags);
   ASSERT_EQ(re__ast_get_group_flags(&ast), group_flags);
   re__ast_destroy(&ast);
