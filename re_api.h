@@ -42,7 +42,8 @@ typedef enum re_syntax_flags {
   RE_SYNTAX_FLAG_ASCII = 1,
   RE_SYNTAX_FLAG_IGNORECASE = 2,
   RE_SYNTAX_FLAG_MULTILINE = 4,
-  RE_SYNTAX_FLAG_DOTALL = 8
+  RE_SYNTAX_FLAG_DOTALL = 8,
+  RE_SYNTAX_FLAG_GLOB = 16
 } re_syntax_flags;
 
 re_error re_init(re* reg, const char* regex_nt);

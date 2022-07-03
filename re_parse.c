@@ -41,7 +41,7 @@ re__ast_type re__parse_get_frame_type(re__parse* parse)
 {
   re__parse_frame* frame = re__parse_get_frame(parse);
   re__ast_type ret = RE__AST_TYPE_NONE;
-  if (frame->ast_root_ref != RE__AST_NONE) {
+  if (re__parse_frame_vec_size(&parse->frames) != 1) {
     ret = re__ast_root_get(&parse->reg->data->ast_root, frame->ast_root_ref)
               ->type;
   }
@@ -1230,6 +1230,8 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
   re_error err = RE_ERROR_NONE;
   re_rune ch;
   re__rune_range range;
+  re_rune invert_char =
+      (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_GLOB) ? '!' : '^';
   re__charclass_builder_begin(&parse->charclass_builder);
   if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_CASE_INSENSITIVE) {
     re__charclass_builder_fold(&parse->charclass_builder);
@@ -1245,7 +1247,7 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
     /* [] | Set right bracket as low character, look for dash */
     range.min = ']';
     goto before_dash;
-  } else if (ch == '^') {
+  } else if (ch == invert_char) {
     /* [^ | Start of invert */
     re__charclass_builder_invert(&parse->charclass_builder);
   } else {
@@ -1297,7 +1299,7 @@ MN_INTERNAL re_error re__parse_charclass(re__parse* parse)
         if ((err = re__parse_next_char(parse, &ch))) {
           return err;
         }
-        if (ch == '^') {
+        if (ch == invert_char) {
           /* [[:^ | Invert ASCII charclass */
           inverted = 1;
           name_start_pos = parse->str_pos;
@@ -1554,10 +1556,32 @@ construct:
   return re__parse_wrap_node(parse, out);
 }
 
-MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
+MN_INTERNAL re_error re__parse_build_flags(
+    re_syntax_flags syntax_flags, re__parse_flags* out_parse_flags)
+{
+  re__parse_flags out = 0;
+  if (syntax_flags & RE_SYNTAX_FLAG_IGNORECASE) {
+    out |= RE__PARSE_FLAG_CASE_INSENSITIVE;
+  }
+  if (syntax_flags & RE_SYNTAX_FLAG_MULTILINE) {
+    out |= RE__PARSE_FLAG_MULTILINE;
+  }
+  if (syntax_flags & RE_SYNTAX_FLAG_DOTALL) {
+    out |= RE__PARSE_FLAG_DOT_NEWLINE;
+  }
+  if (syntax_flags & RE_SYNTAX_FLAG_GLOB) {
+    out |= RE__PARSE_FLAG_GLOB;
+  }
+  *out_parse_flags = out;
+  return RE_ERROR_NONE;
+}
+
+MN_INTERNAL re_error
+re__parse_str(re__parse* parse, mn__str_view str, re_syntax_flags syntax_flags)
 {
   re_error err = RE_ERROR_NONE;
   mn_int32 start_ref = parse->reg->data->ast_root.root_ref;
+  re__parse_flags initial_flags;
   /* Set string */
   parse->str = str;
   parse->str_pos = 0;
@@ -1569,6 +1593,9 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
     /* Set mode, push the set root. */
     start_ref = parse->reg->data->set;
   }
+  if ((err = re__parse_build_flags(syntax_flags, &initial_flags))) {
+    return err;
+  }
   if ((err = re__parse_push_frame(parse, start_ref, 0))) {
     return err;
   }
@@ -1577,97 +1604,125 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
     if ((err = re__parse_next_char(parse, &ch))) {
       goto error;
     }
-    if (ch == '$') {
-      re__assert_type assert_type = RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
-      if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_MULTILINE) {
-        assert_type = RE__ASSERT_TYPE_TEXT_END;
+    if (!(re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_GLOB)) {
+      if (ch == '$') {
+        re__assert_type assert_type = RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
+        if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_MULTILINE) {
+          assert_type = RE__ASSERT_TYPE_TEXT_END;
+        }
+        if ((err = re__parse_create_assert(parse, assert_type))) {
+          goto error;
+        }
+      } else if (ch == '(') {
+        /* ( | Begin a group. */
+        if ((err = re__parse_group_begin(parse))) {
+          goto error;
+        }
+      } else if (ch == ')') {
+        /* ) | End a group. */
+        if ((err = re__parse_group_end(parse))) {
+          goto error;
+        }
+      } else if (ch == '*' || ch == '?' || ch == '+') {
+        mn_size saved_pos;
+        if (ch == '*') {
+          if ((err = re__parse_create_star(parse))) {
+            goto error;
+          }
+        } else if (ch == '?') {
+          if ((err = re__parse_create_question(parse))) {
+            goto error;
+          }
+        } else { /* ch == '+' */
+          if ((err = re__parse_create_plus(parse))) {
+            goto error;
+          }
+        }
+        saved_pos = parse->str_pos;
+        if ((err = re__parse_next_char(parse, &ch))) {
+          goto error;
+        }
+        if (ch == '?') {
+          /* [*+?]? | Make previous operator non-greedy. */
+          re__parse_swap_greedy(parse);
+        } else {
+          /* Handles EOF */
+          parse->str_pos = saved_pos;
+        }
+      } else if (ch == '.') {
+        /* . | Create an "any character." */
+        if ((err = re__parse_create_any_char(parse))) {
+          goto error;
+        }
+      } else if (ch == '[') {
+        /* [ | Start of a character class. */
+        if ((err = re__parse_charclass(parse))) {
+          goto error;
+        }
+      } else if (ch == '\\') {
+        /* \ | Start of escape sequence. */
+        re_rune esc_char;
+        if ((err = re__parse_escape(parse, &esc_char, 1, 0))) {
+          goto error;
+        }
+        if (esc_char != RE__PARSE_EOF) {
+          if ((err = re__parse_create_rune(parse, esc_char))) {
+            goto error;
+          }
+        }
+      } else if (ch == '^') {
+        /* ^ | Text start assert. */
+        re__assert_type assert_type = RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
+        if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_MULTILINE) {
+          assert_type = RE__ASSERT_TYPE_TEXT_START;
+        }
+        if ((err = re__parse_create_assert(parse, assert_type))) {
+          goto error;
+        }
+      } else if (ch == '{') {
+        /* { | Start of counting form. */
+        if ((err = re__parse_count(parse))) {
+          goto error;
+        }
+      } else if (ch == '|') {
+        /* | | Alternation. */
+        if ((err = re__parse_alt(parse))) {
+          goto error;
+        }
+      } else if (ch == RE__PARSE_EOF) {
+        /* <EOF> | Finish. */
+        break;
+      } else {
+        /* Any other character. */
+        if ((err = re__parse_create_rune(parse, ch))) {
+          goto error;
+        }
       }
-      if ((err = re__parse_create_assert(parse, assert_type))) {
-        goto error;
-      }
-    } else if (ch == '(') {
-      /* ( | Begin a group. */
-      if ((err = re__parse_group_begin(parse))) {
-        goto error;
-      }
-    } else if (ch == ')') {
-      /* ) | End a group. */
-      if ((err = re__parse_group_end(parse))) {
-        goto error;
-      }
-    } else if (ch == '*' || ch == '?' || ch == '+') {
-      mn_size saved_pos;
-      if (ch == '*') {
+    } else {
+      /* glob syntax */
+      if (ch == '?') {
+        /* ? | Any character */
+        if ((err = re__parse_create_any_char(parse))) {
+          goto error;
+        }
+      } else if (ch == '*') {
+        /* * | .* */
+        if ((err = re__parse_create_any_char(parse))) {
+          goto error;
+        }
         if ((err = re__parse_create_star(parse))) {
           goto error;
         }
-      } else if (ch == '?') {
-        if ((err = re__parse_create_question(parse))) {
+      } else if (ch == '[') {
+        /* [ | Build charclass */
+        if ((err = re__parse_charclass(parse))) {
           goto error;
         }
-      } else { /* ch == '+' */
-        if ((err = re__parse_create_plus(parse))) {
-          goto error;
-        }
-      }
-      saved_pos = parse->str_pos;
-      if ((err = re__parse_next_char(parse, &ch))) {
-        goto error;
-      }
-      if (ch == '?') {
-        /* [*+?]? | Make previous operator non-greedy. */
-        re__parse_swap_greedy(parse);
       } else {
-        /* Handles EOF */
-        parse->str_pos = saved_pos;
-      }
-    } else if (ch == '.') {
-      /* . | Create an "any character." */
-      if ((err = re__parse_create_any_char(parse))) {
-        goto error;
-      }
-    } else if (ch == '[') {
-      /* [ | Start of a character class. */
-      if ((err = re__parse_charclass(parse))) {
-        goto error;
-      }
-    } else if (ch == '\\') {
-      /* \ | Start of escape sequence. */
-      re_rune esc_char;
-      if ((err = re__parse_escape(parse, &esc_char, 1, 0))) {
-        goto error;
-      }
-      if (esc_char != RE__PARSE_EOF) {
-        if ((err = re__parse_create_rune(parse, esc_char))) {
+        /* <*> | Add rune */
+        if ((err = re__parse_create_rune(parse, ch))) {
           goto error;
         }
-      }
-    } else if (ch == '^') {
-      /* ^ | Text start assert. */
-      re__assert_type assert_type = RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
-      if (re__parse_get_frame(parse)->flags & RE__PARSE_FLAG_MULTILINE) {
-        assert_type = RE__ASSERT_TYPE_TEXT_START;
-      }
-      if ((err = re__parse_create_assert(parse, assert_type))) {
-        goto error;
-      }
-    } else if (ch == '{') {
-      /* { | Start of counting form. */
-      if ((err = re__parse_count(parse))) {
-        goto error;
-      }
-    } else if (ch == '|') {
-      /* | | Alternation. */
-      if ((err = re__parse_alt(parse))) {
-        goto error;
-      }
-    } else if (ch == RE__PARSE_EOF) {
-      /* <EOF> | Finish. */
-      break;
-    } else {
-      /* Any other character. */
-      if ((err = re__parse_create_rune(parse, ch))) {
-        goto error;
       }
     }
   }
@@ -1676,6 +1731,12 @@ MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str)
     re__ast_type peek_type = re__parse_get_frame_type(parse);
     if (peek_type == RE__AST_TYPE_NONE) {
       /* Successfully hit bottom frame. */
+      if (parse->reg->data->set != RE__AST_NONE) {
+        /* Finish the alt frame. */
+        if ((err = re__parse_alt_finish(parse))) {
+          goto error;
+        }
+      }
       break;
     } else if (peek_type == RE__AST_TYPE_CONCAT) {
       re__parse_pop_frame(parse);

@@ -52,10 +52,9 @@ MN_INTERNAL void re__ast_init_group(
     re__ast* ast, mn_uint32 group_idx, re__ast_group_flags group_flags)
 {
   re__ast_init(ast, RE__AST_TYPE_GROUP);
-  if (group_flags & RE__AST_GROUP_FLAG_NONMATCHING) {
-    MN_ASSERT(!(group_flags & RE__AST_GROUP_FLAG_NAMED));
-    MN_ASSERT(group_idx == 0);
-  }
+  MN_ASSERT(MN__IMPLIES(
+      group_flags & RE__AST_GROUP_FLAG_NONMATCHING,
+      !(group_flags & RE__AST_GROUP_FLAG_NAMED) && group_idx == 0));
   ast->_data.group_info.flags = group_flags;
   ast->_data.group_info.group_idx = group_idx;
 }

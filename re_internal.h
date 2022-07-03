@@ -537,13 +537,13 @@ typedef enum re__parse_flags {
   RE__PARSE_FLAG_CASE_INSENSITIVE = 1,
   RE__PARSE_FLAG_MULTILINE = 2,
   RE__PARSE_FLAG_DOT_NEWLINE = 4,
-  RE__PARSE_FLAG_UNGREEDY = 8
+  RE__PARSE_FLAG_UNGREEDY = 8,
+  RE__PARSE_FLAG_GLOB = 16
 } re__parse_flags;
 
 typedef struct re__parse_frame {
   mn_int32 ast_root_ref;
   mn_int32 ast_prev_child_ref;
-  re__ast_group_flags group_flags;
   re__parse_flags flags;
 } re__parse_frame;
 
@@ -559,7 +559,8 @@ typedef struct re__parse {
 
 MN_INTERNAL void re__parse_init(re__parse* parse, re* reg);
 MN_INTERNAL void re__parse_destroy(re__parse* parse);
-MN_INTERNAL re_error re__parse_str(re__parse* parse, mn__str_view str);
+MN_INTERNAL re_error
+re__parse_str(re__parse* parse, mn__str_view str, re_syntax_flags syntax_flags);
 
 /* ---------------------------------------------------------------------------
  * Instruction format (re_prog.c)

@@ -87,9 +87,8 @@ re_error re_init_sz_flags(
   if ((err = re__init(reg, 0))) {
     return err;
   }
-  MN__UNUSED(syntax_flags);
   mn__str_view_init_n(&regex_view, regex, regex_size);
-  if ((err = re__parse_str(&reg->data->parse, regex_view))) {
+  if ((err = re__parse_str(&reg->data->parse, regex_view, syntax_flags))) {
     return err;
   }
   return err;
@@ -116,7 +115,7 @@ re_error re_set_add_sz_flags(
   mn__str_view regex_view;
   MN__UNUSED(syntax_flags);
   mn__str_view_init_n(&regex_view, regex, regex_size);
-  return re__parse_str(&reg->data->parse, regex_view);
+  return re__parse_str(&reg->data->parse, regex_view, syntax_flags);
 }
 
 void re_destroy(re* reg)
