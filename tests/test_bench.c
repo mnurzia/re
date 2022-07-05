@@ -32,7 +32,7 @@ void bench_long_match(void)
   unsigned long mb = (LONG_SUBJECT_LEN / 1048576UL);
   char* subject = malloc(LONG_SUBJECT_LEN);
   fill_rand(subject, LONG_SUBJECT_LEN);
-  re_init(&reg, ".*$");
+  re_init(&reg, "aaaaaaa$");
   start = clock();
   re_is_match(&reg, subject, LONG_SUBJECT_LEN, 'U');
   end = clock();

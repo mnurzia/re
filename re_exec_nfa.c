@@ -552,13 +552,13 @@ re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos)
   }
 }
 
-MN_INTERNAL int re__is_word_char(re__exec_sym ch)
+MN_INTERNAL unsigned int re__is_word_char(re__exec_sym ch)
 {
   return ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z')) ||
          ((ch >= '0') && (ch <= '9')) || ch == '_';
 }
 
-MN_INTERNAL int re__is_word_boundary_start(re__exec_sym right)
+MN_INTERNAL unsigned int re__is_word_boundary_start(re__exec_sym right)
 {
   if (re__is_word_char(right)) {
     return 1;
@@ -569,7 +569,8 @@ MN_INTERNAL int re__is_word_boundary_start(re__exec_sym right)
   }
 }
 
-MN_INTERNAL int re__is_word_boundary(int left_is_word, re__exec_sym right)
+MN_INTERNAL unsigned int
+re__is_word_boundary(int left_is_word, re__exec_sym right)
 {
   if (left_is_word) {
     return (!re__is_word_char(right)) || right == RE__EXEC_SYM_EOT;

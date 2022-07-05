@@ -12,6 +12,32 @@ MN__VEC_IMPL_FUNC(mn_uint32_ptr, push)
 MN__VEC_IMPL_FUNC(mn_uint32_ptr, size)
 MN__VEC_IMPL_FUNC(mn_uint32_ptr, get)
 
+void re__exec_dfa_state_init(
+    re__exec_dfa_state* state, mn_uint32* thrd_locs_begin,
+    mn_uint32* thrd_locs_end)
+{
+  mn_uint32 i;
+  for (i = 0; i < RE__EXEC_SYM_MAX; i++) {
+    state->next[i] = MN_NULL;
+  }
+  state->flags = 0;
+  state->thrd_locs_begin = thrd_locs_begin;
+  state->thrd_locs_end = thrd_locs_end;
+  state->match_index = 0;
+}
+
+#define RE__EXEC_DFA_PTR_MASK (~0x3)
+
+MN_INTERNAL re__exec_dfa_state*
+re__exec_dfa_state_get_next(re__exec_dfa_state* state, mn_uint8 sym)
+{
+#if !RE__EXEC_DFA_SMALL_STATE
+  return state->next[sym];
+#else
+  return state->next[sym] & RE__EXEC_DFA_PTR_MASK;
+#endif
+}
+
 void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog)
 {
   exec->current_state = MN_NULL;
@@ -29,7 +55,6 @@ void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog)
   exec->cache = MN_NULL;
   exec->cache_stored = 0;
   exec->cache_alloc = 0;
-  exec->prev_sym = 0;
 }
 
 void re__exec_dfa_destroy(re__exec_dfa* exec)
@@ -52,20 +77,6 @@ void re__exec_dfa_destroy(re__exec_dfa* exec)
     }
   }
   re__exec_dfa_state_ptr_vec_destroy(&exec->state_pages);
-}
-
-void re__exec_dfa_state_init(
-    re__exec_dfa_state* state, mn_uint32* thrd_locs_begin,
-    mn_uint32* thrd_locs_end)
-{
-  mn_uint32 i;
-  for (i = 0; i < RE__EXEC_SYM_MAX; i++) {
-    state->next[i] = MN_NULL;
-  }
-  state->flags = 0;
-  state->thrd_locs_begin = thrd_locs_begin;
-  state->thrd_locs_end = thrd_locs_end;
-  state->match_index = 0;
 }
 
 re_error re__exec_dfa_stash_loc_set(
@@ -329,18 +340,15 @@ re_error re__exec_dfa_start(
   re__exec_dfa_state** start_state = &exec->start_states[start_state_idx];
   MN_ASSERT(entry < RE__PROG_ENTRY_MAX);
   if (*start_state == MN_NULL) {
-    re__exec_dfa_flags dfa_flags = RE__EXEC_DFA_FLAG_START_STATE;
+    re__exec_dfa_flags dfa_flags = 0;
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD) {
       dfa_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
     }
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE;
+      dfa_flags |= RE__EXEC_DFA_FLAG_BEGIN_LINE;
     }
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT;
-    }
-    if (entry == RE__PROG_ENTRY_DOTSTAR) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR;
+      dfa_flags |= RE__EXEC_DFA_FLAG_BEGIN_TEXT;
     }
     if ((err = re__exec_nfa_start(&exec->nfa, entry))) {
       return err;
@@ -353,56 +361,86 @@ re_error re__exec_dfa_start(
   return err;
 }
 
-re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym)
+re_error re__exec_dfa_construct(re__exec_dfa* exec, re__exec_sym next_sym)
+{
+  re_error err = RE_ERROR_NONE;
+  re__assert_type assert_ctx = 0;
+  unsigned int is_word_boundary;
+  re__exec_dfa_flags new_flags = 0;
+  re__exec_dfa_state_ptr current_state = exec->current_state;
+  re__exec_dfa_state_ptr* next_state = &current_state->next[next_sym];
+  is_word_boundary = re__is_word_boundary(
+      !!(current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD), next_sym);
+  if (is_word_boundary) {
+    assert_ctx |= RE__ASSERT_TYPE_WORD;
+  } else {
+    assert_ctx |= RE__ASSERT_TYPE_WORD_NOT;
+  }
+  if (next_sym == RE__EXEC_SYM_EOT) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
+  }
+  if (current_state->flags & RE__EXEC_DFA_FLAG_BEGIN_LINE) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_START;
+  }
+  if (current_state->flags & RE__EXEC_DFA_FLAG_BEGIN_TEXT) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
+  }
+  re__exec_nfa_set_thrds(
+      &exec->nfa, current_state->thrd_locs_begin,
+      (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
+  re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
+  re__exec_nfa_set_match_priority(
+      &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+  if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, next_sym, 0))) {
+    return err;
+  }
+  if (re__is_word_char(next_sym)) {
+    new_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
+  }
+  if (next_sym == '\n') {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
+    new_flags |= RE__EXEC_DFA_FLAG_BEGIN_LINE;
+  }
+  if ((err = re__exec_dfa_get_state(exec, new_flags, next_state))) {
+    return err;
+  }
+  exec->current_state = *next_state;
+  return err;
+}
+
+re_error re__exec_dfa_run_byte(re__exec_dfa* exec, mn_uint8 next_byte)
+{
+  re__exec_dfa_state* current_state = exec->current_state;
+  re__exec_dfa_state* next_state;
+  re_error err = RE_ERROR_NONE;
+  MN_ASSERT(current_state != MN_NULL);
+  next_state = current_state->next[next_byte];
+  if (next_state == MN_NULL) {
+    if ((err = re__exec_dfa_construct(exec, next_byte))) {
+      return err;
+    }
+  } else {
+    exec->current_state = next_state;
+  }
+  return 0;
+}
+
+re_error re__exec_dfa_end(re__exec_dfa* exec)
 {
   re__exec_dfa_state* current_state = exec->current_state;
   re__exec_dfa_state* next_state;
   re_error err = RE_ERROR_NONE;
   /* for now, ensure it's not null */
   MN_ASSERT(current_state != MN_NULL);
-  MN_ASSERT(next_sym <= RE__EXEC_SYM_EOT);
-  next_state = current_state->next[next_sym];
+  next_state = current_state->next[RE__EXEC_SYM_EOT];
   if (next_state == MN_NULL) {
-    re__assert_type assert_ctx = 0;
-    int is_word_boundary;
-    re__exec_dfa_flags new_flags = 0;
-    is_word_boundary = re__is_word_boundary(
-        !!(current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD), next_sym);
-    if (is_word_boundary) {
-      assert_ctx |= RE__ASSERT_TYPE_WORD;
-    } else {
-      assert_ctx |= RE__ASSERT_TYPE_WORD_NOT;
-    }
-    if (next_sym == RE__EXEC_SYM_EOT) {
-      assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
-      assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
-    }
-    if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE) {
-      assert_ctx |= RE__ASSERT_TYPE_TEXT_START;
-    }
-    if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT) {
-      assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
-    }
-    re__exec_nfa_set_thrds(
-        &exec->nfa, current_state->thrd_locs_begin,
-        (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
-    re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
-    re__exec_nfa_set_match_priority(
-        &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
-    if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, next_sym, 0))) {
+    if ((err = re__exec_dfa_construct(exec, RE__EXEC_SYM_EOT))) {
       return err;
     }
-    if (re__is_word_char(next_sym)) {
-      new_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
-    }
-    /* if (is_word_char(sym)) dfa_flags |= from_word */
-    if ((err = re__exec_dfa_get_state(exec, new_flags, &next_state))) {
-      return err;
-    }
-    current_state->next[next_sym] = next_state;
+  } else {
+    exec->current_state = next_state;
   }
-  exec->prev_sym = next_sym;
-  exec->current_state = next_state;
   return 0;
 }
 
@@ -445,15 +483,12 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec)
     return;
   }
   printf(
-      "  Flags: %c%c%c%c%c%c%c%c\n",
+      "  Flags: %c%c%c%c%c\n",
       (state->flags & RE__EXEC_DFA_FLAG_FROM_WORD ? 'W' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_START_STATE ? 'S' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT ? 'A' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE ? '^' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_BEGIN_TEXT ? 'A' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_BEGIN_LINE ? '^' : '-'),
       (state->flags & RE__EXEC_DFA_FLAG_MATCH ? 'M' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY ? 'P' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_EMPTY ? 'E' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR ? '*' : '-'));
+      (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY ? 'P' : '-'));
   printf("  Match Index: %i\n", state->match_index);
   printf(
       "  Match Priority: %i\n",
