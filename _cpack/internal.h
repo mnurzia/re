@@ -20,7 +20,13 @@
 #define MN_INTERNAL extern
 #endif
 
+#if !defined(MN__SPLIT_BUILD)
+#define MN_INTERNAL_DATA_DECL static
 #define MN_INTERNAL_DATA static
+#else
+#define MN_INTERNAL_DATA_DECL extern
+#define MN_INTERNAL_DATA 
+#endif
 
 /* bits/util/preproc/stringify */
 #define MN__STRINGIFY_0(x) #x
@@ -92,7 +98,8 @@ void mn__memset(void* ptr, int value, mn_size count);
 #define MN__UNUSED(x) ((void)(x))
 
 /* bits/algorithm/hash/murmur3 */
-mn_uint32 mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_len);
+MN_INTERNAL mn_uint32
+mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_len);
 
 /* bits/container/vec */
 #define MN__VEC_TYPE(T) \

@@ -894,10 +894,10 @@ typedef enum re__prog_data_id {
 
 /* Pointers to precompiled program data. See re__prog_decompress for the
  * compressed program format. */
-MN_INTERNAL mn_uint8* re__prog_data[RE__PROG_DATA_ID_MAX];
+MN_INTERNAL_DATA_DECL mn_uint8* re__prog_data[RE__PROG_DATA_ID_MAX];
 
 /* Corresponding sizes of precompiled program data. */
-MN_INTERNAL mn_size re__prog_data_size[RE__PROG_DATA_ID_MAX];
+MN_INTERNAL_DATA_DECL mn_size re__prog_data_size[RE__PROG_DATA_ID_MAX];
 
 /* Decompress a compressed program into an re__prog object, storing outward
  * patches in the given patches object. */

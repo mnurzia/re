@@ -210,13 +210,13 @@ MN_INTERNAL_DATA mn_uint8 re__prog_data_dot_rev_rejsurr_rejnl[] = {
     /* 0018 */ 0x01, 0xC2, 0xDF, 0x00, /* RANGE 0xC2-0xDF -> out */
 };
 
-mn_uint8* re__prog_data[RE__PROG_DATA_ID_MAX] = {
+MN_INTERNAL_DATA mn_uint8* re__prog_data[RE__PROG_DATA_ID_MAX] = {
     re__prog_data_dot_fwd_accsurr_accnl, re__prog_data_dot_rev_accsurr_accnl,
     re__prog_data_dot_fwd_rejsurr_accnl, re__prog_data_dot_rev_rejsurr_accnl,
     re__prog_data_dot_fwd_accsurr_rejnl, re__prog_data_dot_rev_accsurr_rejnl,
     re__prog_data_dot_fwd_rejsurr_rejnl, re__prog_data_dot_rev_rejsurr_rejnl};
 
-mn_size re__prog_data_size[RE__PROG_DATA_ID_MAX] = {
+MN_INTERNAL_DATA mn_size re__prog_data_size[RE__PROG_DATA_ID_MAX] = {
     sizeof(re__prog_data_dot_fwd_accsurr_accnl),
     sizeof(re__prog_data_dot_rev_accsurr_accnl),
     sizeof(re__prog_data_dot_fwd_rejsurr_accnl),
