@@ -1718,6 +1718,12 @@ re__parse_str(re__parse* parse, mn__str_view str, re_syntax_flags syntax_flags)
         if ((err = re__parse_charclass(parse))) {
           goto error;
         }
+      } else if (ch == '/') {
+        /* / | Disallowed */
+        if ((err =
+                 re__parse_error(parse, "cannot use '/' in glob expression"))) {
+          goto error;
+        }
       } else {
         /* <*> | Add rune */
         if ((err = re__parse_create_rune(parse, ch))) {
