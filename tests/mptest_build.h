@@ -791,7 +791,13 @@ MPTEST_API void mptest__sym_make_destroy(mptest_sym_build* build_out);
 #define MPTEST_INTERNAL extern
 #endif
 
+#if !defined(MPTEST__SPLIT_BUILD)
+#define MPTEST_INTERNAL_DATA_DECL static
 #define MPTEST_INTERNAL_DATA static
+#else
+#define MPTEST_INTERNAL_DATA_DECL extern
+#define MPTEST_INTERNAL_DATA 
+#endif
 
 #if MPTEST_USE_APARSE
 /* bits/util/ntstr/strstr_n */
@@ -4525,6 +4531,7 @@ mptest__state_after_test(struct mptest__state* state, mptest__result res)
           mptest__state_print_indent(state);
           printf("      ...at ");
           mptest__print_source_location(current->file, current->line);
+          printf("\n");
         }
         current = current->next;
       }
