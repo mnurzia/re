@@ -65,9 +65,6 @@ void re__exec_dfa_state_init(
   state->flags = 0;
   state->thrd_locs_begin = thrd_locs_begin;
   state->thrd_locs_end = thrd_locs_end;
-  if (state->thrd_locs_begin == state->thrd_locs_end) {
-    state->flags |= RE__EXEC_DFA_FLAG_EMPTY;
-  }
   state->match_index = 0;
 }
 
@@ -253,7 +250,7 @@ re_error re__exec_dfa_get_state(
         }
       }
       /* otherwise, find a new slot */
-      probe = exec->cache + (((q * q) + hash) % exec->cache_alloc);
+      probe = exec->cache + ((q + hash) % exec->cache_alloc);
       q++;
     }
     /* if not found in cache, we are here */
@@ -274,7 +271,7 @@ re_error re__exec_dfa_get_state(
     }
     /* check load factor and resize if necessary (0.75 in this case) */
     /* calculation: x - 0.25 * x == 0.75 * x    |    (0.25*x == x >> 2) */
-    if (exec->cache_stored == exec->cache_alloc - (exec->cache_alloc >> 2)) {
+    if (exec->cache_stored == (exec->cache_alloc - (exec->cache_alloc >> 2))) {
       /* need to resize */
       mn_size old_alloc = exec->cache_alloc;
       mn_size i;
@@ -282,19 +279,18 @@ re_error re__exec_dfa_get_state(
       exec->cache_alloc *= 2;
       exec->cache =
           MN_MALLOC(sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
-      mn__memset(
-          exec->cache, 0, sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
       if (exec->cache == MN_NULL) {
         return RE_ERROR_NOMEM;
       }
+      mn__memset(
+          exec->cache, 0, sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
       /* rehash */
       for (i = 0; i < old_alloc; i++) {
         re__exec_dfa_cache_entry* old_entry = old_cache + i;
         probe = exec->cache + (old_entry->hash % exec->cache_alloc);
         q = 1;
         while (probe->state_ptr != MN_NULL) {
-          probe =
-              exec->cache + (((q * q) + old_entry->hash) % exec->cache_alloc);
+          probe = exec->cache + ((q + old_entry->hash) % exec->cache_alloc);
           q++;
         }
         *probe = *old_entry;
@@ -370,12 +366,8 @@ re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym)
     re__assert_type assert_ctx = 0;
     int is_word_boundary;
     re__exec_dfa_flags new_flags = 0;
-    if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE) {
-      is_word_boundary = re__is_word_boundary_start(next_sym);
-    } else {
-      is_word_boundary = re__is_word_boundary(
-          !!(current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD), next_sym);
-    }
+    is_word_boundary = re__is_word_boundary(
+        !!(current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD), next_sym);
     if (is_word_boundary) {
       assert_ctx |= RE__ASSERT_TYPE_WORD;
     } else {
@@ -452,7 +444,16 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec)
     printf("  NULL STATE\n");
     return;
   }
-  printf("  Flags: 0x%04X\n", state->flags);
+  printf(
+      "  Flags: %c%c%c%c%c%c%c%c\n",
+      (state->flags & RE__EXEC_DFA_FLAG_FROM_WORD ? 'W' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_START_STATE ? 'S' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT ? 'A' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE ? '^' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_MATCH ? 'M' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY ? 'P' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_EMPTY ? 'E' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR ? '*' : '-'));
   printf("  Match Index: %i\n", state->match_index);
   printf(
       "  Match Priority: %i\n",

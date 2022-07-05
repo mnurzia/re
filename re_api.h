@@ -46,33 +46,33 @@ typedef enum re_syntax_flags {
   RE_SYNTAX_FLAG_GLOB = 16
 } re_syntax_flags;
 
-re_error re_init(re* reg, const char* regex_nt);
-re_error
+MN_API re_error re_init(re* reg, const char* regex_nt);
+MN_API re_error
 re_init_flags(re* reg, const char* regex_nt, re_syntax_flags syntax_flags);
-re_error re_init_sz_flags(
+MN_API re_error re_init_sz_flags(
     re* reg, const char* regex, mn_size regex_size,
     re_syntax_flags syntax_flags);
-re_error re_init_set(re* reg);
+MN_API re_error re_init_set(re* reg);
 
-re_error re_set_add(re* reg, const char* regex_nt);
-re_error
+MN_API re_error re_set_add(re* reg, const char* regex_nt);
+MN_API re_error
 re_set_add_flags(re* reg, const char* regex_nt, re_syntax_flags syntax_flags);
-re_error re_set_add_sz_flags(
+MN_API re_error re_set_add_sz_flags(
     re* reg, const char* regex, mn_size regex_size,
     re_syntax_flags syntax_flags);
 
-re_error re_is_match(
+MN_API re_error re_is_match(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type);
-re_error re_match_groups(
+MN_API re_error re_match_groups(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
     mn_uint32 max_group, re_span* out_groups);
-re_error re_match_groups_set(
+MN_API re_error re_match_groups_set(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
     mn_uint32 max_group, re_span* out_groups, mn_uint32* out_set_index);
 
-const char* re_get_error(const re* reg, mn_size* error_len);
-mn_uint32 re_get_max_groups(const re* reg);
+MN_API const char* re_get_error(const re* reg, mn_size* error_len);
+MN_API mn_uint32 re_get_max_groups(const re* reg);
 
-void re_destroy(re* reg);
+MN_API void re_destroy(re* reg);
 
 #endif

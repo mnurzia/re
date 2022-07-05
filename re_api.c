@@ -207,23 +207,6 @@ re_error re__match_prepare_progs(
   return err;
 }
 
-/*    | Match?  | Bounds? | Subs?
- * ---+---------+---------+-------
- * ^$ | DFA-F   | DFA-F   | NFA-F
- * ^- | DFA-F   | DFA-F   | NFA-F
- * -$ | DFA-R   | DFA-R   | NFA-R
- * -- | DFA-F   | DFA-F+R | NFA-F
- */
-
-/* DFA parameters:
- * - Entrypoint
- * - Program
- * - Can bail early in thread exhaustion? -> return nomatch
- * - Can bail early if any match state found? -> return match (bool)
- * - Can bail early if highest-priority match state found? -> return match
- * index, pos
- */
-
 #if MN_DEBUG
 
 #include <stdio.h>
@@ -245,6 +228,23 @@ re_error re__match_dfa_driver(
   mn_size last_found_pos = 0;
   mn_uint32 last_found_match = 0;
   mn_uint32 match_status = 0;
+  int start_from_word = 0;
+  if (!reversed) {
+    if (start_pos == 0) {
+      start_from_word = 0;
+    } else {
+      start_from_word = re__is_word_char((unsigned char)(text[start_pos - 1]));
+    }
+  } else {
+    if (start_pos == text_size) {
+      start_from_word = 0;
+    } else {
+      start_from_word = re__is_word_char((unsigned char)(text[start_pos]));
+    }
+  }
+  if (start_from_word) {
+    start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD;
+  }
   re__exec_dfa_init(&exec_dfa, program);
   if ((err = re__exec_dfa_start(&exec_dfa, entry, start_state_flags))) {
     goto err_destroy_dfa;
@@ -268,7 +268,7 @@ re_error re__match_dfa_driver(
       goto err_destroy_dfa;
     }
     if (request == 0) {
-      if (re__exec_dfa_get_match_index(&exec_dfa) && bool_bail) {
+      if (bool_bail && re__exec_dfa_get_match_index(&exec_dfa)) {
         goto match_early_boolean;
       }
     } else {
@@ -331,10 +331,6 @@ re_error re_is_match(
   /* no groups -- dfa can be used in all cases */
   re_error err = RE_ERROR_NONE;
   if (anchor_type == RE_ANCHOR_BOTH) {
-    /* use dfa to search forward.
-     * - can bail early if no threads left
-     * - cannot bail early if match state found (does not need to check for
-     * match every byte) */
     if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
       return err;
     }
@@ -342,9 +338,6 @@ re_error re_is_match(
         &reg->data->program, RE__PROG_ENTRY_DEFAULT, 0, 0, 0, 0, text,
         text_size, MN_NULL, MN_NULL);
   } else if (anchor_type == RE_ANCHOR_START) {
-    /* use dfa to search forward.
-     * - can bail early if no threads left
-     * - can bail early if match state found */
     if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
       return err;
     }
