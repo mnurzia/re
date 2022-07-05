@@ -1,6 +1,8 @@
 #ifndef TEST_CONFIG_H
 #define TEST_CONFIG_H
 
+#if !defined(MN_BENCH)
+
 #include "mptest_build.h"
 
 #define MN_USE_CUSTOM_ALLOCATOR 1
@@ -9,5 +11,7 @@
 #define MN_REALLOC MPTEST_INJECT_REALLOC
 #define MN_USE_CUSTOM_ASSERT 1
 #define MN_ASSERT MPTEST_INJECT_ASSERT
+
+#endif
 
 #endif
