@@ -1372,10 +1372,16 @@ MN_INTERNAL mn_uint32 re__exec_dfa_get_match_index(re__exec_dfa* exec);
 MN_INTERNAL mn_uint32 re__exec_dfa_get_match_priority(re__exec_dfa* exec);
 MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec);
 MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
+re_error re__exec_dfa_driver(
+    re__exec_dfa* exec, re__prog_entry entry, int boolean_match,
+    int boolean_match_exit_early, int reversed, const mn_uint8* text,
+    mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
+    mn_size* out_pos);
 
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
- * ------------------------------------------------------------------------ */
+ * ------------------------------------------------------------------------
+ */
 /* Internal data structure */
 struct re_data {
   mn_int32 set;

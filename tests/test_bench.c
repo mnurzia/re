@@ -34,7 +34,7 @@ void bench_long_match(void)
   fill_rand(subject, LONG_SUBJECT_LEN);
   re_init(&reg, "aaaaaaa$");
   start = clock();
-  re_is_match(&reg, subject, LONG_SUBJECT_LEN, 'U');
+  re_is_match(&reg, subject, LONG_SUBJECT_LEN, 'B');
   end = clock();
   ms = (end - start) / (CLOCKS_PER_SEC / 1000);
   printf(

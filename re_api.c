@@ -213,6 +213,8 @@ re_error re__match_prepare_progs(
 
 #endif
 
+#if 0
+
 re_error re__match_dfa_driver(
     re__prog* program, re__prog_entry entry,
     int request, /* 0 for boolean, 1 for match pos + index */
@@ -261,6 +263,7 @@ re_error re__match_dfa_driver(
   MN_ASSERT(pos <= text_size);
   MN_ASSERT(MN__IMPLIES(request, out_match != MN_NULL));
   MN_ASSERT(MN__IMPLIES(request, out_pos != MN_NULL));
+  MN_ASSERT(MN__IMPLIES(bool_bail, !request));
   while (pos < text_size) {
     unsigned char ch = 0;
     if (!reversed) {
@@ -326,6 +329,27 @@ match_early_priority:
   return RE_MATCH;
 err_destroy_dfa:
   re__exec_dfa_destroy(&exec_dfa);
+  return err;
+}
+
+#endif
+
+re_error re__match_dfa_driver(
+    re__prog* program, re__prog_entry entry,
+    int request, /* 0 for boolean, 1 for match pos + index */
+    int bool_bail, int reversed, mn_size start_pos, const char* text,
+    mn_size text_size, mn_uint32* out_match, mn_size* out_pos)
+{
+  re__exec_dfa exec;
+  re_error err = RE_ERROR_NONE;
+  re__exec_dfa_init(&exec, program);
+  if ((err = re__exec_dfa_driver(
+           &exec, entry, !request, bool_bail, reversed, (const mn_uint8*)text,
+           text_size, start_pos, out_match, out_pos))) {
+    goto error;
+  }
+error:
+  re__exec_dfa_destroy(&exec);
   return err;
 }
 
