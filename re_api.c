@@ -367,84 +367,111 @@ re_error re_match_groups(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
     mn_uint32 max_group, re_span* out_groups)
 {
+  return re_match_groups_set(
+      reg, text, text_size, anchor_type, max_group, out_groups, MN_NULL);
+}
+
+re_error re_match_groups_set(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
+    mn_uint32 max_group, re_span* out_groups, mn_uint32* out_set_index)
+{
   re_error err = RE_ERROR_NONE;
-  if (max_group == 0) {
+  mn_uint32 out_match;
+  if (max_group == 0 && out_set_index == MN_NULL) {
     return re_is_match(reg, text, text_size, anchor_type);
-  } else if (max_group == 1) {
-    mn_uint32 out_match;
+  } else if (max_group == 0 || max_group == 1) {
     mn_size out_pos;
     re_error match_err;
     if (anchor_type == RE_ANCHOR_BOTH) {
       if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
-        return err;
+        goto error;
       }
       match_err = re__match_dfa_driver(
           &reg->data->program, RE__PROG_ENTRY_DEFAULT, 1, 0, 0, 0, text,
           text_size, &out_match, &out_pos);
       if (match_err == RE_MATCH) {
         if (out_pos != text_size) {
-          return RE_NOMATCH;
+          err = RE_NOMATCH;
+          goto success;
         } else {
-          out_groups[0].begin = 0;
-          out_groups[0].end = out_pos;
-          return RE_MATCH;
+          if (max_group) {
+            out_groups[0].begin = 0;
+            out_groups[0].end = out_pos;
+          }
+          err = RE_MATCH;
+          goto success;
         }
       } else {
-        return match_err;
+        err = match_err;
+        goto error;
       }
     } else if (anchor_type == RE_ANCHOR_START) {
       if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
-        return err;
+        goto error;
       }
       match_err = re__match_dfa_driver(
           &reg->data->program, RE__PROG_ENTRY_DEFAULT, 1, 0, 0, 0, text,
           text_size, &out_match, &out_pos);
       if (match_err == RE_MATCH) {
-        out_groups[0].begin = 0;
-        out_groups[0].end = out_pos;
-        return RE_MATCH;
+        if (max_group) {
+          out_groups[0].begin = 0;
+          out_groups[0].end = out_pos;
+        }
+        err = RE_MATCH;
+        goto success;
       } else {
-        return match_err;
+        err = match_err;
+        goto error;
       }
     } else if (anchor_type == RE_ANCHOR_END) {
       if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0))) {
-        return err;
+        goto error;
       }
       match_err = re__match_dfa_driver(
           &reg->data->program_reverse, RE__PROG_ENTRY_DEFAULT, 1, 0, 1,
           text_size, text, text_size, &out_match, &out_pos);
       if (match_err == RE_MATCH) {
-        out_groups[0].begin = out_pos;
-        out_groups[0].end = text_size;
-        return RE_MATCH;
+        if (max_group) {
+          out_groups[0].begin = out_pos;
+          out_groups[0].end = text_size;
+        }
+        err = RE_MATCH;
+        goto success;
       } else {
-        return match_err;
+        err = match_err;
+        goto error;
       }
     } else if (anchor_type == RE_UNANCHORED) {
       if ((err = re__match_prepare_progs(reg, 1, 1, 1, 0))) {
-        return err;
+        goto error;
       }
       match_err = re__match_dfa_driver(
           &reg->data->program, RE__PROG_ENTRY_DOTSTAR, 1, 0, 0, 0, text,
           text_size, &out_match, &out_pos);
       if (match_err == RE_MATCH) {
-        out_groups[0].end = out_pos;
-        /* scan back to find the start */
-        match_err = re__match_dfa_driver(
-            &reg->data->program_reverse, RE__PROG_ENTRY_DEFAULT, 1, 0, 1,
-            out_pos, text, text_size, &out_match, &out_pos);
-        /* should ALWAYS match. */
-        if (match_err != RE_MATCH) {
-          return match_err;
+        if (max_group) {
+          out_groups[0].end = out_pos;
+          /* scan back to find the start */
+          match_err = re__match_dfa_driver(
+              &reg->data->program_reverse, RE__PROG_ENTRY_DEFAULT, 1, 0, 1,
+              out_pos, text, text_size, &out_match, &out_pos);
+          /* should ALWAYS match. */
+          if (match_err != RE_MATCH) {
+            err = match_err;
+            goto error;
+          }
+          MN_ASSERT(match_err == RE_MATCH);
+          out_groups[0].begin = out_pos;
         }
-        MN_ASSERT(match_err == RE_MATCH);
-        out_groups[0].begin = out_pos;
-        return RE_MATCH;
+        err = RE_MATCH;
+        goto success;
       } else {
-        return match_err;
+        err = match_err;
+        goto error;
       }
     } else {
-      return RE_ERROR_INVALID;
+      err = RE_ERROR_INVALID;
+      goto error;
     }
   } else {
     re__exec_nfa exec_nfa;
@@ -456,7 +483,7 @@ re_error re_match_groups(
       re__assert_type assert_ctx =
           RE__ASSERT_TYPE_TEXT_START | RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
       if ((err = re__exec_nfa_start(&exec_nfa, 0))) {
-        goto error;
+        goto nfa_error;
       }
       for (pos = 0; pos < mn__str_view_size(&string_view); pos++) {
         mn_uint8 ch = (mn_uint8)mn__str_view_get_data(&string_view)[pos];
@@ -464,7 +491,7 @@ re_error re_match_groups(
         assert_ctx =
             re__match_next_assert_ctx(pos, mn__str_view_size(&string_view));
         if ((err = re__exec_nfa_run_byte(&exec_nfa, assert_ctx, ch, pos))) {
-          return err;
+          goto nfa_error;
         }
         match = re__exec_nfa_get_match_index(&exec_nfa);
         if (match) {
@@ -476,12 +503,23 @@ re_error re_match_groups(
       }
       if ((err = re__exec_nfa_run_byte(
                &exec_nfa, assert_ctx, RE__EXEC_SYM_EOT, pos))) {
-        return err;
+        goto nfa_error;
       }
       err = re__exec_nfa_finish(&exec_nfa, out_groups, pos);
+      if (err == RE_MATCH) {
+        out_match = re__exec_nfa_get_match_index(&exec_nfa);
+      }
     }
-  error:
+    goto success;
+  nfa_error:
     re__exec_nfa_destroy(&exec_nfa);
-    return err;
+    goto error;
   }
+success:
+  if (out_set_index != MN_NULL && err == RE_MATCH) {
+    *out_set_index = out_match;
+  }
+  return err;
+error:
+  return err;
 }

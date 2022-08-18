@@ -283,3 +283,7 @@ tests/fuzz_potench/
 tests/fuzz_samples/
 
 tools/unicode_data/
+re_api.c
+tools/jit_test
+tools/jit_plan
+tools/jit_test_arm64.c

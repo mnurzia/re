@@ -22,17 +22,17 @@
 #define RE__STRINGIFY(x) RE__STRINGIFY_0(x)
 
 /* bits/util/preproc/token_paste */
-#define RE__PASTE_0(a, b) a ## b
+#define RE__PASTE_0(a, b) a##b
 #define RE__PASTE(a, b) RE__PASTE_0(a, b)
 
 /* bits/util/static_assert */
-#define RE__STATIC_ASSERT(name, expr) char RE__PASTE(re__, name)[(expr)==1]
+#define RE__STATIC_ASSERT(name, expr) char RE__PASTE(re__, name)[(expr) == 1]
 
 /* bits/container/str */
 typedef struct re__str {
-    re_size _size_short; /* does not include \0 */
-    re_size _alloc;      /* does not include \0 */
-    re_char* _data;
+  re_size _size_short; /* does not include \0 */
+  re_size _alloc;      /* does not include \0 */
+  re_char* _data;
 } re__str;
 
 void re__str_init(re__str* str);
@@ -54,8 +54,8 @@ void re__str_clear(re__str* str);
 
 /* bits/container/str_view */
 typedef struct re__str_view {
-    const re_char* _data;
-    re_size _size;
+  const re_char* _data;
+  re_size _size;
 } re__str_view;
 
 void re__str_view_init(re__str_view* view, const re__str* other);
@@ -70,7 +70,12 @@ int re__str_view_cmp(const re__str_view* a, const re__str_view* b);
 void re__memset(void* ptr, int value, re_size count);
 
 /* bits/util/swap */
-#define RE__SWAP(a, b, T) { T swap_temp_ = b; b = a; a = swap_temp_; }
+#define RE__SWAP(a, b, T)                                                      \
+  {                                                                            \
+    T swap_temp_ = b;                                                          \
+    b = a;                                                                     \
+    a = swap_temp_;                                                            \
+  }
 
 /* bits/util/unreached */
 #if !defined(RE__COVERAGE)
@@ -79,7 +84,7 @@ void re__memset(void* ptr, int value, re_size count);
 
 #else
 
-#define RE__ASSERT_UNREACHED() 
+#define RE__ASSERT_UNREACHED()
 
 #endif
 
@@ -91,30 +96,25 @@ RE_INTERNAL re_uint32
 re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len);
 
 /* bits/container/vec */
-#define RE__VEC_TYPE(T) \
-    RE__PASTE(T, _vec)
+#define RE__VEC_TYPE(T) RE__PASTE(T, _vec)
 
-#define RE__VEC_IDENT(T, name) \
-    RE__PASTE(T, RE__PASTE(_vec_, name))
+#define RE__VEC_IDENT(T, name) RE__PASTE(T, RE__PASTE(_vec_, name))
 
-#define RE__VEC_IDENT_INTERNAL(T, name) \
-    RE__PASTE(T, RE__PASTE(_vec__, name))
+#define RE__VEC_IDENT_INTERNAL(T, name) RE__PASTE(T, RE__PASTE(_vec__, name))
 
-#define RE__VEC_DECL_FUNC(T, func) \
-    RE__PASTE(RE__VEC_DECL_, func)(T)
+#define RE__VEC_DECL_FUNC(T, func) RE__PASTE(RE__VEC_DECL_, func)(T)
 
-#define RE__VEC_IMPL_FUNC(T, func) \
-    RE__PASTE(RE__VEC_IMPL_, func)(T)
+#define RE__VEC_IMPL_FUNC(T, func) RE__PASTE(RE__VEC_IMPL_, func)(T)
 
 #if RE_DEBUG
 
-#define RE__VEC_CHECK(vec) \
-    do { \
-        /* ensure size is not greater than allocation size */ \
-        RE_ASSERT(vec->_size <= vec->_alloc); \
-        /* ensure that data is not null if size is greater than 0 */ \
-        RE_ASSERT(vec->_size ? vec->_data != RE_NULL : 1); \
-    } while (0)
+#define RE__VEC_CHECK(vec)                                                     \
+  do {                                                                         \
+    /* ensure size is not greater than allocation size */                      \
+    RE_ASSERT(vec->_size <= vec->_alloc);                                      \
+    /* ensure that data is not null if size is greater than 0 */               \
+    RE_ASSERT(vec->_size ? vec->_data != RE_NULL : 1);                         \
+  } while (0)
 
 #else
 
@@ -122,117 +122,119 @@ re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len);
 
 #endif
 
-#define RE__VEC_DECL(T) \
-    typedef struct RE__VEC_TYPE(T) { \
-        re_size _size; \
-        re_size _alloc; \
-        T* _data; \
-    } RE__VEC_TYPE(T)
+#define RE__VEC_DECL(T)                                                        \
+  typedef struct RE__VEC_TYPE(T) {                                             \
+    re_size _size;                                                             \
+    re_size _alloc;                                                            \
+    T* _data;                                                                  \
+  } RE__VEC_TYPE(T)
 
-#define RE__VEC_DECL_init(T) \
-    void RE__VEC_IDENT(T, init)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_init(T) void RE__VEC_IDENT(T, init)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_init(T) \
-    void RE__VEC_IDENT(T, init)(RE__VEC_TYPE(T)* vec) { \
-        vec->_size = 0; \
-        vec->_alloc = 0; \
-        vec->_data = RE_NULL; \
-    } 
+#define RE__VEC_IMPL_init(T)                                                   \
+  void RE__VEC_IDENT(T, init)(RE__VEC_TYPE(T) * vec)                           \
+  {                                                                            \
+    vec->_size = 0;                                                            \
+    vec->_alloc = 0;                                                           \
+    vec->_data = RE_NULL;                                                      \
+  }
 
-#define RE__VEC_DECL_destroy(T) \
-    void RE__VEC_IDENT(T, destroy)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_destroy(T)                                                \
+  void RE__VEC_IDENT(T, destroy)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_destroy(T) \
-    void RE__VEC_IDENT(T, destroy)(RE__VEC_TYPE(T)* vec) { \
-        RE__VEC_CHECK(vec); \
-        if (vec->_data != RE_NULL) { \
-            RE_FREE(vec->_data); \
-        } \
-    }
+#define RE__VEC_IMPL_destroy(T)                                                \
+  void RE__VEC_IDENT(T, destroy)(RE__VEC_TYPE(T) * vec)                        \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    if (vec->_data != RE_NULL) {                                               \
+      RE_FREE(vec->_data);                                                     \
+    }                                                                          \
+  }
 
-#define RE__VEC_GROW_ONE(T, vec) \
-    do { \
-        void* new_ptr; \
-        re_size new_alloc; \
-        if (vec->_size + 1 > vec->_alloc) { \
-            if (vec->_data == RE_NULL) { \
-                new_alloc = 1; \
-                new_ptr = (T*)RE_MALLOC(sizeof(T) * new_alloc); \
-            } else { \
-                new_alloc = vec->_alloc * 2; \
-                new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * new_alloc); \
-            } \
-            if (new_ptr == RE_NULL) { \
-                return -1; \
-            } \
-            vec->_alloc = new_alloc; \
-            vec->_data = new_ptr; \
-        } \
-        vec->_size = vec->_size + 1; \
-    } while (0)
+#define RE__VEC_GROW_ONE(T, vec)                                               \
+  do {                                                                         \
+    void* new_ptr;                                                             \
+    re_size new_alloc;                                                         \
+    if (vec->_size + 1 > vec->_alloc) {                                        \
+      if (vec->_data == RE_NULL) {                                             \
+        new_alloc = 1;                                                         \
+        new_ptr = (T*)RE_MALLOC(sizeof(T) * new_alloc);                        \
+      } else {                                                                 \
+        new_alloc = vec->_alloc * 2;                                           \
+        new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * new_alloc);           \
+      }                                                                        \
+      if (new_ptr == RE_NULL) {                                                \
+        return -1;                                                             \
+      }                                                                        \
+      vec->_alloc = new_alloc;                                                 \
+      vec->_data = new_ptr;                                                    \
+    }                                                                          \
+    vec->_size = vec->_size + 1;                                               \
+  } while (0)
 
-#define RE__VEC_GROW(T, vec, n) \
-    do { \
-        void* new_ptr; \
-        re_size new_alloc = vec->_alloc; \
-        re_size new_size = vec->_size + n; \
-        if (new_size > new_alloc) { \
-            if (new_alloc == 0) { \
-                new_alloc = 1; \
-            } \
-            while (new_alloc < new_size) { \
-                new_alloc *= 2; \
-            } \
-            if (vec->_data == RE_NULL) { \
-                new_ptr = (T*)RE_MALLOC(sizeof(T) * new_alloc); \
-            } else { \
-                new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * new_alloc); \
-            } \
-            if (new_ptr == RE_NULL) { \
-                return -1; \
-            } \
-            vec->_alloc = new_alloc; \
-            vec->_data = new_ptr; \
-        } \
-        vec->_size += n; \
-    } while (0)
+#define RE__VEC_GROW(T, vec, n)                                                \
+  do {                                                                         \
+    void* new_ptr;                                                             \
+    re_size new_alloc = vec->_alloc;                                           \
+    re_size new_size = vec->_size + n;                                         \
+    if (new_size > new_alloc) {                                                \
+      if (new_alloc == 0) {                                                    \
+        new_alloc = 1;                                                         \
+      }                                                                        \
+      while (new_alloc < new_size) {                                           \
+        new_alloc *= 2;                                                        \
+      }                                                                        \
+      if (vec->_data == RE_NULL) {                                             \
+        new_ptr = (T*)RE_MALLOC(sizeof(T) * new_alloc);                        \
+      } else {                                                                 \
+        new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * new_alloc);           \
+      }                                                                        \
+      if (new_ptr == RE_NULL) {                                                \
+        return -1;                                                             \
+      }                                                                        \
+      vec->_alloc = new_alloc;                                                 \
+      vec->_data = new_ptr;                                                    \
+    }                                                                          \
+    vec->_size += n;                                                           \
+  } while (0)
 
-#define RE__VEC_SETSIZE(T, vec, n) \
-    do { \
-        void* new_ptr; \
-        if (vec->_alloc < n) { \
-            if (vec->_data == RE_NULL) { \
-                new_ptr = (T*)RE_MALLOC(sizeof(T) * n); \
-            } else { \
-                new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * n); \
-            } \
-            if (new_ptr == RE_NULL) { \
-                return -1; \
-            } \
-            vec->_alloc = n; \
-            vec->_data = new_ptr; \
-        } \
-    } while (0)
+#define RE__VEC_SETSIZE(T, vec, n)                                             \
+  do {                                                                         \
+    void* new_ptr;                                                             \
+    if (vec->_alloc < n) {                                                     \
+      if (vec->_data == RE_NULL) {                                             \
+        new_ptr = (T*)RE_MALLOC(sizeof(T) * n);                                \
+      } else {                                                                 \
+        new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * n);                   \
+      }                                                                        \
+      if (new_ptr == RE_NULL) {                                                \
+        return -1;                                                             \
+      }                                                                        \
+      vec->_alloc = n;                                                         \
+      vec->_data = new_ptr;                                                    \
+    }                                                                          \
+  } while (0)
 
-#define RE__VEC_DECL_push(T) \
-    int RE__VEC_IDENT(T, push)(RE__VEC_TYPE(T)* vec, T elem)
+#define RE__VEC_DECL_push(T)                                                   \
+  int RE__VEC_IDENT(T, push)(RE__VEC_TYPE(T) * vec, T elem)
 
-#define RE__VEC_IMPL_push(T) \
-    int RE__VEC_IDENT(T, push)(RE__VEC_TYPE(T)* vec, T elem) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_GROW_ONE(T, vec); \
-        vec->_data[vec->_size - 1] = elem; \
-        RE__VEC_CHECK(vec); \
-        return 0; \
-    }
+#define RE__VEC_IMPL_push(T)                                                   \
+  int RE__VEC_IDENT(T, push)(RE__VEC_TYPE(T) * vec, T elem)                    \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_GROW_ONE(T, vec);                                                  \
+    vec->_data[vec->_size - 1] = elem;                                         \
+    RE__VEC_CHECK(vec);                                                        \
+    return 0;                                                                  \
+  }
 
 #if RE_DEBUG
 
-#define RE__VEC_CHECK_POP(vec) \
-    do { \
-        /* ensure that there is an element to pop */ \
-        RE_ASSERT(vec->_size > 0); \
-    } while (0)
+#define RE__VEC_CHECK_POP(vec)                                                 \
+  do {                                                                         \
+    /* ensure that there is an element to pop */                               \
+    RE_ASSERT(vec->_size > 0);                                                 \
+  } while (0)
 
 #else
 
@@ -240,313 +242,334 @@ re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len);
 
 #endif
 
-#define RE__VEC_DECL_pop(T) \
-    T RE__VEC_IDENT(T, pop)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_pop(T) T RE__VEC_IDENT(T, pop)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_pop(T) \
-    T RE__VEC_IDENT(T, pop)(RE__VEC_TYPE(T)* vec) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_POP(vec); \
-        return vec->_data[--vec->_size]; \
-    }
+#define RE__VEC_IMPL_pop(T)                                                    \
+  T RE__VEC_IDENT(T, pop)(RE__VEC_TYPE(T) * vec)                               \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_POP(vec);                                                    \
+    return vec->_data[--vec->_size];                                           \
+  }
 
-#define RE__VEC_DECL_cat(T) \
-    T RE__VEC_IDENT(T, cat)(RE__VEC_TYPE(T)* vec, RE__VEC_TYPE(T)* other)
+#define RE__VEC_DECL_cat(T)                                                    \
+  T RE__VEC_IDENT(T, cat)(RE__VEC_TYPE(T) * vec, RE__VEC_TYPE(T) * other)
 
-#define RE__VEC_IMPL_cat(T) \
-    int RE__VEC_IDENT(T, cat)(RE__VEC_TYPE(T)* vec, RE__VEC_TYPE(T)* other) { \
-        re_size i; \
-        re_size old_size = vec->_size; \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK(other); \
-        RE__VEC_GROW(T, vec, other->_size); \
-        for (i = 0; i < other->_size; i++) { \
-            vec->_data[old_size + i] = other->_data[i]; \
-        } \
-        RE__VEC_CHECK(vec); \
-        return 0; \
-    }
+#define RE__VEC_IMPL_cat(T)                                                    \
+  int RE__VEC_IDENT(T, cat)(RE__VEC_TYPE(T) * vec, RE__VEC_TYPE(T) * other)    \
+  {                                                                            \
+    re_size i;                                                                 \
+    re_size old_size = vec->_size;                                             \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK(other);                                                      \
+    RE__VEC_GROW(T, vec, other->_size);                                        \
+    for (i = 0; i < other->_size; i++) {                                       \
+      vec->_data[old_size + i] = other->_data[i];                              \
+    }                                                                          \
+    RE__VEC_CHECK(vec);                                                        \
+    return 0;                                                                  \
+  }
 
-#define RE__VEC_DECL_insert(T) \
-    int RE__VEC_IDENT(T, insert)(RE__VEC_TYPE(T)* vec, re_size index, T elem)
+#define RE__VEC_DECL_insert(T)                                                 \
+  int RE__VEC_IDENT(T, insert)(RE__VEC_TYPE(T) * vec, re_size index, T elem)
 
-#define RE__VEC_IMPL_insert(T) \
-    int RE__VEC_IDENT(T, insert)(RE__VEC_TYPE(T)* vec, re_size index, T elem) { \
-        re_size i; \
-        re_size old_size = vec->_size; \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_GROW_ONE(T, vec); \
-        if (old_size != 0) { \
-            for (i = old_size; i >= index + 1; i--) { \
-                vec->_data[i] = vec->_data[i - 1]; \
-            } \
-        } \
-        vec->_data[index] = elem; \
-        return 0; \
-    }
+#define RE__VEC_IMPL_insert(T)                                                 \
+  int RE__VEC_IDENT(T, insert)(RE__VEC_TYPE(T) * vec, re_size index, T elem)   \
+  {                                                                            \
+    re_size i;                                                                 \
+    re_size old_size = vec->_size;                                             \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_GROW_ONE(T, vec);                                                  \
+    if (old_size != 0) {                                                       \
+      for (i = old_size; i >= index + 1; i--) {                                \
+        vec->_data[i] = vec->_data[i - 1];                                     \
+      }                                                                        \
+    }                                                                          \
+    vec->_data[index] = elem;                                                  \
+    return 0;                                                                  \
+  }
 
-#define RE__VEC_DECL_peek(T) \
-    T RE__VEC_IDENT(T, peek)(const RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_peek(T)                                                   \
+  T RE__VEC_IDENT(T, peek)(const RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_peek(T) \
-    T RE__VEC_IDENT(T, peek)(const RE__VEC_TYPE(T)* vec) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_POP(vec); \
-        return vec->_data[vec->_size - 1]; \
-    }
+#define RE__VEC_IMPL_peek(T)                                                   \
+  T RE__VEC_IDENT(T, peek)(const RE__VEC_TYPE(T) * vec)                        \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_POP(vec);                                                    \
+    return vec->_data[vec->_size - 1];                                         \
+  }
 
-#define RE__VEC_DECL_clear(T) \
-    void RE__VEC_IDENT(T, clear)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_clear(T)                                                  \
+  void RE__VEC_IDENT(T, clear)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_clear(T) \
-    void RE__VEC_IDENT(T, clear)(RE__VEC_TYPE(T)* vec) { \
-        RE__VEC_CHECK(vec); \
-        vec->_size = 0; \
-    }
+#define RE__VEC_IMPL_clear(T)                                                  \
+  void RE__VEC_IDENT(T, clear)(RE__VEC_TYPE(T) * vec)                          \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    vec->_size = 0;                                                            \
+  }
 
-#define RE__VEC_DECL_size(T) \
-    re_size RE__VEC_IDENT(T, size)(const RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_size(T)                                                   \
+  re_size RE__VEC_IDENT(T, size)(const RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_size(T) \
-    re_size RE__VEC_IDENT(T, size)(const RE__VEC_TYPE(T)* vec) { \
-        return vec->_size; \
-    }
+#define RE__VEC_IMPL_size(T)                                                   \
+  re_size RE__VEC_IDENT(T, size)(const RE__VEC_TYPE(T) * vec)                  \
+  {                                                                            \
+    return vec->_size;                                                         \
+  }
 
 #if RE_DEBUG
 
-#define RE__VEC_CHECK_BOUNDS(vec, idx) \
-    do { \
-        /* ensure that idx is within bounds */ \
-        RE_ASSERT(idx < vec->_size); \
-    } while (0)
+#define RE__VEC_CHECK_BOUNDS(vec, idx)                                         \
+  do {                                                                         \
+    /* ensure that idx is within bounds */                                     \
+    RE_ASSERT(idx < vec->_size);                                               \
+  } while (0)
 
 #else
 
-#define RE__VEC_CHECK_BOUNDS(vec, idx) \
-    do { \
-        RE__UNUSED(vec); \
-        RE__UNUSED(idx); \
-    } while (0) 
+#define RE__VEC_CHECK_BOUNDS(vec, idx)                                         \
+  do {                                                                         \
+    RE__UNUSED(vec);                                                           \
+    RE__UNUSED(idx);                                                           \
+  } while (0)
 
 #endif
 
-#define RE__VEC_DECL_get(T) \
-    T RE__VEC_IDENT(T, get)(const RE__VEC_TYPE(T)* vec, re_size idx)
+#define RE__VEC_DECL_get(T)                                                    \
+  T RE__VEC_IDENT(T, get)(const RE__VEC_TYPE(T) * vec, re_size idx)
 
-#define RE__VEC_IMPL_get(T) \
-    T RE__VEC_IDENT(T, get)(const RE__VEC_TYPE(T)* vec, re_size idx) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_BOUNDS(vec, idx); \
-        return vec->_data[idx]; \
-    }
+#define RE__VEC_IMPL_get(T)                                                    \
+  T RE__VEC_IDENT(T, get)(const RE__VEC_TYPE(T) * vec, re_size idx)            \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_BOUNDS(vec, idx);                                            \
+    return vec->_data[idx];                                                    \
+  }
 
-#define RE__VEC_DECL_getref(T) \
-    T* RE__VEC_IDENT(T, getref)(RE__VEC_TYPE(T)* vec, re_size idx)
+#define RE__VEC_DECL_getref(T)                                                 \
+  T* RE__VEC_IDENT(T, getref)(RE__VEC_TYPE(T) * vec, re_size idx)
 
-#define RE__VEC_IMPL_getref(T) \
-    T* RE__VEC_IDENT(T, getref)(RE__VEC_TYPE(T)* vec, re_size idx) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_BOUNDS(vec, idx); \
-        return &vec->_data[idx]; \
-    }
+#define RE__VEC_IMPL_getref(T)                                                 \
+  T* RE__VEC_IDENT(T, getref)(RE__VEC_TYPE(T) * vec, re_size idx)              \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_BOUNDS(vec, idx);                                            \
+    return &vec->_data[idx];                                                   \
+  }
 
-#define RE__VEC_DECL_getcref(T) \
-    const T* RE__VEC_IDENT(T, getcref)(const RE__VEC_TYPE(T)* vec, re_size idx)
+#define RE__VEC_DECL_getcref(T)                                                \
+  const T* RE__VEC_IDENT(T, getcref)(const RE__VEC_TYPE(T) * vec, re_size idx)
 
-#define RE__VEC_IMPL_getcref(T) \
-    const T* RE__VEC_IDENT(T, getcref)(const RE__VEC_TYPE(T)* vec, re_size idx) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_BOUNDS(vec, idx); \
-        return &vec->_data[idx]; \
-    }
+#define RE__VEC_IMPL_getcref(T)                                                \
+  const T* RE__VEC_IDENT(T, getcref)(const RE__VEC_TYPE(T) * vec, re_size idx) \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_BOUNDS(vec, idx);                                            \
+    return &vec->_data[idx];                                                   \
+  }
 
-#define RE__VEC_DECL_set(T) \
-    void RE__VEC_IDENT(T, set)(RE__VEC_TYPE(T)* vec, re_size idx, T elem)
+#define RE__VEC_DECL_set(T)                                                    \
+  void RE__VEC_IDENT(T, set)(RE__VEC_TYPE(T) * vec, re_size idx, T elem)
 
-#define RE__VEC_IMPL_set(T) \
-    void RE__VEC_IDENT(T, set)(RE__VEC_TYPE(T)* vec, re_size idx, T elem) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_BOUNDS(vec, idx); \
-        vec->_data[idx] = elem; \
-    }
+#define RE__VEC_IMPL_set(T)                                                    \
+  void RE__VEC_IDENT(T, set)(RE__VEC_TYPE(T) * vec, re_size idx, T elem)       \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_BOUNDS(vec, idx);                                            \
+    vec->_data[idx] = elem;                                                    \
+  }
 
-#define RE__VEC_DECL_capacity(T) \
-    re_size RE__VEC_IDENT(T, capacity)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_capacity(T)                                               \
+  re_size RE__VEC_IDENT(T, capacity)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_capacity(T) \
-    re_size RE__VEC_IDENT(T, capacity)(RE__VEC_TYPE(T)* vec) { \
-        return vec->_alloc; \
-    }
+#define RE__VEC_IMPL_capacity(T)                                               \
+  re_size RE__VEC_IDENT(T, capacity)(RE__VEC_TYPE(T) * vec)                    \
+  {                                                                            \
+    return vec->_alloc;                                                        \
+  }
 
-#define RE__VEC_DECL_get_data(T) \
-    const T* RE__VEC_IDENT(T, get_data)(const RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_get_data(T)                                               \
+  const T* RE__VEC_IDENT(T, get_data)(const RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_get_data(T) \
-    const T* RE__VEC_IDENT(T, get_data)(const RE__VEC_TYPE(T)* vec) { \
-        return vec->_data; \
-    }
+#define RE__VEC_IMPL_get_data(T)                                               \
+  const T* RE__VEC_IDENT(T, get_data)(const RE__VEC_TYPE(T) * vec)             \
+  {                                                                            \
+    return vec->_data;                                                         \
+  }
 
-#define RE__VEC_DECL_move(T) \
-    void RE__VEC_IDENT(T, move)(RE__VEC_TYPE(T)* vec, RE__VEC_TYPE(T)* old);
+#define RE__VEC_DECL_move(T)                                                   \
+  void RE__VEC_IDENT(T, move)(RE__VEC_TYPE(T) * vec, RE__VEC_TYPE(T) * old);
 
-#define RE__VEC_IMPL_move(T) \
-    void RE__VEC_IDENT(T, move)(RE__VEC_TYPE(T)* vec, RE__VEC_TYPE(T)* old) { \
-        RE__VEC_CHECK(old); \
-        *vec = *old; \
-        RE__VEC_IDENT(T, init)(old); \
-    }
+#define RE__VEC_IMPL_move(T)                                                   \
+  void RE__VEC_IDENT(T, move)(RE__VEC_TYPE(T) * vec, RE__VEC_TYPE(T) * old)    \
+  {                                                                            \
+    RE__VEC_CHECK(old);                                                        \
+    *vec = *old;                                                               \
+    RE__VEC_IDENT(T, init)(old);                                               \
+  }
 
-#define RE__VEC_DECL_reserve(T) \
-    int RE__VEC_IDENT(T, reserve)(RE__VEC_TYPE(T)* vec, re_size cap);
+#define RE__VEC_DECL_reserve(T)                                                \
+  int RE__VEC_IDENT(T, reserve)(RE__VEC_TYPE(T) * vec, re_size cap);
 
-#define RE__VEC_IMPL_reserve(T) \
-    int RE__VEC_IDENT(T, reserve)(RE__VEC_TYPE(T)* vec, re_size cap) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_SETSIZE(T, vec, cap); \
-        return 0; \
-    }
+#define RE__VEC_IMPL_reserve(T)                                                \
+  int RE__VEC_IDENT(T, reserve)(RE__VEC_TYPE(T) * vec, re_size cap)            \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_SETSIZE(T, vec, cap);                                              \
+    return 0;                                                                  \
+  }
 
 /* bits/container/arena */
 #define RE__ARENA_REF_NONE -1
 
-#define RE__ARENA_TYPE(T) \
-    RE__PASTE(T, _arena)
+#define RE__ARENA_TYPE(T) RE__PASTE(T, _arena)
 
-#define RE__ARENA_STORAGE_TYPE(T) \
-    RE__PASTE(T, __arena_storage)
+#define RE__ARENA_STORAGE_TYPE(T) RE__PASTE(T, __arena_storage)
 
-#define RE__ARENA_IDENT(T, name) \
-    RE__PASTE(T, RE__PASTE(_arena_, name))
+#define RE__ARENA_IDENT(T, name) RE__PASTE(T, RE__PASTE(_arena_, name))
 
-#define RE__ARENA_IDENT_INTERNAL(T, name) \
-    RE__PASTE(T, RE__PASTE(__arena__, name))
+#define RE__ARENA_IDENT_INTERNAL(T, name)                                      \
+  RE__PASTE(T, RE__PASTE(__arena__, name))
 
-#define RE__ARENA_DECL_FUNC(T, func) \
-    RE__PASTE(RE__ARENA_DECL_, func)(T)
+#define RE__ARENA_DECL_FUNC(T, func) RE__PASTE(RE__ARENA_DECL_, func)(T)
 
-#define RE__ARENA_IMPL_FUNC(T, func) \
-    RE__PASTE(RE__ARENA_IMPL_, func)(T)
+#define RE__ARENA_IMPL_FUNC(T, func) RE__PASTE(RE__ARENA_IMPL_, func)(T)
 
-#define RE__ARENA_DECL(T) \
-    typedef struct RE__ARENA_STORAGE_TYPE(T) { \
-        T _elem; \
-        re_int32 _next_ref; \
-        re_int32 _prev_ref; \
-    } RE__ARENA_STORAGE_TYPE(T); \
-    RE__VEC_DECL(RE__ARENA_STORAGE_TYPE(T)); \
-    typedef struct RE__ARENA_TYPE(T) { \
-        RE__VEC_TYPE(RE__ARENA_STORAGE_TYPE(T)) _vec; \
-        re_int32 _last_empty_ref; \
-        re_int32 _first_ref; \
-        re_int32 _last_ref; \
-    } RE__ARENA_TYPE(T)
+#define RE__ARENA_DECL(T)                                                      \
+  typedef struct RE__ARENA_STORAGE_TYPE(T) {                                   \
+    T _elem;                                                                   \
+    re_int32 _next_ref;                                                        \
+    re_int32 _prev_ref;                                                        \
+  } RE__ARENA_STORAGE_TYPE(T);                                                 \
+  RE__VEC_DECL(RE__ARENA_STORAGE_TYPE(T));                                     \
+  typedef struct RE__ARENA_TYPE(T) {                                           \
+    RE__VEC_TYPE(RE__ARENA_STORAGE_TYPE(T)) _vec;                              \
+    re_int32 _last_empty_ref;                                                  \
+    re_int32 _first_ref;                                                       \
+    re_int32 _last_ref;                                                        \
+  } RE__ARENA_TYPE(T)
 
-#define RE__ARENA_DECL_init(T) \
-    void RE__ARENA_IDENT(T, init)(RE__ARENA_TYPE(T)* arena);
+#define RE__ARENA_DECL_init(T)                                                 \
+  void RE__ARENA_IDENT(T, init)(RE__ARENA_TYPE(T) * arena);
 
-#define RE__ARENA_IMPL_init(T) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), init) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), destroy) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), getref) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), getcref) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), push) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), size) \
-    void RE__ARENA_IDENT(T, init)(RE__ARENA_TYPE(T)* arena) { \
-        RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), init)(&arena->_vec); \
-        arena->_last_empty_ref = RE__ARENA_REF_NONE; \
-        arena->_first_ref = RE__ARENA_REF_NONE; \
-        arena->_last_ref = RE__ARENA_REF_NONE; \
-    }
+#define RE__ARENA_IMPL_init(T)                                                 \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), init)                           \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), destroy)                        \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), getref)                         \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), getcref)                        \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), push)                           \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), size)                           \
+  void RE__ARENA_IDENT(T, init)(RE__ARENA_TYPE(T) * arena)                     \
+  {                                                                            \
+    RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), init)(&arena->_vec);              \
+    arena->_last_empty_ref = RE__ARENA_REF_NONE;                               \
+    arena->_first_ref = RE__ARENA_REF_NONE;                                    \
+    arena->_last_ref = RE__ARENA_REF_NONE;                                     \
+  }
 
-#define RE__ARENA_DECL_destroy(T) \
-    void RE__ARENA_IDENT(T, destroy)(RE__ARENA_TYPE(T)* arena);
+#define RE__ARENA_DECL_destroy(T)                                              \
+  void RE__ARENA_IDENT(T, destroy)(RE__ARENA_TYPE(T) * arena);
 
-#define RE__ARENA_IMPL_destroy(T) \
-    void RE__ARENA_IDENT(T, destroy)(RE__ARENA_TYPE(T)* arena) { \
-        RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), destroy)(&arena->_vec); \
-    }
+#define RE__ARENA_IMPL_destroy(T)                                              \
+  void RE__ARENA_IDENT(T, destroy)(RE__ARENA_TYPE(T) * arena)                  \
+  {                                                                            \
+    RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), destroy)(&arena->_vec);           \
+  }
 
-#define RE__ARENA_DECL_getref(T) \
-    T* RE__ARENA_IDENT(T, getref)(RE__ARENA_TYPE(T)* arena, re_int32 elem_ref);
+#define RE__ARENA_DECL_getref(T)                                               \
+  T* RE__ARENA_IDENT(T, getref)(RE__ARENA_TYPE(T) * arena, re_int32 elem_ref);
 
-#define RE__ARENA_IMPL_getref(T) \
-    T* RE__ARENA_IDENT(T, getref)(RE__ARENA_TYPE(T)* arena, re_int32 elem_ref) {\
-        RE_ASSERT(elem_ref != RE__ARENA_REF_NONE); \
-        return &RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(&arena->_vec, (re_size)elem_ref)->_elem; \
-    }
+#define RE__ARENA_IMPL_getref(T)                                               \
+  T* RE__ARENA_IDENT(T, getref)(RE__ARENA_TYPE(T) * arena, re_int32 elem_ref)  \
+  {                                                                            \
+    RE_ASSERT(elem_ref != RE__ARENA_REF_NONE);                                 \
+    return &RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(                  \
+                &arena->_vec, (re_size)elem_ref)                               \
+                ->_elem;                                                       \
+  }
 
-#define RE__ARENA_DECL_getcref(T) \
-    const T* RE__ARENA_IDENT(T, getcref)(const RE__ARENA_TYPE(T)* arena, re_int32 elem_ref);
+#define RE__ARENA_DECL_getcref(T)                                              \
+  const T* RE__ARENA_IDENT(T, getcref)(                                        \
+      const RE__ARENA_TYPE(T) * arena, re_int32 elem_ref);
 
-#define RE__ARENA_IMPL_getcref(T) \
-    const T* RE__ARENA_IDENT(T, getcref)(const RE__ARENA_TYPE(T)* arena, re_int32 elem_ref) {\
-        RE_ASSERT(elem_ref != RE__ARENA_REF_NONE); \
-        return &RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getcref)(&arena->_vec, (re_size)elem_ref)->_elem; \
-    }
+#define RE__ARENA_IMPL_getcref(T)                                              \
+  const T* RE__ARENA_IDENT(T, getcref)(                                        \
+      const RE__ARENA_TYPE(T) * arena, re_int32 elem_ref)                      \
+  {                                                                            \
+    RE_ASSERT(elem_ref != RE__ARENA_REF_NONE);                                 \
+    return &RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getcref)(                 \
+                &arena->_vec, (re_size)elem_ref)                               \
+                ->_elem;                                                       \
+  }
 
-#define RE__ARENA_DECL_add(T) \
-    int RE__ARENA_IDENT(T, add)(RE__ARENA_TYPE(T)* arena, T elem, re_int32* out_ref)
+#define RE__ARENA_DECL_add(T)                                                  \
+  int RE__ARENA_IDENT(T, add)(                                                 \
+      RE__ARENA_TYPE(T) * arena, T elem, re_int32 * out_ref)
 
-#define RE__ARENA_IMPL_add(T) \
-    int RE__ARENA_IDENT(T, add)(RE__ARENA_TYPE(T)* arena, T elem, re_int32* out_ref) { \
-        int err = 0; \
-        re_int32 empty_ref = arena->_last_empty_ref; \
-        RE__ARENA_STORAGE_TYPE(T)* empty; \
-        RE__ARENA_STORAGE_TYPE(T)* prev_elem_ptr; \
-        if (empty_ref != RE__ARENA_REF_NONE) { \
-            empty = RE__VEC_IDENT( \
-                RE__ARENA_STORAGE_TYPE(T), getref)( \
-                    &arena->_vec, (re_size)empty_ref); \
-            arena->_last_empty_ref = empty->_next_ref; \
-            *out_ref = empty_ref; \
-            empty->_elem = elem; \
-        } else { \
-            RE__ARENA_STORAGE_TYPE(T) new_elem; \
-            *out_ref = (re_int32)RE__VEC_IDENT( \
-                RE__ARENA_STORAGE_TYPE(T), size)(&arena->_vec); \
-            new_elem._elem = elem; \
-            if ((err = RE__VEC_IDENT( \
-                RE__ARENA_STORAGE_TYPE(T), push)(&arena->_vec, new_elem))) { \
-                return err; \
-            } \
-            empty = RE__VEC_IDENT( \
-                RE__ARENA_STORAGE_TYPE(T), getref)( \
-                    &arena->_vec, (re_size)(*out_ref)); \
-        } \
-        empty->_next_ref = RE__ARENA_REF_NONE; \
-        empty->_prev_ref = arena->_last_ref; \
-        if (arena->_last_ref != RE__ARENA_REF_NONE) { \
-            prev_elem_ptr =  \
-                RE__VEC_IDENT( \
-                    RE__ARENA_STORAGE_TYPE(T), getref)( \
-                        &arena->_vec, (re_size)arena->_last_ref); \
-            prev_elem_ptr->_next_ref = *out_ref; \
-        } \
-        if (arena->_first_ref == RE__ARENA_REF_NONE) { \
-            arena->_first_ref = *out_ref; \
-        } \
-        arena->_last_ref = *out_ref; \
-        return err; \
-    }
+#define RE__ARENA_IMPL_add(T)                                                  \
+  int RE__ARENA_IDENT(T, add)(                                                 \
+      RE__ARENA_TYPE(T) * arena, T elem, re_int32 * out_ref)                   \
+  {                                                                            \
+    int err = 0;                                                               \
+    re_int32 empty_ref = arena->_last_empty_ref;                               \
+    RE__ARENA_STORAGE_TYPE(T) * empty;                                         \
+    RE__ARENA_STORAGE_TYPE(T) * prev_elem_ptr;                                 \
+    if (empty_ref != RE__ARENA_REF_NONE) {                                     \
+      empty = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(                \
+          &arena->_vec, (re_size)empty_ref);                                   \
+      arena->_last_empty_ref = empty->_next_ref;                               \
+      *out_ref = empty_ref;                                                    \
+      empty->_elem = elem;                                                     \
+    } else {                                                                   \
+      RE__ARENA_STORAGE_TYPE(T) new_elem;                                      \
+      *out_ref = (re_int32)RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), size)(     \
+          &arena->_vec);                                                       \
+      new_elem._elem = elem;                                                   \
+      if ((err = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), push)(               \
+               &arena->_vec, new_elem))) {                                     \
+        return err;                                                            \
+      }                                                                        \
+      empty = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(                \
+          &arena->_vec, (re_size)(*out_ref));                                  \
+    }                                                                          \
+    empty->_next_ref = RE__ARENA_REF_NONE;                                     \
+    empty->_prev_ref = arena->_last_ref;                                       \
+    if (arena->_last_ref != RE__ARENA_REF_NONE) {                              \
+      prev_elem_ptr = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(        \
+          &arena->_vec, (re_size)arena->_last_ref);                            \
+      prev_elem_ptr->_next_ref = *out_ref;                                     \
+    }                                                                          \
+    if (arena->_first_ref == RE__ARENA_REF_NONE) {                             \
+      arena->_first_ref = *out_ref;                                            \
+    }                                                                          \
+    arena->_last_ref = *out_ref;                                               \
+    return err;                                                                \
+  }
 
-#define RE__ARENA_DECL_begin(T) \
-    re_int32 RE__ARENA_IDENT(T, begin)(RE__ARENA_TYPE(T)* arena);
+#define RE__ARENA_DECL_begin(T)                                                \
+  re_int32 RE__ARENA_IDENT(T, begin)(RE__ARENA_TYPE(T) * arena);
 
-#define RE__ARENA_IMPL_begin(T) \
-    re_int32 RE__ARENA_IDENT(T, begin)(RE__ARENA_TYPE(T)* arena) { \
-        return arena->_first_ref; \
-    }
+#define RE__ARENA_IMPL_begin(T)                                                \
+  re_int32 RE__ARENA_IDENT(T, begin)(RE__ARENA_TYPE(T) * arena)                \
+  {                                                                            \
+    return arena->_first_ref;                                                  \
+  }
 
-#define RE__ARENA_DECL_next(T) \
-    re_int32 RE__ARENA_IDENT(T, next)(RE__ARENA_TYPE(T)* arena);
+#define RE__ARENA_DECL_next(T)                                                 \
+  re_int32 RE__ARENA_IDENT(T, next)(RE__ARENA_TYPE(T) * arena);
 
-#define RE__ARENA_IMPL_next(T) \
-    re_int32 RE__ARENA_IDENT(T, next)(RE__ARENA_TYPE(T)* arena, re_int32 prev_ref) { \
-        const RE__ARENA_STORAGE_TYPE(T)* elem_storage; \
-        RE_ASSERT(prev_ref != RE__ARENA_REF_NONE); \
-        elem_storage = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getcref)(&arena->_vec, (re_size)prev_ref); \
-        return elem_storage->_next_ref; \
-    }
+#define RE__ARENA_IMPL_next(T)                                                 \
+  re_int32 RE__ARENA_IDENT(T, next)(                                           \
+      RE__ARENA_TYPE(T) * arena, re_int32 prev_ref)                            \
+  {                                                                            \
+    const RE__ARENA_STORAGE_TYPE(T) * elem_storage;                            \
+    RE_ASSERT(prev_ref != RE__ARENA_REF_NONE);                                 \
+    elem_storage = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getcref)(          \
+        &arena->_vec, (re_size)prev_ref);                                      \
+    return elem_storage->_next_ref;                                            \
+  }
 
 /* re */
 #ifndef RE_INTERNAL_H
@@ -1915,55 +1938,55 @@ RE__STATIC_ASSERT(re__char_is_one_byte, sizeof(re_char) == 1);
 
 /* bits/container/str */
 /* Maximum size, without null terminator */
-#define RE__STR_SHORT_SIZE_MAX                                                \
-    (((sizeof(re__str) - sizeof(re_size)) / (sizeof(re_char)) - 1))
+#define RE__STR_SHORT_SIZE_MAX                                                 \
+  (((sizeof(re__str) - sizeof(re_size)) / (sizeof(re_char)) - 1))
 
 #define RE__STR_GET_SHORT(str) !((str)->_size_short & 1)
-#define RE__STR_SET_SHORT(str, short)                                         \
-    do {                                                                      \
-        re_size temp = short;                                                 \
-        (str)->_size_short &= ~((re_size)1);                                  \
-        (str)->_size_short |= !temp;                                          \
-    } while (0)
+#define RE__STR_SET_SHORT(str, short)                                          \
+  do {                                                                         \
+    re_size temp = short;                                                      \
+    (str)->_size_short &= ~((re_size)1);                                       \
+    (str)->_size_short |= !temp;                                               \
+  } while (0)
 #define RE__STR_GET_SIZE(str) ((str)->_size_short >> 1)
-#define RE__STR_SET_SIZE(str, size)                                           \
-    do {                                                                      \
-        re_size temp = size;                                                  \
-        (str)->_size_short &= 1;                                              \
-        (str)->_size_short |= temp << 1;                                      \
-    } while (0)
-#define RE__STR_DATA(str)                                                     \
-    (RE__STR_GET_SHORT(str) ? ((re_char*)&((str)->_alloc)) : (str)->_data)
+#define RE__STR_SET_SIZE(str, size)                                            \
+  do {                                                                         \
+    re_size temp = size;                                                       \
+    (str)->_size_short &= 1;                                                   \
+    (str)->_size_short |= temp << 1;                                           \
+  } while (0)
+#define RE__STR_DATA(str)                                                      \
+  (RE__STR_GET_SHORT(str) ? ((re_char*)&((str)->_alloc)) : (str)->_data)
 
 /* Round up to multiple of 32 */
 #define RE__STR_ROUND_ALLOC(alloc) (((alloc + 1) + 32) & (~((re_size)32)))
 
 #if RE_DEBUG
 
-#define RE__STR_CHECK(str)                                                    \
-    do {                                                                      \
-        if (RE__STR_GET_SHORT(str)) {                                         \
-            /* If string is short, the size must always be less than */       \
-            /* RE__STR_SHORT_SIZE_MAX. */                                     \
-            RE_ASSERT(RE__STR_GET_SIZE(str) <= RE__STR_SHORT_SIZE_MAX);       \
-        } else {                                                              \
-            /* If string is long, the size can still be less, but the other   \
-             */                                                               \
-            /* fields must be valid. */                                       \
-            /* Ensure there is enough space */                                \
-            RE_ASSERT((str)->_alloc >= RE__STR_GET_SIZE(str));                \
-            /* Ensure that the _data field isn't NULL if the size is 0 */     \
-            if (RE__STR_GET_SIZE(str) > 0) {                                  \
-                RE_ASSERT((str)->_data != RE_NULL);                           \
-            }                                                                 \
-            /* Ensure that if _alloc is 0 then _data is NULL */               \
-            if ((str)->_alloc == 0) {                                         \
-                RE_ASSERT((str)->_data == RE_NULL);                           \
-            }                                                                 \
-        }                                                                     \
-        /* Ensure that there is a null-terminator */                          \
-        RE_ASSERT(RE__STR_DATA(str)[RE__STR_GET_SIZE(str)] == '\0');          \
-    } while (0)
+#define RE__STR_CHECK(str)                                                     \
+  do {                                                                         \
+    if (RE__STR_GET_SHORT(str)) {                                              \
+      /* If string is short, the size must always be less than */              \
+      /* RE__STR_SHORT_SIZE_MAX. */                                            \
+      RE_ASSERT(RE__STR_GET_SIZE(str) <= RE__STR_SHORT_SIZE_MAX);              \
+    } else {                                                                   \
+      /* If string is long, the size can still be less, but the other          \
+       */                                                                      \
+      /* fields must be valid. */                                              \
+      /* Ensure there is enough space */                                       \
+      RE_ASSERT((str)->_alloc >= RE__STR_GET_SIZE(str));                       \
+      /* Ensure that the _data field isn't NULL if the size is 0 */            \
+      if (RE__STR_GET_SIZE(str) > 0) {                                         \
+        RE_ASSERT((str)->_data != RE_NULL);                                    \
+      }                                                                        \
+      /* Ensure that if _alloc is 0 then _data is NULL */                      \
+      if ((str)->_alloc == 0) {                                                \
+        RE_ASSERT((str)->_data == RE_NULL);                                    \
+      }                                                                        \
+    }                                                                          \
+    /* Ensure that there is a null-terminator */                               \
+    RE_ASSERT(RE__STR_DATA(str)[RE__STR_GET_SIZE(str)] == '\0');               \
+  } while (0)
 
 #else
 
@@ -1971,278 +1994,295 @@ RE__STATIC_ASSERT(re__char_is_one_byte, sizeof(re_char) == 1);
 
 #endif
 
-void re__str_init(re__str* str) {
-    str->_size_short = 0;
-    RE__STR_DATA(str)[0] = '\0';
+void re__str_init(re__str* str)
+{
+  str->_size_short = 0;
+  RE__STR_DATA(str)[0] = '\0';
 }
 
-void re__str_destroy(re__str* str) {
-    if (!RE__STR_GET_SHORT(str)) {
-        if (str->_data != RE_NULL) {
-            RE_FREE(str->_data);
-        }
+void re__str_destroy(re__str* str)
+{
+  if (!RE__STR_GET_SHORT(str)) {
+    if (str->_data != RE_NULL) {
+      RE_FREE(str->_data);
     }
+  }
 }
 
 re_size re__str_size(const re__str* str) { return RE__STR_GET_SIZE(str); }
 
-RE_INTERNAL int re__str_grow(re__str* str, re_size new_size) {
-    re_size old_size = RE__STR_GET_SIZE(str);
-    RE__STR_CHECK(str);
-    if (RE__STR_GET_SHORT(str)) {
-        if (new_size <= RE__STR_SHORT_SIZE_MAX) {
-            /* Can still be a short str */
-            RE__STR_SET_SIZE(str, new_size);
-        } else {
-            /* Needs allocation */
-            re_size new_alloc =
-              RE__STR_ROUND_ALLOC(new_size + (new_size >> 1));
-            re_char* new_data =
-              (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
-            re_size i;
-            if (new_data == RE_NULL) {
-                return -1;
-            }
-            /* Copy data from old string */
-            for (i = 0; i < old_size; i++) {
-                new_data[i] = RE__STR_DATA(str)[i];
-            }
-            /* Fill in the remaining fields */
-            RE__STR_SET_SHORT(str, 0);
-            RE__STR_SET_SIZE(str, new_size);
-            str->_data = new_data;
-            str->_alloc = new_alloc;
-        }
+RE_INTERNAL int re__str_grow(re__str* str, re_size new_size)
+{
+  re_size old_size = RE__STR_GET_SIZE(str);
+  RE__STR_CHECK(str);
+  if (RE__STR_GET_SHORT(str)) {
+    if (new_size <= RE__STR_SHORT_SIZE_MAX) {
+      /* Can still be a short str */
+      RE__STR_SET_SIZE(str, new_size);
     } else {
-        if (new_size > str->_alloc) {
-            /* Needs allocation */
-            re_size new_alloc =
-              RE__STR_ROUND_ALLOC(new_size + (new_size >> 1));
-            re_char* new_data;
-            if (str->_alloc == 0) {
-                new_data =
-                  (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
-            } else {
-                new_data = (re_char*)RE_REALLOC(
-                  str->_data, sizeof(re_char) * (new_alloc + 1));
-            }
-            if (new_data == RE_NULL) {
-                return -1;
-            }
-            str->_data = new_data;
-            str->_alloc = new_alloc;
-        }
-        RE__STR_SET_SIZE(str, new_size);
-    }
-    /* Null terminate */
-    RE__STR_DATA(str)[RE__STR_GET_SIZE(str)] = '\0';
-    RE__STR_CHECK(str);
-    return 0;
-}
-
-int re__str_push(re__str* str, re_char chr) {
-    int err = 0;
-    re_size old_size = RE__STR_GET_SIZE(str);
-    if ((err = re__str_grow(str, old_size + 1))) {
-        return err;
-    }
-    RE__STR_DATA(str)[old_size] = chr;
-    RE__STR_CHECK(str);
-    return err;
-}
-
-re_size re__str_slen(const re_char* s) {
-    re_size out = 0;
-    while (*(s++)) {
-        out++;
-    }
-    return out;
-}
-
-int re__str_init_s(re__str* str, const re_char* s) {
-    int err = 0;
-    re_size i;
-    re_size sz = re__str_slen(s);
-    re__str_init(str);
-    if ((err = re__str_grow(str, sz))) {
-        return err;
-    }
-    for (i = 0; i < sz; i++) {
-        RE__STR_DATA(str)[i] = s[i];
-    }
-    return err;
-}
-
-int re__str_init_n(re__str* str, const re_char* chrs, re_size n) {
-    int err = 0;
-    re_size i;
-    re__str_init(str);
-    if ((err = re__str_grow(str, n))) {
-        return err;
-    }
-    for (i = 0; i < n; i++) {
-        RE__STR_DATA(str)[i] = chrs[i];
-    }
-    return err;
-}
-
-int re__str_cat(re__str* str, const re__str* other) {
-    int err = 0;
-    re_size i;
-    re_size n = RE__STR_GET_SIZE(other);
-    re_size old_size = RE__STR_GET_SIZE(str);
-    if ((err = re__str_grow(str, old_size + n))) {
-        return err;
-    }
-    /* Copy data */
-    for (i = 0; i < n; i++) {
-        RE__STR_DATA(str)[old_size + i] = RE__STR_DATA(other)[i];
-    }
-    RE__STR_CHECK(str);
-    return err;
-}
-
-int re__str_cat_n(re__str* str, const re_char* chrs, re_size n) {
-    int err = 0;
-    re_size i;
-    re_size old_size = RE__STR_GET_SIZE(str);
-    if ((err = re__str_grow(str, old_size + n))) {
-        return err;
-    }
-    /* Copy data */
-    for (i = 0; i < n; i++) {
-        RE__STR_DATA(str)[old_size + i] = chrs[i];
-    }
-    RE__STR_CHECK(str);
-    return err;
-}
-
-int re__str_cat_s(re__str* str, const re_char* chrs) {
-    re_size chrs_size = re__str_slen(chrs);
-    return re__str_cat_n(str, chrs, chrs_size);
-}
-
-int re__str_insert(re__str* str, re_size index, re_char chr) {
-    int err = 0;
-    re_size i;
-    re_size old_size = RE__STR_GET_SIZE(str);
-    /* bounds check */
-    RE_ASSERT(index <= RE__STR_GET_SIZE(str));
-    if ((err = re__str_grow(str, old_size + 1))) {
-        return err;
-    }
-    /* Shift data */
-    if (old_size != 0) {
-        for (i = old_size; i >= index + 1; i--) {
-            RE__STR_DATA(str)[i] = RE__STR_DATA(str)[i - 1];
-        }
-    }
-    RE__STR_DATA(str)[index] = chr;
-    RE__STR_CHECK(str);
-    return err;
-}
-
-const re_char* re__str_get_data(const re__str* str) {
-    return RE__STR_DATA(str);
-}
-
-int re__str_init_copy(re__str* str, const re__str* in) {
-    re_size i;
-    int err = 0;
-    re__str_init(str);
-    if ((err = re__str_grow(str, re__str_size(in)))) {
-        return err;
-    }
-    for (i = 0; i < re__str_size(str); i++) {
-        RE__STR_DATA(str)[i] = RE__STR_DATA(in)[i];
-    }
-    return err;
-}
-
-void re__str_init_move(re__str* str, re__str* old) {
-    RE__STR_CHECK(old);
-    *str = *old;
-    re__str_init(old);
-}
-
-int re__str_cmp(const re__str* str_a, const re__str* str_b) {
-    re_size a_len = re__str_size(str_a);
-    re_size b_len = re__str_size(str_b);
-    const re_char* a_data = re__str_get_data(str_a);
-    const re_char* b_data = re__str_get_data(str_b);
-    re_size i;
-    if (a_len < b_len) {
+      /* Needs allocation */
+      re_size new_alloc = RE__STR_ROUND_ALLOC(new_size + (new_size >> 1));
+      re_char* new_data =
+          (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
+      re_size i;
+      if (new_data == RE_NULL) {
         return -1;
-    } else if (a_len > b_len) {
-        return 1;
+      }
+      /* Copy data from old string */
+      for (i = 0; i < old_size; i++) {
+        new_data[i] = RE__STR_DATA(str)[i];
+      }
+      /* Fill in the remaining fields */
+      RE__STR_SET_SHORT(str, 0);
+      RE__STR_SET_SIZE(str, new_size);
+      str->_data = new_data;
+      str->_alloc = new_alloc;
     }
-    for (i = 0; i < a_len; i++) {
-        if (a_data[i] != b_data[i]) {
-            if (a_data[i] < b_data[i]) {
-                return -1;
-            } else {
-                return 1;
-            }
-        }
+  } else {
+    if (new_size > str->_alloc) {
+      /* Needs allocation */
+      re_size new_alloc = RE__STR_ROUND_ALLOC(new_size + (new_size >> 1));
+      re_char* new_data;
+      if (str->_alloc == 0) {
+        new_data = (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
+      } else {
+        new_data =
+            (re_char*)RE_REALLOC(str->_data, sizeof(re_char) * (new_alloc + 1));
+      }
+      if (new_data == RE_NULL) {
+        return -1;
+      }
+      str->_data = new_data;
+      str->_alloc = new_alloc;
     }
-    return 0;
+    RE__STR_SET_SIZE(str, new_size);
+  }
+  /* Null terminate */
+  RE__STR_DATA(str)[RE__STR_GET_SIZE(str)] = '\0';
+  RE__STR_CHECK(str);
+  return 0;
 }
 
-void re__str_clear(re__str* str) {
-    RE__STR_SET_SIZE(str, 0);
-    RE__STR_DATA(str)[0] = '\0';
+int re__str_push(re__str* str, re_char chr)
+{
+  int err = 0;
+  re_size old_size = RE__STR_GET_SIZE(str);
+  if ((err = re__str_grow(str, old_size + 1))) {
+    return err;
+  }
+  RE__STR_DATA(str)[old_size] = chr;
+  RE__STR_CHECK(str);
+  return err;
+}
+
+re_size re__str_slen(const re_char* s)
+{
+  re_size out = 0;
+  while (*(s++)) {
+    out++;
+  }
+  return out;
+}
+
+int re__str_init_s(re__str* str, const re_char* s)
+{
+  int err = 0;
+  re_size i;
+  re_size sz = re__str_slen(s);
+  re__str_init(str);
+  if ((err = re__str_grow(str, sz))) {
+    return err;
+  }
+  for (i = 0; i < sz; i++) {
+    RE__STR_DATA(str)[i] = s[i];
+  }
+  return err;
+}
+
+int re__str_init_n(re__str* str, const re_char* chrs, re_size n)
+{
+  int err = 0;
+  re_size i;
+  re__str_init(str);
+  if ((err = re__str_grow(str, n))) {
+    return err;
+  }
+  for (i = 0; i < n; i++) {
+    RE__STR_DATA(str)[i] = chrs[i];
+  }
+  return err;
+}
+
+int re__str_cat(re__str* str, const re__str* other)
+{
+  int err = 0;
+  re_size i;
+  re_size n = RE__STR_GET_SIZE(other);
+  re_size old_size = RE__STR_GET_SIZE(str);
+  if ((err = re__str_grow(str, old_size + n))) {
+    return err;
+  }
+  /* Copy data */
+  for (i = 0; i < n; i++) {
+    RE__STR_DATA(str)[old_size + i] = RE__STR_DATA(other)[i];
+  }
+  RE__STR_CHECK(str);
+  return err;
+}
+
+int re__str_cat_n(re__str* str, const re_char* chrs, re_size n)
+{
+  int err = 0;
+  re_size i;
+  re_size old_size = RE__STR_GET_SIZE(str);
+  if ((err = re__str_grow(str, old_size + n))) {
+    return err;
+  }
+  /* Copy data */
+  for (i = 0; i < n; i++) {
+    RE__STR_DATA(str)[old_size + i] = chrs[i];
+  }
+  RE__STR_CHECK(str);
+  return err;
+}
+
+int re__str_cat_s(re__str* str, const re_char* chrs)
+{
+  re_size chrs_size = re__str_slen(chrs);
+  return re__str_cat_n(str, chrs, chrs_size);
+}
+
+int re__str_insert(re__str* str, re_size index, re_char chr)
+{
+  int err = 0;
+  re_size i;
+  re_size old_size = RE__STR_GET_SIZE(str);
+  /* bounds check */
+  RE_ASSERT(index <= RE__STR_GET_SIZE(str));
+  if ((err = re__str_grow(str, old_size + 1))) {
+    return err;
+  }
+  /* Shift data */
+  if (old_size != 0) {
+    for (i = old_size; i >= index + 1; i--) {
+      RE__STR_DATA(str)[i] = RE__STR_DATA(str)[i - 1];
+    }
+  }
+  RE__STR_DATA(str)[index] = chr;
+  RE__STR_CHECK(str);
+  return err;
+}
+
+const re_char* re__str_get_data(const re__str* str)
+{
+  return RE__STR_DATA(str);
+}
+
+int re__str_init_copy(re__str* str, const re__str* in)
+{
+  re_size i;
+  int err = 0;
+  re__str_init(str);
+  if ((err = re__str_grow(str, re__str_size(in)))) {
+    return err;
+  }
+  for (i = 0; i < re__str_size(str); i++) {
+    RE__STR_DATA(str)[i] = RE__STR_DATA(in)[i];
+  }
+  return err;
+}
+
+void re__str_init_move(re__str* str, re__str* old)
+{
+  RE__STR_CHECK(old);
+  *str = *old;
+  re__str_init(old);
+}
+
+int re__str_cmp(const re__str* str_a, const re__str* str_b)
+{
+  re_size a_len = re__str_size(str_a);
+  re_size b_len = re__str_size(str_b);
+  const re_char* a_data = re__str_get_data(str_a);
+  const re_char* b_data = re__str_get_data(str_b);
+  re_size i;
+  if (a_len < b_len) {
+    return -1;
+  } else if (a_len > b_len) {
+    return 1;
+  }
+  for (i = 0; i < a_len; i++) {
+    if (a_data[i] != b_data[i]) {
+      if (a_data[i] < b_data[i]) {
+        return -1;
+      } else {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+void re__str_clear(re__str* str)
+{
+  RE__STR_SET_SIZE(str, 0);
+  RE__STR_DATA(str)[0] = '\0';
 }
 
 /* bits/container/str_view */
-void re__str_view_init(re__str_view* view, const re__str* other) {
-    view->_size = re__str_size(other);
-    view->_data = re__str_get_data(other);
+void re__str_view_init(re__str_view* view, const re__str* other)
+{
+  view->_size = re__str_size(other);
+  view->_data = re__str_get_data(other);
 }
 
-void re__str_view_init_s(re__str_view* view, const re_char* chars) {
-    view->_size = re__str_slen(chars);
-    view->_data = chars;
+void re__str_view_init_s(re__str_view* view, const re_char* chars)
+{
+  view->_size = re__str_slen(chars);
+  view->_data = chars;
 }
 
-void re__str_view_init_n(re__str_view* view, const re_char* chars, re_size n) {
-    view->_size = n;
-    view->_data = chars;
+void re__str_view_init_n(re__str_view* view, const re_char* chars, re_size n)
+{
+  view->_size = n;
+  view->_data = chars;
 }
 
-void re__str_view_init_null(re__str_view* view) {
-    view->_size = 0;
-    view->_data = RE_NULL;
+void re__str_view_init_null(re__str_view* view)
+{
+  view->_size = 0;
+  view->_data = RE_NULL;
 }
 
-re_size re__str_view_size(const re__str_view* view) {
-    return view->_size;
+re_size re__str_view_size(const re__str_view* view) { return view->_size; }
+
+const re_char* re__str_view_get_data(const re__str_view* view)
+{
+  return view->_data;
 }
 
-const re_char* re__str_view_get_data(const re__str_view* view) {
-    return view->_data;
-}
-
-int re__str_view_cmp(const re__str_view* view_a, const re__str_view* view_b) {
-    re_size a_len = re__str_view_size(view_a);
-    re_size b_len = re__str_view_size(view_b);
-    const re_char* a_data = re__str_view_get_data(view_a);
-    const re_char* b_data = re__str_view_get_data(view_b);
-    re_size i;
-    if (a_len < b_len) {
+int re__str_view_cmp(const re__str_view* view_a, const re__str_view* view_b)
+{
+  re_size a_len = re__str_view_size(view_a);
+  re_size b_len = re__str_view_size(view_b);
+  const re_char* a_data = re__str_view_get_data(view_a);
+  const re_char* b_data = re__str_view_get_data(view_b);
+  re_size i;
+  if (a_len < b_len) {
+    return -1;
+  } else if (a_len > b_len) {
+    return 1;
+  }
+  for (i = 0; i < a_len; i++) {
+    if (a_data[i] != b_data[i]) {
+      if (a_data[i] < b_data[i]) {
         return -1;
-    } else if (a_len > b_len) {
+      } else {
         return 1;
+      }
     }
-    for (i = 0; i < a_len; i++) {
-        if (a_data[i] != b_data[i]) {
-            if (a_data[i] < b_data[i]) {
-                return -1;
-            } else {
-                return 1;
-            }
-        }
-    }
-    return 0;
+  }
+  return 0;
 }
 
 /* bits/types/fixed/int32 */
@@ -2263,68 +2303,73 @@ RE__STATIC_ASSERT(re__uint32_is_4_bytes, sizeof(re_uint32) == 4);
  * that is 8 bits wide. */
 RE__STATIC_ASSERT(re__uint8_is_1_bytes, sizeof(re_uint8) == 1);
 /* bits/hooks/memset */
-void re__memset(void* ptr, int value, re_size count) {
-    re_size i;
-    re_uint8 trunc = (re_uint8)value;
-    for (i = 0; i < count; i++) {
-        ((re_uint8*)ptr)[i] = trunc;
-    }
+void re__memset(void* ptr, int value, re_size count)
+{
+  re_size i;
+  re_uint8 trunc = (re_uint8)value;
+  for (i = 0; i < count; i++) {
+    ((re_uint8*)ptr)[i] = trunc;
+  }
 }
 
 /* bits/algorithm/hash/murmur3 */
-RE_INTERNAL re_uint32 re__murmurhash3_rotl32(re_uint32 x, re_uint8 r) {
-    return (x << r) | (x >> (32 - r));
+RE_INTERNAL re_uint32 re__murmurhash3_rotl32(re_uint32 x, re_uint8 r)
+{
+  return (x << r) | (x >> (32 - r));
 }
 
-RE_INTERNAL re_uint32 re__murmurhash3_fmix32(re_uint32 h) {
-    h ^= h >> 16;
-    h *= 0x85EBCA6B;
-    h ^= h >> 13;
-    h *= 0xC2B2AE35;
-    h ^= h >> 16;
-    return h;
+RE_INTERNAL re_uint32 re__murmurhash3_fmix32(re_uint32 h)
+{
+  h ^= h >> 16;
+  h *= 0x85EBCA6B;
+  h ^= h >> 13;
+  h *= 0xC2B2AE35;
+  h ^= h >> 16;
+  return h;
 }
 
 /* Note: this behaves differently on machines with different endians. */
-RE_INTERNAL re_uint32 re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len) {
-    const re_size num_blocks = data_len / 4;
-    const re_uint32 c1 = 0xCC9E2D51;
-    const re_uint32 c2 = 0x1B873593;
-    re_size i;
-    const re_uint32* blocks = (const re_uint32*)data;
-    const re_uint8* tail = (const re_uint8*)(data + num_blocks * 4);
-    re_uint32 k1;
-    for (i = 0; i < num_blocks; i++) {
-        k1 = blocks[i];
-        k1 *= c1;
-        k1 = re__murmurhash3_rotl32(k1, 15);
-        k1 *= c2;
+RE_INTERNAL re_uint32
+re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len)
+{
+  const re_size num_blocks = data_len / 4;
+  const re_uint32 c1 = 0xCC9E2D51;
+  const re_uint32 c2 = 0x1B873593;
+  re_size i;
+  const re_uint32* blocks = (const re_uint32*)data;
+  const re_uint8* tail = (const re_uint8*)(data + num_blocks * 4);
+  re_uint32 k1;
+  for (i = 0; i < num_blocks; i++) {
+    k1 = blocks[i];
+    k1 *= c1;
+    k1 = re__murmurhash3_rotl32(k1, 15);
+    k1 *= c2;
 
-        h1 ^= k1;
-        h1 = re__murmurhash3_rotl32(h1, 13);
-        h1 = h1 * 5 + 0xE6546B64;
-    }
+    h1 ^= k1;
+    h1 = re__murmurhash3_rotl32(h1, 13);
+    h1 = h1 * 5 + 0xE6546B64;
+  }
 
-    k1 = 0;
-    switch (data_len & 3) {
-        case 3:
-            k1 ^= ((re_uint32)(tail[2])) << 16;
-            /* fall through */
-        case 2:
-            k1 ^= ((re_uint32)(tail[1])) << 8;
-            /* fall through */
-        case 1:
-            k1 ^= tail[0];
-            k1 *= c1;
-            k1 = re__murmurhash3_rotl32(k1, 15);
-            k1 *= c2;
-            h1 ^= k1;
-    }
+  k1 = 0;
+  switch (data_len & 3) {
+  case 3:
+    k1 ^= ((re_uint32)(tail[2])) << 16;
+    /* fall through */
+  case 2:
+    k1 ^= ((re_uint32)(tail[1])) << 8;
+    /* fall through */
+  case 1:
+    k1 ^= tail[0];
+    k1 *= c1;
+    k1 = re__murmurhash3_rotl32(k1, 15);
+    k1 *= c2;
+    h1 ^= k1;
+  }
 
-    h1 ^= (re_uint32)data_len;
-    h1 = re__murmurhash3_fmix32(h1);
+  h1 ^= (re_uint32)data_len;
+  h1 = re__murmurhash3_fmix32(h1);
 
-    return h1;
+  return h1;
 }
 
 /* re */
@@ -6395,59 +6440,288 @@ re_error re__exec_dfa_start(
 
 re_error re__exec_dfa_run(re__exec_dfa* exec, re_uint32 next_sym)
 {
+  re_error err = RE_ERROR_NONE;
+  re__assert_type assert_ctx = 0;
+  unsigned int is_word_boundary;
+  re__exec_dfa_flags new_flags = 0;
+  re__exec_dfa_state_ptr current_state = exec->current_state;
+  re__exec_dfa_state_ptr* next_state = &current_state->next[next_sym];
+  is_word_boundary = re__is_word_boundary(
+      !!(current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD), next_sym);
+  if (is_word_boundary) {
+    assert_ctx |= RE__ASSERT_TYPE_WORD;
+  } else {
+    assert_ctx |= RE__ASSERT_TYPE_WORD_NOT;
+  }
+  if (next_sym == RE__EXEC_SYM_EOT) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
+  }
+  if (current_state->flags & RE__EXEC_DFA_FLAG_BEGIN_LINE) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_START;
+  }
+  if (current_state->flags & RE__EXEC_DFA_FLAG_BEGIN_TEXT) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
+  }
+  re__exec_nfa_set_thrds(
+      &exec->nfa, current_state->thrd_locs_begin,
+      (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
+  re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
+  re__exec_nfa_set_match_priority(
+      &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+  if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, next_sym, 0))) {
+    return err;
+  }
+  if (re__is_word_char(next_sym)) {
+    new_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
+  }
+  if (next_sym == '\n') {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
+    new_flags |= RE__EXEC_DFA_FLAG_BEGIN_LINE;
+  }
+  if ((err = re__exec_dfa_get_state(exec, new_flags, next_state))) {
+    return err;
+  }
+  exec->current_state = *next_state;
+  return err;
+}
+
+re_error re__exec_dfa_run_byte(re__exec_dfa* exec, re_uint8 next_byte)
+{
+  re__exec_dfa_state* current_state = exec->current_state;
+  re__exec_dfa_state* next_state;
+  re_error err = RE_ERROR_NONE;
+  RE_ASSERT(current_state != RE_NULL);
+  next_state = current_state->next[next_byte];
+  if (next_state == RE_NULL) {
+    if ((err = re__exec_dfa_construct(exec, next_byte))) {
+      return err;
+    }
+  } else {
+    exec->current_state = next_state;
+  }
+  return 0;
+}
+
+re_error re__exec_dfa_end(re__exec_dfa* exec)
+{
   re__exec_dfa_state* current_state = exec->current_state;
   re__exec_dfa_state* next_state;
   re_error err = RE_ERROR_NONE;
   /* for now, ensure it's not null */
   RE_ASSERT(current_state != RE_NULL);
-  RE_ASSERT(next_sym <= RE__EXEC_SYM_EOT);
-  next_state = current_state->next[next_sym];
+  next_state = current_state->next[RE__EXEC_SYM_EOT];
   if (next_state == RE_NULL) {
-    re__assert_type assert_ctx = 0;
-    int is_word_boundary;
-    re__exec_dfa_flags new_flags = 0;
-    if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE) {
-      is_word_boundary = re__is_word_boundary_start(next_sym);
-    } else {
-      is_word_boundary = re__is_word_boundary(
-          !!(current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD), next_sym);
-    }
-    if (is_word_boundary) {
-      assert_ctx |= RE__ASSERT_TYPE_WORD;
-    } else {
-      assert_ctx |= RE__ASSERT_TYPE_WORD_NOT;
-    }
-    if (next_sym == RE__EXEC_SYM_EOT) {
-      assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
-      assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
-    }
-    if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE) {
-      assert_ctx |= RE__ASSERT_TYPE_TEXT_START;
-    }
-    if (current_state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT) {
-      assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
-    }
-    re__exec_nfa_set_thrds(
-        &exec->nfa, current_state->thrd_locs_begin,
-        (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
-    re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
-    re__exec_nfa_set_match_priority(
-        &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
-    if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, next_sym, 0))) {
+    if ((err = re__exec_dfa_construct(exec, RE__EXEC_SYM_EOT))) {
       return err;
     }
-    if (re__is_word_char(next_sym)) {
-      new_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
-    }
-    /* if (is_word_char(sym)) dfa_flags |= from_word */
-    if ((err = re__exec_dfa_get_state(exec, new_flags, &next_state))) {
-      return err;
-    }
-    current_state->next[next_sym] = next_state;
+  } else {
+    exec->current_state = next_state;
   }
-  exec->prev_sym = next_sym;
-  exec->current_state = next_state;
   return 0;
+}
+
+#define RE__EXEC_DFA_LOOP_DEF(name, body)                                      \
+  re_error re__exec_dfa_search_##name(                                         \
+      re__exec_dfa* exec, const re_uint8* start, const re_uint8* end,          \
+      const re_uint8** out_pos, re__exec_dfa_state** out_match_state)          \
+  {                                                                            \
+    re_error err = 0;                                                          \
+    re__exec_dfa_state_ptr current_state = exec->current_state;                \
+    re__exec_dfa_state_ptr next_state;                                         \
+    body RE__UNUSED(out_pos);                                                  \
+    RE__UNUSED(out_match_state);                                               \
+    return RE_ERROR_NOMATCH;                                                   \
+  }
+
+#define RE__EXEC_DFA_ADVANCE_STATE()                                           \
+  next_state = current_state->next[*start];                                    \
+  if (next_state == RE_NULL) {                                                 \
+    exec->current_state = current_state;                                       \
+    if ((err = re__exec_dfa_construct(exec, *start))) {                        \
+      return err;                                                              \
+    }                                                                          \
+    current_state = exec->current_state;                                       \
+  } else {                                                                     \
+    current_state = next_state;                                                \
+  }
+
+#define RE__EXEC_DFA_FWD_LOOP(ex)                                              \
+  while (start < end) {                                                        \
+    ex start++;                                                                \
+  }
+
+#define RE__EXEC_DFA_REV_LOOP(ex)                                              \
+  while (start > end) {                                                        \
+    start--;                                                                   \
+    ex                                                                         \
+  }
+
+#define RE__EXEC_DFA_CHECK_MATCH_BOOL_EXIT_EARLY()                             \
+  if (re__exec_dfa_state_is_match(current_state)) {                            \
+    return RE_MATCH;                                                           \
+  }
+
+#define RE__EXEC_DFA_MATCH_POS_DEFS()                                          \
+  const re_uint8* last_found_start;                                            \
+  re__exec_dfa_state* last_found_state = RE_NULL;
+
+#define RE__EXEC_DFA_CHECK_MATCH_POS()                                         \
+  if (re__exec_dfa_state_is_match(current_state)) {                            \
+    last_found_state = current_state;                                          \
+    last_found_start = start;                                                  \
+    if (re__exec_dfa_state_is_priority(current_state)) {                       \
+      *out_pos = last_found_start;                                             \
+      *out_match_state = last_found_state;                                     \
+      return RE_MATCH;                                                         \
+    }                                                                          \
+  } else if (re__exec_dfa_state_is_empty(current_state) && last_found_state) { \
+    *out_pos = last_found_start;                                               \
+    *out_match_state = last_found_state;                                       \
+    return RE_MATCH;                                                           \
+  }
+
+/* Non-boolean match, don't exit early, forwards */
+RE__EXEC_DFA_LOOP_DEF(fff, {
+  RE__EXEC_DFA_MATCH_POS_DEFS();
+  RE__EXEC_DFA_FWD_LOOP({
+    RE__EXEC_DFA_ADVANCE_STATE();
+    RE__EXEC_DFA_CHECK_MATCH_POS();
+  });
+})
+
+/* Non-boolean match, don't exit early, reverse */
+RE__EXEC_DFA_LOOP_DEF(fft, {
+  RE__EXEC_DFA_MATCH_POS_DEFS();
+  RE__EXEC_DFA_REV_LOOP({
+    RE__EXEC_DFA_ADVANCE_STATE();
+    RE__EXEC_DFA_CHECK_MATCH_POS();
+  });
+})
+
+/* Can't have ft[ft] */
+/* RE__EXEC_DFA_LOOP(ftf);
+ * RE__EXEC_DFA_LOOP(ftt); */
+
+/* Boolean match, don't bail early, forwards */
+RE__EXEC_DFA_LOOP_DEF(tff, {RE__EXEC_DFA_FWD_LOOP({
+                        RE__EXEC_DFA_ADVANCE_STATE();
+                      })})
+
+/* Boolean match, don't bail early, reverse */
+RE__EXEC_DFA_LOOP_DEF(tft, {RE__EXEC_DFA_REV_LOOP({
+                        RE__EXEC_DFA_ADVANCE_STATE();
+                      })})
+
+/* Boolean match, bail early, forwards */
+RE__EXEC_DFA_LOOP_DEF(ttf, {RE__EXEC_DFA_FWD_LOOP({
+                        RE__EXEC_DFA_ADVANCE_STATE();
+                        RE__EXEC_DFA_CHECK_MATCH_BOOL_EXIT_EARLY();
+                      })})
+
+/* Boolean match, bail early, reverse */
+RE__EXEC_DFA_LOOP_DEF(ttt, {RE__EXEC_DFA_REV_LOOP({
+                        RE__EXEC_DFA_ADVANCE_STATE();
+                        RE__EXEC_DFA_CHECK_MATCH_BOOL_EXIT_EARLY();
+                      })})
+
+#include <stdio.h>
+
+/* Need to keep track of:
+ * - Reversed
+ * - Boolean match (check priority bit or not)
+ * - Can exit early from boolean matches */
+re_error re__exec_dfa_driver(
+    re__exec_dfa* exec, re__prog_entry entry, int boolean_match,
+    int boolean_match_exit_early, int reversed, const re_uint8* text,
+    re_size text_size, re_size text_start_pos, re_uint32* out_match,
+    re_size* out_pos)
+{
+  re__exec_dfa_start_state_flags start_state_flags = 0;
+  re_error err = RE_ERROR_NONE;
+  if (!reversed) {
+    if (text_start_pos == 0) {
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
+                           RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
+    } else {
+      start_state_flags |=
+          (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
+           re__is_word_char((unsigned char)(text[text_start_pos - 1])));
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
+                           (text[text_start_pos - 1] == '\n');
+    }
+  } else {
+    if (text_start_pos == text_size) {
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
+                           RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
+    } else {
+      start_state_flags |=
+          (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
+           re__is_word_char((unsigned char)(text[text_start_pos])));
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
+                           (text[text_start_pos] == '\n');
+    }
+  }
+  if ((err = re__exec_dfa_start(exec, entry, start_state_flags))) {
+    return err;
+  }
+  RE_ASSERT(text_start_pos <= text_size);
+  RE_ASSERT(RE__IMPLIES(boolean_match, out_match == RE_NULL));
+  RE_ASSERT(RE__IMPLIES(boolean_match, out_pos == RE_NULL));
+  RE_ASSERT(RE__IMPLIES(!boolean_match, boolean_match_exit_early == 0));
+  {
+    const re_uint8* start;
+    const re_uint8* end;
+    const re_uint8* loop_out_pos;
+    re__exec_dfa_state* loop_out_state;
+    static re_error (*funcs[8])(
+        re__exec_dfa*, const re_uint8*, const re_uint8*, const re_uint8**,
+        re__exec_dfa_state**) = {
+        re__exec_dfa_search_fff,
+        re__exec_dfa_search_fft,
+        RE_NULL,
+        RE_NULL,
+        re__exec_dfa_search_tff,
+        re__exec_dfa_search_tft,
+        re__exec_dfa_search_ttf,
+        re__exec_dfa_search_ttt};
+    start = text + text_start_pos;
+    if (!reversed) {
+      end = text + text_size;
+    } else {
+      end = text;
+    }
+    err = funcs
+        [reversed | (boolean_match_exit_early << 1) | (boolean_match << 2)](
+            exec, start, end, &loop_out_pos, &loop_out_state);
+    if (err == RE_MATCH) {
+      /* Exited early */
+      if (boolean_match) {
+        return err;
+      } else {
+        RE_ASSERT(loop_out_pos >= text);
+        RE_ASSERT(loop_out_pos < text + text_size);
+        *out_pos = (re_size)(loop_out_pos - text);
+        *out_match = re__exec_dfa_state_get_match_index(loop_out_state);
+        return err;
+      }
+    } else if (err != RE_ERROR_NOMATCH) {
+      /* Trouble's afoot... */
+      return err;
+    }
+    if ((err = re__exec_dfa_end(exec))) {
+      return err;
+    }
+    if (re__exec_dfa_state_is_match(exec->current_state)) {
+      if (!boolean_match) {
+        *out_pos = (re_size)(end - text);
+        *out_match = re__exec_dfa_state_get_match_index(exec->current_state);
+      }
+      return RE_MATCH;
+    } else {
+      return RE_NOMATCH;
+    }
+  }
 }
 
 RE_INTERNAL re_uint32 re__exec_dfa_get_match_index(re__exec_dfa* exec)
@@ -10583,4 +10857,3 @@ RE_INTERNAL re_rune re__rune_data_casefold_next(re_rune r)
             ((r >> 1) & 0x03)] +
        ((r)&0x01)];
 }
-

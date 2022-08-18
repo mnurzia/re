@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <time.h>
 
-#define LONG_SUBJECT_LEN (1UL << 28L)
-
 mn_uint32 xorshift32(mn_uint32* state)
 {
   mn_uint32 x = *state;
@@ -24,37 +22,78 @@ void fill_rand(char* buf, mn_size buf_size)
   }
 }
 
+char pointer_chase(char* buf, mn_size buf_size)
+{
+  mn_uint32 state = 10;
+  static void* pointers[256];
+  mn_size i;
+  char* end = buf + buf_size;
+  void** current = pointers + 0;
+  for (i = 0; i < 256; i++) {
+    pointers[i] = pointers + i;
+  }
+  for (i = 0; i < 65536; i++) {
+    mn_uint32 a = xorshift32(&state) & 0xFF;
+    mn_uint32 b = xorshift32(&state) & 0xFF;
+    void* temp = pointers[a];
+    pointers[a] = pointers[b];
+    pointers[b] = temp;
+  }
+  while (buf < end) {
+    current = *current;
+    buf++;
+  }
+  return (char)(current - pointers);
+}
+
 void bench_long_match(void)
 {
   re reg;
   clock_t start, end;
-  clock_t ms;
-  unsigned long mb = (LONG_SUBJECT_LEN / 1048576UL);
-  char* subject = malloc(LONG_SUBJECT_LEN);
-  fill_rand(subject, LONG_SUBJECT_LEN);
-  re_init(&reg, ".*$");
-  start = clock();
-  re_is_match(&reg, subject, LONG_SUBJECT_LEN, 'U');
-  end = clock();
-  ms = (end - start) / (CLOCKS_PER_SEC / 1000);
-  printf(
-      "%lu MB / %lu ms (%.2f MB/s)\n", mb, ms,
-      (((float)mb) / (float)(ms)) * 1000);
-  re_destroy(&reg);
+  clock_t us;
+  re_span grp[2];
+  mn_size sub_len = 1;
+  int i;
+  int max_bits = 29;
+  char* subject = malloc(1 << max_bits);
+  fill_rand(subject, 1 << max_bits);
+  for (i = 28; i < max_bits; i++) {
+    sub_len = 1 << i;
+    start = clock();
+    printf("%i\n", pointer_chase(subject, sub_len));
+    end = clock();
+    us = (end - start) / (CLOCKS_PER_SEC / 1000000);
+    printf(
+        "Pointer chase speed:  %lu bytes / %lu ms (%.3f MB/s)\n", sub_len,
+        us / 1000, (((float)sub_len / 1048576) / (float)(us)) * 1000000);
+    re_init(&reg, "abcdefghijklmnopqrstuvwxyz$");
+    start = clock();
+    re_is_match(&reg, subject, sub_len, 'B');
+    end = clock();
+    us = (end - start) / (CLOCKS_PER_SEC / 1000000);
+    printf(
+        "Bool search speed:  %lu bytes / %lu ms (%.3f MB/s)\n", sub_len,
+        us / 1000, (((float)sub_len / 1048576) / (float)(us)) * 1000000);
+    start = clock();
+    re_match_groups(&reg, subject, sub_len, 'B', 1, grp);
+    end = clock();
+    us = (end - start) / (CLOCKS_PER_SEC / 1000000);
+    printf(
+        "Bound search speed: %lu bytes / %lu ms (%.3f MB/s)\n", sub_len,
+        us / 1000, (((float)sub_len / 1048576) / (float)(us)) * 1000000);
+    start = clock();
+    re_match_groups(&reg, subject, sub_len, 'B', 2, grp);
+    end = clock();
+    us = (end - start) / (CLOCKS_PER_SEC / 1000000);
+    printf(
+        "Group search speed: %lu bytes / %lu ms (%.3f MB/s)\n", sub_len,
+        us / 1000, (((float)sub_len / 1048576) / (float)(us)) * 1000000);
+    re_destroy(&reg);
+  }
   free(subject);
 }
 
-void run_bench(const char* label, void (*bench_func)(clock_t*, clock_t*))
-{
-  clock_t start;
-  clock_t end;
-  printf("%s: ", label);
-  fflush(stdout);
-  bench_func(&start, &end);
-  printf("%lu ms\n", (end - start) / (CLOCKS_PER_SEC / 1000));
-}
-
-int main()
+int main(void)
 {
   /* Benchmark search speed */
   bench_long_match();

@@ -710,6 +710,7 @@ MN_INTERNAL re_error re__parse_unicode_property(
         parse, "expected '{' to begin Unicode property name");
   }
   name_start = parse->str_pos;
+  name_end = name_start;
   while (1) {
     if ((err = re__parse_next_char(parse, &ch))) {
       return err;
@@ -1596,7 +1597,7 @@ re__parse_str(re__parse* parse, mn__str_view str, re_syntax_flags syntax_flags)
   if ((err = re__parse_build_flags(syntax_flags, &initial_flags))) {
     return err;
   }
-  if ((err = re__parse_push_frame(parse, start_ref, 0))) {
+  if ((err = re__parse_push_frame(parse, start_ref, initial_flags))) {
     return err;
   }
   while (1) {
@@ -1724,6 +1725,9 @@ re__parse_str(re__parse* parse, mn__str_view str, re_syntax_flags syntax_flags)
                  re__parse_error(parse, "cannot use '/' in glob expression"))) {
           goto error;
         }
+      } else if (ch == RE__PARSE_EOF) {
+        /* <EOF> | Finish. */
+        break;
       } else {
         /* <*> | Add rune */
         if ((err = re__parse_create_rune(parse, ch))) {

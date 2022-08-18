@@ -77,9 +77,9 @@ MN_INTERNAL re_error re__rune_data_prop_decomp(
     return RE_ERROR_NOMEM;
   }
   for (i = 0; i < len; i++) {
-    run += re__rune_data_prop_decomp_uleb128(&read_ptr);
+    run += (re_rune)re__rune_data_prop_decomp_uleb128(&read_ptr);
     ranges[i].min = run;
-    run += re__rune_data_prop_decomp_uleb128(&read_ptr);
+    run += (re_rune)re__rune_data_prop_decomp_uleb128(&read_ptr);
     ranges[i].max = run;
   }
   prop_out = MN_MALLOC(sizeof(re__rune_data_prop));

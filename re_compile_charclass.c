@@ -817,7 +817,8 @@ re_error re__compile_charclass_transpose(
         /* Back-link new node to previously created ones */
         mn_uint32 aux_ptr = child->aux;
         re__byte_range br = child->byte_range;
-        while (aux_ptr != RE__COMPILE_CHARCLASS_TREE_NONE) {
+        MN_ASSERT(aux_ptr != RE__COMPILE_CHARCLASS_TREE_NONE);
+        do {
           re__compile_charclass_tree* aux_tree =
               re__compile_charclass_tree_get(char_comp, aux_ptr);
           mn_uint32 next_aux = aux_tree->aux;
@@ -826,7 +827,7 @@ re_error re__compile_charclass_transpose(
             return err;
           }
           aux_ptr = next_aux;
-        }
+        } while (aux_ptr != RE__COMPILE_CHARCLASS_TREE_NONE);
       }
       child = re__compile_charclass_tree_get(char_comp, child_ref);
     }
