@@ -1251,9 +1251,10 @@ MN_INTERNAL re_error re__exec_nfa_run_byte(
 MN_INTERNAL re_error
 re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, mn_size pos);
 
-MN_INTERNAL int re__is_word_char(re__exec_sym ch);
-MN_INTERNAL int re__is_word_boundary_start(re__exec_sym right);
-MN_INTERNAL int re__is_word_boundary(int left_is_word, re__exec_sym right);
+MN_INTERNAL unsigned int re__is_word_char(re__exec_sym ch);
+MN_INTERNAL unsigned int re__is_word_boundary_start(re__exec_sym right);
+MN_INTERNAL unsigned int
+re__is_word_boundary(int left_is_word, re__exec_sym right);
 
 #if MN_DEBUG
 
@@ -1276,22 +1277,55 @@ typedef re__exec_dfa_state* re__exec_dfa_state_ptr;
 
 typedef enum re__exec_dfa_flags {
   RE__EXEC_DFA_FLAG_FROM_WORD = 1,
-  RE__EXEC_DFA_FLAG_START_STATE = 2,
-  RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT = 4,
-  RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE = 8,
+  RE__EXEC_DFA_FLAG_BEGIN_TEXT = 2,
+  RE__EXEC_DFA_FLAG_BEGIN_LINE = 8,
   RE__EXEC_DFA_FLAG_MATCH = 16,
-  RE__EXEC_DFA_FLAG_MATCH_PRIORITY = 32,
-  RE__EXEC_DFA_FLAG_EMPTY = 64,
-  RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR = 128
+  RE__EXEC_DFA_FLAG_MATCH_PRIORITY = 32
 } re__exec_dfa_flags;
 
-/* DFA state. */
+/* We can get away with storing information in the lower-order bits of pointers
+ * on some (modern) systems. */
+/* On a 32-bit system with 4-byte alignment, we get 512 bits of 'free' space,
+ * and on a 64-bit system, we get 768 bits. These translate to 64 and 96 bytes
+ * to use for whatever we want. Nice! */
+/* The main advantage of this is reduced memory consumption. Allocators love it
+ * when you allocate a multiple of 1024 / 2048 bytes (the size of 256 pointers
+ * on 32/64 bit systems) rather than a multiple of 2096 bytes (the size of this
+ * data structure without this trick). Modern arena-based allocators will have
+ * no problem binning the states into power-of-2 sized arenas. */
+/* The hardest part of this is proving that it's okay to use these bits.
+ * It's hard to find an approach that:
+ * - Works in C89
+ * - Can be done entirely using preprocessor macros
+ * - Is reasonably portable across major architectures */
+/* Here is how we will use the bits:
+ * Idx : Usage
+ * [0] : MATCH, MATCH_PRIORITY flags
+ * [1] : WORD, BEGIN_TEXT flags
+ * [2] : BEGIN_LINE flag
+ * [16 - 31] : Match index (32 bits)
+ * [32 - 63] : Pointer to threads (32 / 64 bits)
+ * [64 - 79] : Threads size (32 bits)
+ * [80 - 111] : Pointer to ending transition state */
+#define RE__EXEC_DFA_SMALL_STATE 0
+#if defined(RE__EXEC_DFA_SMALL_STATE)
+#elif (defined(__GNUC__) || defined(__clang__)) &&                             \
+    (defined(__arm64__) || defined(__arm__) || defined(__amd64__))
+#define RE__EXEC_DFA_SMALL_STATE 1
+#elif defined(_MSC_VER) &&                                                     \
+    (defined(_M_IX86) || defined(_M_AMD64) || defined(_M_ARM))
+#define RE__EXEC_DFA_SMALL_STATE 1
+#else
+#define RE__EXEC_DFA_SMALL_STATE 0
+#endif
 struct re__exec_dfa_state {
   re__exec_dfa_state_ptr next[RE__EXEC_SYM_MAX];
+#if !RE__EXEC_DFA_SMALL_STATE
   re__exec_dfa_flags flags;
   mn_uint32 match_index;
   mn_uint32* thrd_locs_begin;
   mn_uint32* thrd_locs_end;
+#endif
 };
 
 typedef struct re__exec_dfa_cache_entry {
@@ -1324,7 +1358,6 @@ typedef struct re__exec_dfa {
   re__exec_dfa_cache_entry* cache;
   mn_size cache_stored;
   mn_size cache_alloc;
-  mn_uint32 prev_sym;
 } re__exec_dfa;
 
 MN_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog);
@@ -1332,15 +1365,23 @@ MN_INTERNAL void re__exec_dfa_destroy(re__exec_dfa* exec);
 MN_INTERNAL re_error re__exec_dfa_start(
     re__exec_dfa* exec, re__prog_entry entry,
     re__exec_dfa_start_state_flags start_state_flags);
-MN_INTERNAL re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym);
+MN_INTERNAL re_error
+re__exec_dfa_run_byte(re__exec_dfa* exec, mn_uint8 next_byte);
+MN_INTERNAL re_error re__exec_dfa_end(re__exec_dfa* exec);
 MN_INTERNAL mn_uint32 re__exec_dfa_get_match_index(re__exec_dfa* exec);
 MN_INTERNAL mn_uint32 re__exec_dfa_get_match_priority(re__exec_dfa* exec);
 MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec);
 MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
+re_error re__exec_dfa_driver(
+    re__exec_dfa* exec, re__prog_entry entry, int boolean_match,
+    int boolean_match_exit_early, int reversed, const mn_uint8* text,
+    mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
+    mn_size* out_pos);
 
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
- * ------------------------------------------------------------------------ */
+ * ------------------------------------------------------------------------
+ */
 /* Internal data structure */
 struct re_data {
   mn_int32 set;

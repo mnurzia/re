@@ -15,7 +15,13 @@
 #define RE_INTERNAL extern
 #endif
 
+#if !defined(RE__SPLIT_BUILD)
+#define RE_INTERNAL_DATA_DECL static
 #define RE_INTERNAL_DATA static
+#else
+#define RE_INTERNAL_DATA_DECL extern
+#define RE_INTERNAL_DATA 
+#endif
 
 /* bits/util/preproc/stringify */
 #define RE__STRINGIFY_0(x) #x
@@ -1464,10 +1470,10 @@ typedef enum re__prog_data_id {
 
 /* Pointers to precompiled program data. See re__prog_decompress for the
  * compressed program format. */
-RE_INTERNAL re_uint8* re__prog_data[RE__PROG_DATA_ID_MAX];
+RE_INTERNAL_DATA_DECL re_uint8* re__prog_data[RE__PROG_DATA_ID_MAX];
 
 /* Corresponding sizes of precompiled program data. */
-RE_INTERNAL re_size re__prog_data_size[RE__PROG_DATA_ID_MAX];
+RE_INTERNAL_DATA_DECL re_size re__prog_data_size[RE__PROG_DATA_ID_MAX];
 
 /* Decompress a compressed program into an re__prog object, storing outward
  * patches in the given patches object. */
@@ -1821,9 +1827,10 @@ RE_INTERNAL re_error re__exec_nfa_run_byte(
 RE_INTERNAL re_error
 re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, re_size pos);
 
-RE_INTERNAL int re__is_word_char(re__exec_sym ch);
-RE_INTERNAL int re__is_word_boundary_start(re__exec_sym right);
-RE_INTERNAL int re__is_word_boundary(int left_is_word, re__exec_sym right);
+RE_INTERNAL unsigned int re__is_word_char(re__exec_sym ch);
+RE_INTERNAL unsigned int re__is_word_boundary_start(re__exec_sym right);
+RE_INTERNAL unsigned int
+re__is_word_boundary(int left_is_word, re__exec_sym right);
 
 #if RE_DEBUG
 
@@ -1846,22 +1853,55 @@ typedef re__exec_dfa_state* re__exec_dfa_state_ptr;
 
 typedef enum re__exec_dfa_flags {
   RE__EXEC_DFA_FLAG_FROM_WORD = 1,
-  RE__EXEC_DFA_FLAG_START_STATE = 2,
-  RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT = 4,
-  RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE = 8,
+  RE__EXEC_DFA_FLAG_BEGIN_TEXT = 2,
+  RE__EXEC_DFA_FLAG_BEGIN_LINE = 8,
   RE__EXEC_DFA_FLAG_MATCH = 16,
-  RE__EXEC_DFA_FLAG_MATCH_PRIORITY = 32,
-  RE__EXEC_DFA_FLAG_EMPTY = 64,
-  RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR = 128
+  RE__EXEC_DFA_FLAG_MATCH_PRIORITY = 32
 } re__exec_dfa_flags;
 
-/* DFA state. */
+/* We can get away with storing information in the lower-order bits of pointers
+ * on some (modern) systems. */
+/* On a 32-bit system with 4-byte alignment, we get 512 bits of 'free' space,
+ * and on a 64-bit system, we get 768 bits. These translate to 64 and 96 bytes
+ * to use for whatever we want. Nice! */
+/* The main advantage of this is reduced memory consumption. Allocators love it
+ * when you allocate a multiple of 1024 / 2048 bytes (the size of 256 pointers
+ * on 32/64 bit systems) rather than a multiple of 2096 bytes (the size of this
+ * data structure without this trick). Modern arena-based allocators will have
+ * no problem binning the states into power-of-2 sized arenas. */
+/* The hardest part of this is proving that it's okay to use these bits.
+ * It's hard to find an approach that:
+ * - Works in C89
+ * - Can be done entirely using preprocessor macros
+ * - Is reasonably portable across major architectures */
+/* Here is how we will use the bits:
+ * Idx : Usage
+ * [0] : MATCH, MATCH_PRIORITY flags
+ * [1] : WORD, BEGIN_TEXT flags
+ * [2] : BEGIN_LINE flag
+ * [16 - 31] : Match index (32 bits)
+ * [32 - 63] : Pointer to threads (32 / 64 bits)
+ * [64 - 79] : Threads size (32 bits)
+ * [80 - 111] : Pointer to ending transition state */
+#define RE__EXEC_DFA_SMALL_STATE 0
+#if defined(RE__EXEC_DFA_SMALL_STATE)
+#elif (defined(__GNUC__) || defined(__clang__)) &&                             \
+    (defined(__arm64__) || defined(__arm__) || defined(__amd64__))
+#define RE__EXEC_DFA_SMALL_STATE 1
+#elif defined(_MSC_VER) &&                                                     \
+    (defined(_M_IX86) || defined(_M_AMD64) || defined(_M_ARM))
+#define RE__EXEC_DFA_SMALL_STATE 1
+#else
+#define RE__EXEC_DFA_SMALL_STATE 0
+#endif
 struct re__exec_dfa_state {
   re__exec_dfa_state_ptr next[RE__EXEC_SYM_MAX];
+#if !RE__EXEC_DFA_SMALL_STATE
   re__exec_dfa_flags flags;
   re_uint32 match_index;
   re_uint32* thrd_locs_begin;
   re_uint32* thrd_locs_end;
+#endif
 };
 
 typedef struct re__exec_dfa_cache_entry {
@@ -1894,7 +1934,6 @@ typedef struct re__exec_dfa {
   re__exec_dfa_cache_entry* cache;
   re_size cache_stored;
   re_size cache_alloc;
-  re_uint32 prev_sym;
 } re__exec_dfa;
 
 RE_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog);
@@ -1902,15 +1941,23 @@ RE_INTERNAL void re__exec_dfa_destroy(re__exec_dfa* exec);
 RE_INTERNAL re_error re__exec_dfa_start(
     re__exec_dfa* exec, re__prog_entry entry,
     re__exec_dfa_start_state_flags start_state_flags);
-RE_INTERNAL re_error re__exec_dfa_run(re__exec_dfa* exec, re_uint32 next_sym);
+RE_INTERNAL re_error
+re__exec_dfa_run_byte(re__exec_dfa* exec, re_uint8 next_byte);
+RE_INTERNAL re_error re__exec_dfa_end(re__exec_dfa* exec);
 RE_INTERNAL re_uint32 re__exec_dfa_get_match_index(re__exec_dfa* exec);
 RE_INTERNAL re_uint32 re__exec_dfa_get_match_priority(re__exec_dfa* exec);
 RE_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec);
 RE_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
+re_error re__exec_dfa_driver(
+    re__exec_dfa* exec, re__prog_entry entry, int boolean_match,
+    int boolean_match_exit_early, int reversed, const re_uint8* text,
+    re_size text_size, re_size text_start_pos, re_uint32* out_match,
+    re_size* out_pos);
 
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
- * ------------------------------------------------------------------------ */
+ * ------------------------------------------------------------------------
+ */
 /* Internal data structure */
 struct re_data {
   re_int32 set;
@@ -3308,28 +3355,13 @@ re_error re__match_prepare_progs(
   return err;
 }
 
-/*    | Match?  | Bounds? | Subs?
- * ---+---------+---------+-------
- * ^$ | DFA-F   | DFA-F   | NFA-F
- * ^- | DFA-F   | DFA-F   | NFA-F
- * -$ | DFA-R   | DFA-R   | NFA-R
- * -- | DFA-F   | DFA-F+R | NFA-F
- */
-
-/* DFA parameters:
- * - Entrypoint
- * - Program
- * - Can bail early in thread exhaustion? -> return nomatch
- * - Can bail early if any match state found? -> return match (bool)
- * - Can bail early if highest-priority match state found? -> return match
- * index, pos
- */
-
 #if RE_DEBUG
 
 #include <stdio.h>
 
 #endif
+
+#if 0
 
 re_error re__match_dfa_driver(
     re__prog* program, re__prog_entry entry,
@@ -3340,12 +3372,33 @@ re_error re__match_dfa_driver(
   re_size pos;
   re_error err = RE_ERROR_NONE;
   re__exec_dfa exec_dfa;
-  re__exec_dfa_start_state_flags start_state_flags =
-      RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
-      RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
+  re__exec_dfa_start_state_flags start_state_flags = 0;
   re_size last_found_pos = 0;
   re_uint32 last_found_match = 0;
   re_uint32 match_status = 0;
+  if (!reversed) {
+    if (start_pos == 0) {
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
+                           RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
+    } else {
+      start_state_flags |=
+          (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
+           re__is_word_char((unsigned char)(text[start_pos - 1])));
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
+                           (text[start_pos - 1] == '\n');
+    }
+  } else {
+    if (start_pos == text_size) {
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
+                           RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
+    } else {
+      start_state_flags |=
+          (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
+           re__is_word_char((unsigned char)(text[start_pos])));
+      start_state_flags |=
+          RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE * (text[start_pos] == '\n');
+    }
+  }
   re__exec_dfa_init(&exec_dfa, program);
   if ((err = re__exec_dfa_start(&exec_dfa, entry, start_state_flags))) {
     goto err_destroy_dfa;
@@ -3358,6 +3411,7 @@ re_error re__match_dfa_driver(
   RE_ASSERT(pos <= text_size);
   RE_ASSERT(RE__IMPLIES(request, out_match != RE_NULL));
   RE_ASSERT(RE__IMPLIES(request, out_pos != RE_NULL));
+  RE_ASSERT(RE__IMPLIES(bool_bail, !request));
   while (pos < text_size) {
     unsigned char ch = 0;
     if (!reversed) {
@@ -3365,11 +3419,11 @@ re_error re__match_dfa_driver(
     } else {
       ch = (unsigned char)(text[(text_size - pos) - 1]);
     }
-    if ((err = re__exec_dfa_run(&exec_dfa, ch))) {
+    if ((err = re__exec_dfa_run_byte(&exec_dfa, ch))) {
       goto err_destroy_dfa;
     }
     if (request == 0) {
-      if (re__exec_dfa_get_match_index(&exec_dfa) && bool_bail) {
+      if (bool_bail && re__exec_dfa_get_match_index(&exec_dfa)) {
         goto match_early_boolean;
       }
     } else {
@@ -3390,7 +3444,7 @@ re_error re__match_dfa_driver(
     }
     pos++;
   }
-  if ((err = re__exec_dfa_run(&exec_dfa, RE__EXEC_SYM_EOT))) {
+  if ((err = re__exec_dfa_end(&exec_dfa))) {
     goto err_destroy_dfa;
   }
   if ((last_found_match = re__exec_dfa_get_match_index(&exec_dfa))) {
@@ -3426,16 +3480,33 @@ err_destroy_dfa:
   return err;
 }
 
+#endif
+
+re_error re__match_dfa_driver(
+    re__prog* program, re__prog_entry entry,
+    int request, /* 0 for boolean, 1 for match pos + index */
+    int bool_bail, int reversed, re_size start_pos, const char* text,
+    re_size text_size, re_uint32* out_match, re_size* out_pos)
+{
+  re__exec_dfa exec;
+  re_error err = RE_ERROR_NONE;
+  re__exec_dfa_init(&exec, program);
+  if ((err = re__exec_dfa_driver(
+           &exec, entry, !request, bool_bail, reversed, (const re_uint8*)text,
+           text_size, start_pos, out_match, out_pos))) {
+    goto error;
+  }
+error:
+  re__exec_dfa_destroy(&exec);
+  return err;
+}
+
 re_error re_is_match(
     re* reg, const char* text, re_size text_size, re_anchor_type anchor_type)
 {
   /* no groups -- dfa can be used in all cases */
   re_error err = RE_ERROR_NONE;
   if (anchor_type == RE_ANCHOR_BOTH) {
-    /* use dfa to search forward.
-     * - can bail early if no threads left
-     * - cannot bail early if match state found (does not need to check for
-     * match every byte) */
     if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
       return err;
     }
@@ -3443,9 +3514,6 @@ re_error re_is_match(
         &reg->data->program, RE__PROG_ENTRY_DEFAULT, 0, 0, 0, 0, text,
         text_size, RE_NULL, RE_NULL);
   } else if (anchor_type == RE_ANCHOR_START) {
-    /* use dfa to search forward.
-     * - can bail early if no threads left
-     * - can bail early if match state found */
     if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
       return err;
     }
@@ -6093,6 +6161,53 @@ RE__VEC_IMPL_FUNC(re_uint32_ptr, push)
 RE__VEC_IMPL_FUNC(re_uint32_ptr, size)
 RE__VEC_IMPL_FUNC(re_uint32_ptr, get)
 
+void re__exec_dfa_state_init(
+    re__exec_dfa_state* state, re_uint32* thrd_locs_begin,
+    re_uint32* thrd_locs_end)
+{
+  re_uint32 i;
+  for (i = 0; i < RE__EXEC_SYM_MAX; i++) {
+    state->next[i] = RE_NULL;
+  }
+  state->flags = 0;
+  state->thrd_locs_begin = thrd_locs_begin;
+  state->thrd_locs_end = thrd_locs_end;
+  state->match_index = 0;
+}
+
+#define RE__EXEC_DFA_PTR_MASK (~0x3)
+
+RE_INTERNAL re__exec_dfa_state*
+re__exec_dfa_state_get_next(re__exec_dfa_state* state, re_uint8 sym)
+{
+#if !RE__EXEC_DFA_SMALL_STATE
+  return state->next[sym];
+#else
+  return state->next[sym] & RE__EXEC_DFA_PTR_MASK;
+#endif
+}
+
+RE_INTERNAL int re__exec_dfa_state_is_match(re__exec_dfa_state* state)
+{
+  return state->flags & RE__EXEC_DFA_FLAG_MATCH;
+}
+
+RE_INTERNAL int re__exec_dfa_state_is_priority(re__exec_dfa_state* state)
+{
+  return !(state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+}
+
+RE_INTERNAL int re__exec_dfa_state_is_empty(re__exec_dfa_state* state)
+{
+  return (state->thrd_locs_end - state->thrd_locs_begin) == 0;
+}
+
+RE_INTERNAL re_uint32
+re__exec_dfa_state_get_match_index(re__exec_dfa_state* state)
+{
+  return state->match_index;
+}
+
 void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog)
 {
   exec->current_state = RE_NULL;
@@ -6110,7 +6225,6 @@ void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog)
   exec->cache = RE_NULL;
   exec->cache_stored = 0;
   exec->cache_alloc = 0;
-  exec->prev_sym = 0;
 }
 
 void re__exec_dfa_destroy(re__exec_dfa* exec)
@@ -6133,23 +6247,6 @@ void re__exec_dfa_destroy(re__exec_dfa* exec)
     }
   }
   re__exec_dfa_state_ptr_vec_destroy(&exec->state_pages);
-}
-
-void re__exec_dfa_state_init(
-    re__exec_dfa_state* state, re_uint32* thrd_locs_begin,
-    re_uint32* thrd_locs_end)
-{
-  re_uint32 i;
-  for (i = 0; i < RE__EXEC_SYM_MAX; i++) {
-    state->next[i] = RE_NULL;
-  }
-  state->flags = 0;
-  state->thrd_locs_begin = thrd_locs_begin;
-  state->thrd_locs_end = thrd_locs_end;
-  if (state->thrd_locs_begin == state->thrd_locs_end) {
-    state->flags |= RE__EXEC_DFA_FLAG_EMPTY;
-  }
-  state->match_index = 0;
 }
 
 re_error re__exec_dfa_stash_loc_set(
@@ -6334,7 +6431,7 @@ re_error re__exec_dfa_get_state(
         }
       }
       /* otherwise, find a new slot */
-      probe = exec->cache + (((q * q) + hash) % exec->cache_alloc);
+      probe = exec->cache + ((q + hash) % exec->cache_alloc);
       q++;
     }
     /* if not found in cache, we are here */
@@ -6355,7 +6452,7 @@ re_error re__exec_dfa_get_state(
     }
     /* check load factor and resize if necessary (0.75 in this case) */
     /* calculation: x - 0.25 * x == 0.75 * x    |    (0.25*x == x >> 2) */
-    if (exec->cache_stored == exec->cache_alloc - (exec->cache_alloc >> 2)) {
+    if (exec->cache_stored == (exec->cache_alloc - (exec->cache_alloc >> 2))) {
       /* need to resize */
       re_size old_alloc = exec->cache_alloc;
       re_size i;
@@ -6363,19 +6460,18 @@ re_error re__exec_dfa_get_state(
       exec->cache_alloc *= 2;
       exec->cache =
           RE_MALLOC(sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
-      re__memset(
-          exec->cache, 0, sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
       if (exec->cache == RE_NULL) {
         return RE_ERROR_NOMEM;
       }
+      re__memset(
+          exec->cache, 0, sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
       /* rehash */
       for (i = 0; i < old_alloc; i++) {
         re__exec_dfa_cache_entry* old_entry = old_cache + i;
         probe = exec->cache + (old_entry->hash % exec->cache_alloc);
         q = 1;
         while (probe->state_ptr != RE_NULL) {
-          probe =
-              exec->cache + (((q * q) + old_entry->hash) % exec->cache_alloc);
+          probe = exec->cache + ((q + old_entry->hash) % exec->cache_alloc);
           q++;
         }
         *probe = *old_entry;
@@ -6414,18 +6510,15 @@ re_error re__exec_dfa_start(
   re__exec_dfa_state** start_state = &exec->start_states[start_state_idx];
   RE_ASSERT(entry < RE__PROG_ENTRY_MAX);
   if (*start_state == RE_NULL) {
-    re__exec_dfa_flags dfa_flags = RE__EXEC_DFA_FLAG_START_STATE;
+    re__exec_dfa_flags dfa_flags = 0;
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD) {
       dfa_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
     }
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE;
+      dfa_flags |= RE__EXEC_DFA_FLAG_BEGIN_LINE;
     }
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT;
-    }
-    if (entry == RE__PROG_ENTRY_DOTSTAR) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR;
+      dfa_flags |= RE__EXEC_DFA_FLAG_BEGIN_TEXT;
     }
     if ((err = re__exec_nfa_start(&exec->nfa, entry))) {
       return err;
@@ -6438,7 +6531,7 @@ re_error re__exec_dfa_start(
   return err;
 }
 
-re_error re__exec_dfa_run(re__exec_dfa* exec, re_uint32 next_sym)
+re_error re__exec_dfa_construct(re__exec_dfa* exec, re__exec_sym next_sym)
 {
   re_error err = RE_ERROR_NONE;
   re__assert_type assert_ctx = 0;
@@ -6524,13 +6617,13 @@ re_error re__exec_dfa_end(re__exec_dfa* exec)
 #define RE__EXEC_DFA_LOOP_DEF(name, body)                                      \
   re_error re__exec_dfa_search_##name(                                         \
       re__exec_dfa* exec, const re_uint8* start, const re_uint8* end,          \
-      const re_uint8** out_pos, re__exec_dfa_state** out_match_state)          \
+      const re_uint8** out_pos, re_uint32* out_match_index)                    \
   {                                                                            \
     re_error err = 0;                                                          \
     re__exec_dfa_state_ptr current_state = exec->current_state;                \
     re__exec_dfa_state_ptr next_state;                                         \
     body RE__UNUSED(out_pos);                                                  \
-    RE__UNUSED(out_match_state);                                               \
+    RE__UNUSED(out_match_index);                                               \
     return RE_ERROR_NOMATCH;                                                   \
   }
 
@@ -6564,20 +6657,20 @@ re_error re__exec_dfa_end(re__exec_dfa* exec)
 
 #define RE__EXEC_DFA_MATCH_POS_DEFS()                                          \
   const re_uint8* last_found_start;                                            \
-  re__exec_dfa_state* last_found_state = RE_NULL;
+  re_uint32 last_found_match = 0;
 
 #define RE__EXEC_DFA_CHECK_MATCH_POS()                                         \
   if (re__exec_dfa_state_is_match(current_state)) {                            \
-    last_found_state = current_state;                                          \
+    last_found_match = re__exec_dfa_state_get_match_index(current_state);      \
     last_found_start = start;                                                  \
     if (re__exec_dfa_state_is_priority(current_state)) {                       \
       *out_pos = last_found_start;                                             \
-      *out_match_state = last_found_state;                                     \
+      *out_match_index = last_found_match;                                     \
       return RE_MATCH;                                                         \
     }                                                                          \
-  } else if (re__exec_dfa_state_is_empty(current_state) && last_found_state) { \
+  } else if (re__exec_dfa_state_is_empty(current_state) && last_found_match) { \
     *out_pos = last_found_start;                                               \
-    *out_match_state = last_found_state;                                       \
+    *out_match_index = last_found_match;                                       \
     return RE_MATCH;                                                           \
   }
 
@@ -6673,10 +6766,10 @@ re_error re__exec_dfa_driver(
     const re_uint8* start;
     const re_uint8* end;
     const re_uint8* loop_out_pos;
-    re__exec_dfa_state* loop_out_state;
+    re_uint32 loop_out_index;
     static re_error (*funcs[8])(
         re__exec_dfa*, const re_uint8*, const re_uint8*, const re_uint8**,
-        re__exec_dfa_state**) = {
+        re_uint32*) = {
         re__exec_dfa_search_fff,
         re__exec_dfa_search_fft,
         RE_NULL,
@@ -6693,7 +6786,7 @@ re_error re__exec_dfa_driver(
     }
     err = funcs
         [reversed | (boolean_match_exit_early << 1) | (boolean_match << 2)](
-            exec, start, end, &loop_out_pos, &loop_out_state);
+            exec, start, end, &loop_out_pos, &loop_out_index);
     if (err == RE_MATCH) {
       /* Exited early */
       if (boolean_match) {
@@ -6702,7 +6795,7 @@ re_error re__exec_dfa_driver(
         RE_ASSERT(loop_out_pos >= text);
         RE_ASSERT(loop_out_pos < text + text_size);
         *out_pos = (re_size)(loop_out_pos - text);
-        *out_match = re__exec_dfa_state_get_match_index(loop_out_state);
+        *out_match = loop_out_index;
         return err;
       }
     } else if (err != RE_ERROR_NOMATCH) {
@@ -6762,7 +6855,13 @@ RE_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec)
     printf("  NULL STATE\n");
     return;
   }
-  printf("  Flags: 0x%04X\n", state->flags);
+  printf(
+      "  Flags: %c%c%c%c%c\n",
+      (state->flags & RE__EXEC_DFA_FLAG_FROM_WORD ? 'W' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_BEGIN_TEXT ? 'A' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_BEGIN_LINE ? '^' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_MATCH ? 'M' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY ? 'P' : '-'));
   printf("  Match Index: %i\n", state->match_index);
   printf(
       "  Match Priority: %i\n",
@@ -7354,13 +7453,13 @@ re__exec_nfa_finish(re__exec_nfa* exec, re_span* out, re_size pos)
   }
 }
 
-RE_INTERNAL int re__is_word_char(re__exec_sym ch)
+RE_INTERNAL unsigned int re__is_word_char(re__exec_sym ch)
 {
   return ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z')) ||
          ((ch >= '0') && (ch <= '9')) || ch == '_';
 }
 
-RE_INTERNAL int re__is_word_boundary_start(re__exec_sym right)
+RE_INTERNAL unsigned int re__is_word_boundary_start(re__exec_sym right)
 {
   if (re__is_word_char(right)) {
     return 1;
@@ -7371,7 +7470,8 @@ RE_INTERNAL int re__is_word_boundary_start(re__exec_sym right)
   }
 }
 
-RE_INTERNAL int re__is_word_boundary(int left_is_word, re__exec_sym right)
+RE_INTERNAL unsigned int
+re__is_word_boundary(int left_is_word, re__exec_sym right)
 {
   if (left_is_word) {
     return (!re__is_word_char(right)) || right == RE__EXEC_SYM_EOT;
@@ -9627,13 +9727,13 @@ RE_INTERNAL_DATA re_uint8 re__prog_data_dot_rev_rejsurr_rejnl[] = {
     /* 0018 */ 0x01, 0xC2, 0xDF, 0x00, /* RANGE 0xC2-0xDF -> out */
 };
 
-RE_INTERNAL re_uint8* re__prog_data[RE__PROG_DATA_ID_MAX] = {
+RE_INTERNAL_DATA re_uint8* re__prog_data[RE__PROG_DATA_ID_MAX] = {
     re__prog_data_dot_fwd_accsurr_accnl, re__prog_data_dot_rev_accsurr_accnl,
     re__prog_data_dot_fwd_rejsurr_accnl, re__prog_data_dot_rev_rejsurr_accnl,
     re__prog_data_dot_fwd_accsurr_rejnl, re__prog_data_dot_rev_accsurr_rejnl,
     re__prog_data_dot_fwd_rejsurr_rejnl, re__prog_data_dot_rev_rejsurr_rejnl};
 
-RE_INTERNAL re_size re__prog_data_size[RE__PROG_DATA_ID_MAX] = {
+RE_INTERNAL_DATA re_size re__prog_data_size[RE__PROG_DATA_ID_MAX] = {
     sizeof(re__prog_data_dot_fwd_accsurr_accnl),
     sizeof(re__prog_data_dot_rev_accsurr_accnl),
     sizeof(re__prog_data_dot_fwd_rejsurr_accnl),

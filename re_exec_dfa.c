@@ -12,6 +12,53 @@ MN__VEC_IMPL_FUNC(mn_uint32_ptr, push)
 MN__VEC_IMPL_FUNC(mn_uint32_ptr, size)
 MN__VEC_IMPL_FUNC(mn_uint32_ptr, get)
 
+void re__exec_dfa_state_init(
+    re__exec_dfa_state* state, mn_uint32* thrd_locs_begin,
+    mn_uint32* thrd_locs_end)
+{
+  mn_uint32 i;
+  for (i = 0; i < RE__EXEC_SYM_MAX; i++) {
+    state->next[i] = MN_NULL;
+  }
+  state->flags = 0;
+  state->thrd_locs_begin = thrd_locs_begin;
+  state->thrd_locs_end = thrd_locs_end;
+  state->match_index = 0;
+}
+
+#define RE__EXEC_DFA_PTR_MASK (~0x3)
+
+MN_INTERNAL re__exec_dfa_state*
+re__exec_dfa_state_get_next(re__exec_dfa_state* state, mn_uint8 sym)
+{
+#if !RE__EXEC_DFA_SMALL_STATE
+  return state->next[sym];
+#else
+  return state->next[sym] & RE__EXEC_DFA_PTR_MASK;
+#endif
+}
+
+MN_INTERNAL int re__exec_dfa_state_is_match(re__exec_dfa_state* state)
+{
+  return state->flags & RE__EXEC_DFA_FLAG_MATCH;
+}
+
+MN_INTERNAL int re__exec_dfa_state_is_priority(re__exec_dfa_state* state)
+{
+  return !(state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+}
+
+MN_INTERNAL int re__exec_dfa_state_is_empty(re__exec_dfa_state* state)
+{
+  return (state->thrd_locs_end - state->thrd_locs_begin) == 0;
+}
+
+MN_INTERNAL mn_uint32
+re__exec_dfa_state_get_match_index(re__exec_dfa_state* state)
+{
+  return state->match_index;
+}
+
 void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog)
 {
   exec->current_state = MN_NULL;
@@ -29,7 +76,6 @@ void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog)
   exec->cache = MN_NULL;
   exec->cache_stored = 0;
   exec->cache_alloc = 0;
-  exec->prev_sym = 0;
 }
 
 void re__exec_dfa_destroy(re__exec_dfa* exec)
@@ -52,20 +98,6 @@ void re__exec_dfa_destroy(re__exec_dfa* exec)
     }
   }
   re__exec_dfa_state_ptr_vec_destroy(&exec->state_pages);
-}
-
-void re__exec_dfa_state_init(
-    re__exec_dfa_state* state, mn_uint32* thrd_locs_begin,
-    mn_uint32* thrd_locs_end)
-{
-  mn_uint32 i;
-  for (i = 0; i < RE__EXEC_SYM_MAX; i++) {
-    state->next[i] = MN_NULL;
-  }
-  state->flags = 0;
-  state->thrd_locs_begin = thrd_locs_begin;
-  state->thrd_locs_end = thrd_locs_end;
-  state->match_index = 0;
 }
 
 re_error re__exec_dfa_stash_loc_set(
@@ -329,18 +361,15 @@ re_error re__exec_dfa_start(
   re__exec_dfa_state** start_state = &exec->start_states[start_state_idx];
   MN_ASSERT(entry < RE__PROG_ENTRY_MAX);
   if (*start_state == MN_NULL) {
-    re__exec_dfa_flags dfa_flags = RE__EXEC_DFA_FLAG_START_STATE;
+    re__exec_dfa_flags dfa_flags = 0;
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD) {
       dfa_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
     }
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE;
+      dfa_flags |= RE__EXEC_DFA_FLAG_BEGIN_LINE;
     }
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT;
-    }
-    if (entry == RE__PROG_ENTRY_DOTSTAR) {
-      dfa_flags |= RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR;
+      dfa_flags |= RE__EXEC_DFA_FLAG_BEGIN_TEXT;
     }
     if ((err = re__exec_nfa_start(&exec->nfa, entry))) {
       return err;
@@ -353,10 +382,8 @@ re_error re__exec_dfa_start(
   return err;
 }
 
-re_error re__exec_dfa_run(re__exec_dfa* exec, mn_uint32 next_sym)
+re_error re__exec_dfa_construct(re__exec_dfa* exec, re__exec_sym next_sym)
 {
-  re__exec_dfa_state* current_state = exec->current_state;
-  re__exec_dfa_state* next_state;
   re_error err = RE_ERROR_NONE;
   re__assert_type assert_ctx = 0;
   unsigned int is_word_boundary;
@@ -441,13 +468,13 @@ re_error re__exec_dfa_end(re__exec_dfa* exec)
 #define RE__EXEC_DFA_LOOP_DEF(name, body)                                      \
   re_error re__exec_dfa_search_##name(                                         \
       re__exec_dfa* exec, const mn_uint8* start, const mn_uint8* end,          \
-      const mn_uint8** out_pos, re__exec_dfa_state** out_match_state)          \
+      const mn_uint8** out_pos, mn_uint32* out_match_index)                    \
   {                                                                            \
     re_error err = 0;                                                          \
     re__exec_dfa_state_ptr current_state = exec->current_state;                \
     re__exec_dfa_state_ptr next_state;                                         \
     body MN__UNUSED(out_pos);                                                  \
-    MN__UNUSED(out_match_state);                                               \
+    MN__UNUSED(out_match_index);                                               \
     return RE_ERROR_NOMATCH;                                                   \
   }
 
@@ -481,20 +508,20 @@ re_error re__exec_dfa_end(re__exec_dfa* exec)
 
 #define RE__EXEC_DFA_MATCH_POS_DEFS()                                          \
   const mn_uint8* last_found_start;                                            \
-  re__exec_dfa_state* last_found_state = MN_NULL;
+  mn_uint32 last_found_match = 0;
 
 #define RE__EXEC_DFA_CHECK_MATCH_POS()                                         \
   if (re__exec_dfa_state_is_match(current_state)) {                            \
-    last_found_state = current_state;                                          \
+    last_found_match = re__exec_dfa_state_get_match_index(current_state);      \
     last_found_start = start;                                                  \
     if (re__exec_dfa_state_is_priority(current_state)) {                       \
       *out_pos = last_found_start;                                             \
-      *out_match_state = last_found_state;                                     \
+      *out_match_index = last_found_match;                                     \
       return RE_MATCH;                                                         \
     }                                                                          \
-  } else if (re__exec_dfa_state_is_empty(current_state) && last_found_state) { \
+  } else if (re__exec_dfa_state_is_empty(current_state) && last_found_match) { \
     *out_pos = last_found_start;                                               \
-    *out_match_state = last_found_state;                                       \
+    *out_match_index = last_found_match;                                       \
     return RE_MATCH;                                                           \
   }
 
@@ -520,23 +547,23 @@ RE__EXEC_DFA_LOOP_DEF(fft, {
 /* RE__EXEC_DFA_LOOP(ftf);
  * RE__EXEC_DFA_LOOP(ftt); */
 
-/* Boolean match, don't exit early, forwards */
+/* Boolean match, don't bail early, forwards */
 RE__EXEC_DFA_LOOP_DEF(tff, {RE__EXEC_DFA_FWD_LOOP({
                         RE__EXEC_DFA_ADVANCE_STATE();
                       })})
 
-/* Boolean match, don't exit early, reverse */
+/* Boolean match, don't bail early, reverse */
 RE__EXEC_DFA_LOOP_DEF(tft, {RE__EXEC_DFA_REV_LOOP({
                         RE__EXEC_DFA_ADVANCE_STATE();
                       })})
 
-/* Boolean match, exit early, forwards */
+/* Boolean match, bail early, forwards */
 RE__EXEC_DFA_LOOP_DEF(ttf, {RE__EXEC_DFA_FWD_LOOP({
                         RE__EXEC_DFA_ADVANCE_STATE();
                         RE__EXEC_DFA_CHECK_MATCH_BOOL_EXIT_EARLY();
                       })})
 
-/* Boolean match, exit early, reverse */
+/* Boolean match, bail early, reverse */
 RE__EXEC_DFA_LOOP_DEF(ttt, {RE__EXEC_DFA_REV_LOOP({
                         RE__EXEC_DFA_ADVANCE_STATE();
                         RE__EXEC_DFA_CHECK_MATCH_BOOL_EXIT_EARLY();
@@ -564,8 +591,9 @@ re_error re__exec_dfa_driver(
       start_state_flags |=
           (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
            re__is_word_char((unsigned char)(text[text_start_pos - 1])));
-      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
-                           (unsigned int)(text[text_start_pos - 1] == '\n');
+      start_state_flags |=
+          (unsigned int)RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
+          (unsigned int)(text[text_start_pos - 1] == '\n');
     }
   } else {
     if (text_start_pos == text_size) {
@@ -575,8 +603,9 @@ re_error re__exec_dfa_driver(
       start_state_flags |=
           (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
            re__is_word_char((unsigned char)(text[text_start_pos])));
-      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
-                           (unsigned int)(text[text_start_pos] == '\n');
+      start_state_flags |=
+          (unsigned int)RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
+          (unsigned int)(text[text_start_pos] == '\n');
     }
   }
   if ((err = re__exec_dfa_start(exec, entry, start_state_flags))) {
@@ -590,10 +619,10 @@ re_error re__exec_dfa_driver(
     const mn_uint8* start;
     const mn_uint8* end;
     const mn_uint8* loop_out_pos;
-    re__exec_dfa_state* loop_out_state;
+    mn_uint32 loop_out_index;
     static re_error (*funcs[8])(
         re__exec_dfa*, const mn_uint8*, const mn_uint8*, const mn_uint8**,
-        re__exec_dfa_state**) = {
+        mn_uint32*) = {
         re__exec_dfa_search_fff,
         re__exec_dfa_search_fft,
         MN_NULL,
@@ -610,7 +639,7 @@ re_error re__exec_dfa_driver(
     }
     err = funcs
         [reversed | (boolean_match_exit_early << 1) | (boolean_match << 2)](
-            exec, start, end, &loop_out_pos, &loop_out_state);
+            exec, start, end, &loop_out_pos, &loop_out_index);
     if (err == RE_MATCH) {
       /* Exited early */
       if (boolean_match) {
@@ -619,7 +648,7 @@ re_error re__exec_dfa_driver(
         MN_ASSERT(loop_out_pos >= text);
         MN_ASSERT(loop_out_pos < text + text_size);
         *out_pos = (mn_size)(loop_out_pos - text);
-        *out_match = re__exec_dfa_state_get_match_index(loop_out_state);
+        *out_match = loop_out_index;
         return err;
       }
     } else if (err != RE_ERROR_NOMATCH) {
@@ -680,15 +709,12 @@ MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec)
     return;
   }
   printf(
-      "  Flags: %c%c%c%c%c%c%c%c\n",
+      "  Flags: %c%c%c%c%c\n",
       (state->flags & RE__EXEC_DFA_FLAG_FROM_WORD ? 'W' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_START_STATE ? 'S' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_TEXT ? 'A' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_START_STATE_BEGIN_LINE ? '^' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_BEGIN_TEXT ? 'A' : '-'),
+      (state->flags & RE__EXEC_DFA_FLAG_BEGIN_LINE ? '^' : '-'),
       (state->flags & RE__EXEC_DFA_FLAG_MATCH ? 'M' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY ? 'P' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_EMPTY ? 'E' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_ENTRY_DOTSTAR ? '*' : '-'));
+      (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY ? 'P' : '-'));
   printf("  Match Index: %i\n", state->match_index);
   printf(
       "  Match Priority: %i\n",

@@ -213,6 +213,8 @@ re_error re__match_prepare_progs(
 
 #endif
 
+#if 0
+
 re_error re__match_dfa_driver(
     re__prog* program, re__prog_entry entry,
     int request, /* 0 for boolean, 1 for match pos + index */
@@ -222,28 +224,32 @@ re_error re__match_dfa_driver(
   mn_size pos;
   re_error err = RE_ERROR_NONE;
   re__exec_dfa exec_dfa;
-  re__exec_dfa_start_state_flags start_state_flags =
-      RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
-      RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
+  re__exec_dfa_start_state_flags start_state_flags = 0;
   mn_size last_found_pos = 0;
   mn_uint32 last_found_match = 0;
   mn_uint32 match_status = 0;
-  int start_from_word = 0;
   if (!reversed) {
     if (start_pos == 0) {
-      start_from_word = 0;
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
+                           RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
     } else {
-      start_from_word = re__is_word_char((unsigned char)(text[start_pos - 1]));
+      start_state_flags |=
+          (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
+           re__is_word_char((unsigned char)(text[start_pos - 1])));
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
+                           (text[start_pos - 1] == '\n');
     }
   } else {
     if (start_pos == text_size) {
-      start_from_word = 0;
+      start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
+                           RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
     } else {
-      start_from_word = re__is_word_char((unsigned char)(text[start_pos]));
+      start_state_flags |=
+          (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
+           re__is_word_char((unsigned char)(text[start_pos])));
+      start_state_flags |=
+          RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE * (text[start_pos] == '\n');
     }
-  }
-  if (start_from_word) {
-    start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD;
   }
   re__exec_dfa_init(&exec_dfa, program);
   if ((err = re__exec_dfa_start(&exec_dfa, entry, start_state_flags))) {
@@ -257,6 +263,7 @@ re_error re__match_dfa_driver(
   MN_ASSERT(pos <= text_size);
   MN_ASSERT(MN__IMPLIES(request, out_match != MN_NULL));
   MN_ASSERT(MN__IMPLIES(request, out_pos != MN_NULL));
+  MN_ASSERT(MN__IMPLIES(bool_bail, !request));
   while (pos < text_size) {
     unsigned char ch = 0;
     if (!reversed) {
@@ -264,7 +271,7 @@ re_error re__match_dfa_driver(
     } else {
       ch = (unsigned char)(text[(text_size - pos) - 1]);
     }
-    if ((err = re__exec_dfa_run(&exec_dfa, ch))) {
+    if ((err = re__exec_dfa_run_byte(&exec_dfa, ch))) {
       goto err_destroy_dfa;
     }
     if (request == 0) {
@@ -289,7 +296,7 @@ re_error re__match_dfa_driver(
     }
     pos++;
   }
-  if ((err = re__exec_dfa_run(&exec_dfa, RE__EXEC_SYM_EOT))) {
+  if ((err = re__exec_dfa_end(&exec_dfa))) {
     goto err_destroy_dfa;
   }
   if ((last_found_match = re__exec_dfa_get_match_index(&exec_dfa))) {
@@ -322,6 +329,27 @@ match_early_priority:
   return RE_MATCH;
 err_destroy_dfa:
   re__exec_dfa_destroy(&exec_dfa);
+  return err;
+}
+
+#endif
+
+re_error re__match_dfa_driver(
+    re__prog* program, re__prog_entry entry,
+    int request, /* 0 for boolean, 1 for match pos + index */
+    int bool_bail, int reversed, mn_size start_pos, const char* text,
+    mn_size text_size, mn_uint32* out_match, mn_size* out_pos)
+{
+  re__exec_dfa exec;
+  re_error err = RE_ERROR_NONE;
+  re__exec_dfa_init(&exec, program);
+  if ((err = re__exec_dfa_driver(
+           &exec, entry, !request, bool_bail, reversed, (const mn_uint8*)text,
+           text_size, start_pos, out_match, out_pos))) {
+    goto error;
+  }
+error:
+  re__exec_dfa_destroy(&exec);
   return err;
 }
 
