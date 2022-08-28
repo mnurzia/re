@@ -5,7 +5,7 @@
 #include "api.h"
 
 /* bits/math/implies */
-#define MN__IMPLIES(a, b) (!(a) || b)
+#define MN__IMPLIES(a, b) (!(a) || (b))
 
 /* bits/math/max */
 #define MN__MAX(a, b) (((a) > (b)) ? (a) : (b))
