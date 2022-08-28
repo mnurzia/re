@@ -646,7 +646,11 @@ re_error re__exec_dfa_driver(
       } else {
         MN_ASSERT(loop_out_pos >= text);
         MN_ASSERT(loop_out_pos < text + text_size);
-        *out_pos = (mn_size)(loop_out_pos - text);
+        if (!reversed) {
+          *out_pos = (mn_size)(loop_out_pos - text);
+        } else {
+          *out_pos = (mn_size)(loop_out_pos - text) + 1;
+        }
         *out_match = loop_out_index;
         return err;
       }
