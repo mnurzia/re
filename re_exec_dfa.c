@@ -24,6 +24,7 @@ void re__exec_dfa_state_init(
   state->thrd_locs_begin = thrd_locs_begin;
   state->thrd_locs_end = thrd_locs_end;
   state->match_index = 0;
+  state->hash = 0;
   state->uniq = 0;
 }
 
@@ -255,26 +256,24 @@ re_error re__exec_dfa_get_state(
   if (!exec->cache) {
     /* cache has not been initialized */
     exec->cache_alloc = RE__EXEC_DFA_CACHE_INITIAL_SIZE;
-    exec->cache =
-        MN_MALLOC(sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
+    exec->cache = MN_MALLOC(sizeof(re__exec_dfa_state*) * exec->cache_alloc);
     if (exec->cache == MN_NULL) {
       return RE_ERROR_NOMEM;
     }
-    mn__memset(
-        exec->cache, 0, sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
+    mn__memset(exec->cache, 0, sizeof(re__exec_dfa_state*) * exec->cache_alloc);
   }
   {
     /* lookup in cache */
-    re__exec_dfa_cache_entry* probe = exec->cache + (hash % exec->cache_alloc);
+    re__exec_dfa_state** probe = exec->cache + (hash % exec->cache_alloc);
     mn_size q = 1;
     while (1) {
-      if (probe->state_ptr == MN_NULL) {
+      if (*probe == MN_NULL) {
         /* not found, but slot is empty so we can use that */
         break;
       } else {
-        if (probe->hash == hash) {
+        if ((*probe)->hash == hash) {
           /* collision or found */
-          re__exec_dfa_state* state = probe->state_ptr;
+          re__exec_dfa_state* state = (*probe);
           /* check if state is equal */
           if (re__exec_dfa_state_equal(thrds, thrds_size, flags, state)) {
             *out_state = state;
@@ -297,8 +296,8 @@ re_error re__exec_dfa_get_state(
       /* Set input flags (start state, etc) */
       new_state->flags |= flags;
       new_state->match_index = match_index;
-      probe->hash = hash;
-      probe->state_ptr = new_state;
+      *probe = new_state;
+      (*probe)->hash = hash;
       exec->cache_stored++;
       *out_state = new_state;
     }
@@ -308,22 +307,21 @@ re_error re__exec_dfa_get_state(
       /* need to resize */
       mn_size old_alloc = exec->cache_alloc;
       mn_size i;
-      re__exec_dfa_cache_entry* old_cache = exec->cache;
+      re__exec_dfa_state** old_cache = exec->cache;
       exec->cache_alloc *= 2;
-      exec->cache =
-          MN_MALLOC(sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
+      exec->cache = MN_MALLOC(sizeof(re__exec_dfa_state*) * exec->cache_alloc);
       if (exec->cache == MN_NULL) {
         return RE_ERROR_NOMEM;
       }
       mn__memset(
-          exec->cache, 0, sizeof(re__exec_dfa_cache_entry) * exec->cache_alloc);
+          exec->cache, 0, sizeof(re__exec_dfa_state*) * exec->cache_alloc);
       /* rehash */
       for (i = 0; i < old_alloc; i++) {
-        re__exec_dfa_cache_entry* old_entry = old_cache + i;
-        probe = exec->cache + (old_entry->hash % exec->cache_alloc);
+        re__exec_dfa_state** old_entry = old_cache + i;
+        probe = exec->cache + ((*old_entry)->hash % exec->cache_alloc);
         q = 1;
-        while (probe->state_ptr != MN_NULL) {
-          probe = exec->cache + ((q + old_entry->hash) % exec->cache_alloc);
+        while (*probe != MN_NULL) {
+          probe = exec->cache + ((q + (*old_entry)->hash) % exec->cache_alloc);
           q++;
         }
         *probe = *old_entry;

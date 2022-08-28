@@ -57,7 +57,7 @@ error:
 re_rune re__rune_rand_above(re_rune minimum)
 {
   int class = RAND_PARAM(4);
-  re_rune min;
+  re_rune min = 0;
   re_rune max = -1;
   MN_ASSERT(minimum <= 0x10FFFF);
   while (max < minimum) {

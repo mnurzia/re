@@ -1330,11 +1330,6 @@ struct re__exec_dfa_state {
 #endif
 };
 
-typedef struct re__exec_dfa_cache_entry {
-  re__exec_dfa_state_ptr state_ptr;
-  mn_uint32 hash;
-} re__exec_dfa_cache_entry;
-
 typedef mn_uint32* mn_uint32_ptr;
 
 MN__VEC_DECL(re__exec_dfa_state_ptr);
@@ -1357,7 +1352,7 @@ typedef struct re__exec_dfa {
   mn_size thrd_loc_page_idx;
   re__exec_nfa nfa;
   /* targets a load factor of 0.75 */
-  re__exec_dfa_cache_entry* cache;
+  re__exec_dfa_state** cache;
   mn_size cache_stored;
   mn_size cache_alloc;
 } re__exec_dfa;

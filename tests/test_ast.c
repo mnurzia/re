@@ -929,7 +929,7 @@ TEST(t_ast_root_depth_n)
   mn_int32 last = RE__AST_NONE;
   re__ast node;
   re__ast leaf;
-  int niters = RAND_PARAM(200);
+  int niters = (int)RAND_PARAM(200);
   int i;
   re__ast_root_init(&ast_root);
   re__ast_init_concat(&node);
@@ -954,7 +954,7 @@ TEST(t_ast_root_depth_n_lat)
   mn_int32 last = RE__AST_NONE;
   re__ast node;
   re__ast leaf;
-  int niters = RAND_PARAM(200);
+  int niters = (int)RAND_PARAM(200);
   int i;
   re__ast_root_init(&ast_root);
   re__ast_init_concat(&node);
