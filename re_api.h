@@ -88,6 +88,8 @@ typedef struct re_mt {
 } re_mt;
 
 MN_API re_error re_mt_init(re_mt* mt, re* source);
+MN_API void re_mt_destroy(re_mt* mt);
+
 MN_API const char* re_mt_get_error(const re_mt* reg_mt, mn_size* error_len);
 
 MN_API re_error re_mt_is_match(

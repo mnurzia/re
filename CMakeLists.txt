@@ -6,6 +6,7 @@ set(
   SOURCES 
   re_ast.c 
   re_api.c 
+  re_api_mt.c
   re_charclass.c 
   re_compile_charclass.c 
   re_compile.c 

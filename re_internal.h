@@ -682,7 +682,6 @@ typedef enum re__prog_inst_type {
 /* Layout:
  * 31                              0
  *  PPPPPPPPPPPPPPPPPPPPPPPPPPPPPTTT
- * 31                              0
  *  DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
  * P = primary branch target
  * T = type
@@ -1402,5 +1401,16 @@ struct re_data {
 
 MN_INTERNAL re_error re__set_error_str(re* re, const mn__str* error_str);
 MN_INTERNAL void re__set_error_generic(re* re, re_error err);
+
+#if RE_USE_THREAD
+
+struct re_mt_data {
+  re* reg;
+  mn_int32 compile_status;
+  mn__str error_string;
+  mn__str_view error_string_view;
+};
+
+#endif
 
 #endif
