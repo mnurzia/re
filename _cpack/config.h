@@ -71,4 +71,10 @@
 #if !defined(MN_UINT8_TYPE)
 #endif
 
+/* re */
+/* Set to 1 in order to build thread support. */
+#if !defined(RE_USE_THREAD)
+#define RE_USE_THREAD 1
+#endif
+
 #endif /* MN__RE_CONFIG_H */

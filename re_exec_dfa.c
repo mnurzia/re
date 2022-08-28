@@ -24,6 +24,7 @@ void re__exec_dfa_state_init(
   state->thrd_locs_begin = thrd_locs_begin;
   state->thrd_locs_end = thrd_locs_end;
   state->match_index = 0;
+  state->uniq = 0;
 }
 
 #define RE__EXEC_DFA_PTR_MASK (~0x3)

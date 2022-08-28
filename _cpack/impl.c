@@ -1,6 +1,60 @@
 #include "../tests/test_config.h"
 #include "internal.h"
 
+#if RE_USE_THREAD
+/* bits/thread/mutex */
+#if MN__THREAD_PLATFORM == MN__THREADS_POSIX
+
+#include <errno.h>
+#include <unistd.h>
+
+int mn__mutex_init(mn__mutex* mutex) {
+    int code = pthread_mutex_init(mutex, NULL);
+    if (code == EAGAIN) {
+        return 1;
+    } else if (code == ENOMEM) {
+        return 1;
+    } else if (code) {
+        MN_ASSERT(0);
+    } else {
+        return 0;
+    }
+    return 0;
+}
+
+void mn__mutex_destroy(mn__mutex* mutex) {
+    int code = pthread_mutex_destroy(mutex);
+    MN_ASSERT(!code);
+    MN__UNUSED(code);
+}
+
+int mn__mutex_lock(mn__mutex* mutex) {
+    int code = pthread_mutex_lock(mutex);
+    if (code == EAGAIN) {
+        return 1;
+    } else if (code) {
+        MN_ASSERT(0);
+    } else {
+        return 0;
+    }
+    return 0;
+}
+
+int mn__mutex_unlock(mn__mutex* mutex) {
+    int code = pthread_mutex_lock(mutex);
+    if (code == EAGAIN) {
+        return 1;
+    } else if (code) {
+        MN_ASSERT(0);
+    } else {
+        return 0;
+    }
+    return 0;
+}
+
+#endif
+#endif /* RE_USE_THREAD */
+
 /* bits/types/char */
 MN__STATIC_ASSERT(mn__char_is_one_byte, sizeof(mn_char) == 1);
 
@@ -259,29 +313,39 @@ void mn__str_init_move(mn__str* str, mn__str* old) {
 int mn__str_cmp(const mn__str* str_a, const mn__str* str_b) {
     mn_size a_len = mn__str_size(str_a);
     mn_size b_len = mn__str_size(str_b);
+    mn_size i = 0;
     const mn_char* a_data = mn__str_get_data(str_a);
     const mn_char* b_data = mn__str_get_data(str_b);
-    mn_size i;
-    if (a_len < b_len) {
-        return -1;
-    } else if (a_len > b_len) {
-        return 1;
+    while (1) {
+        if (i == a_len || i == b_len) {
+            break;
+        }
+        if (a_data[i] < b_data[i]) {
+            return -1;
+        } else if (a_data[i] > b_data[i]) {
+            return 1;
+        }
+        i++;
     }
-    for (i = 0; i < a_len; i++) {
-        if (a_data[i] != b_data[i]) {
-            if (a_data[i] < b_data[i]) {
-                return -1;
-            } else {
-                return 1;
-            }
+    if (i == a_len) {
+        if (i == b_len) {
+            return 0;
+        } else {
+            return -1;
         }
     }
-    return 0;
+    return 1;
 }
 
 void mn__str_clear(mn__str* str) {
     MN__STR_SET_SIZE(str, 0);
     MN__STR_DATA(str)[0] = '\0';
+}
+
+void mn__str_cut_end(mn__str* str, mn_size new_size) {
+    MN_ASSERT(new_size <= MN__STR_GET_SIZE(str));
+    MN__STR_SET_SIZE(str, new_size);
+    MN__STR_DATA(str)[new_size] = '\0';
 }
 
 /* bits/container/str_view */

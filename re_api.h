@@ -69,10 +69,42 @@ MN_API re_error re_match_groups(
 MN_API re_error re_match_groups_set(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
     mn_uint32 max_group, re_span* out_groups, mn_uint32* out_set_index);
+MN_API re_error re_match_groups_set_pri(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
+    mn_uint32 max_group, re_span* out_groups, mn_uint32** out_set_indexes,
+    mn_uint32* out_set_indexes_size);
 
 MN_API const char* re_get_error(const re* reg, mn_size* error_len);
 MN_API mn_uint32 re_get_max_groups(const re* reg);
 
 MN_API void re_destroy(re* reg);
+
+#if RE_USE_THREAD
+
+typedef struct re_mt_data re_mt_data;
+
+typedef struct re_mt {
+  re_mt_data* data;
+} re_mt;
+
+MN_API re_error re_mt_init(re_mt* mt, re* source);
+MN_API const char* re_mt_get_error(const re_mt* reg_mt, mn_size* error_len);
+
+MN_API re_error re_mt_is_match(
+    re_mt* reg_mt, const char* text, mn_size text_size,
+    re_anchor_type anchor_type);
+MN_API re_error re_mt_match_groups(
+    re_mt* reg_mt, const char* text, mn_size text_size,
+    re_anchor_type anchor_type, mn_uint32 max_group, re_span* out_groups);
+MN_API re_error re_mt_match_groups_set(
+    re_mt* reg_mt, const char* text, mn_size text_size,
+    re_anchor_type anchor_type, mn_uint32 max_group, re_span* out_groups,
+    mn_uint32* out_set_index);
+MN_API re_error re_mt_match_groups_set_pri(
+    re_mt* reg_mt, const char* text, mn_size text_size,
+    re_anchor_type anchor_type, mn_uint32 max_group, re_span* out_groups,
+    mn_uint32** out_set_indexes, mn_uint32* out_set_indexes_size);
+
+#endif
 
 #endif

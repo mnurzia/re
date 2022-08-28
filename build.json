@@ -24,8 +24,21 @@
         "bits/util/preproc/stringify",
         "bits/util/swap",
         "bits/util/unreached",
-        "bits/util/unused"
+        "bits/util/unused",
+        {
+            "name": "bits/thread/mutex",
+            "flags": [
+                "RE_USE_THREAD"
+            ]
+        }
     ],
+    "config": {
+        "RE_USE_THREAD": {
+            "type": "flag",
+            "help": "Set to 1 in order to build thread support.",
+            "default": "1"
+        }
+    },
     "files": {
         "api": [
             "re_api.h"

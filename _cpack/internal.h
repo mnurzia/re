@@ -13,6 +13,27 @@
 /* bits/math/min */
 #define MN__MIN(a, b) (((a) < (b)) ? (a) : (b))
 
+#if RE_USE_THREAD
+/* bits/thread/mutex */
+#define MN__THREADS_POSIX 0
+#define MN__THREADS_WINDOWS 1
+
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#define MN__THREAD_PLATFORM MN__THREADS_POSIX
+#endif
+
+#if MN__THREAD_PLATFORM == MN__THREADS_POSIX
+#include <pthread.h>
+
+typedef pthread_mutex_t mn__mutex;
+#endif
+
+int mn__mutex_init(mn__mutex* mutex);
+void mn__mutex_destroy(mn__mutex* mutex);
+int mn__mutex_lock(mn__mutex* mutex);
+int mn__mutex_unlock(mn__mutex* mutex);
+#endif /* RE_USE_THREAD */
+
 /* bits/util/exports */
 #if !defined(MN__SPLIT_BUILD)
 #define MN_INTERNAL static
@@ -62,6 +83,7 @@ const mn_char* mn__str_get_data(const mn__str* str);
 int mn__str_cmp(const mn__str* str_a, const mn__str* str_b);
 mn_size mn__str_slen(const mn_char* chars);
 void mn__str_clear(mn__str* str);
+void mn__str_cut_end(mn__str* str, mn_size new_size);
 
 /* bits/container/str_view */
 typedef struct mn__str_view {
@@ -390,10 +412,10 @@ mn__murmurhash3_32(mn_uint32 h1, const mn_uint8* data, mn_size data_len);
     }
 
 #define MN__VEC_DECL_get_data(T) \
-    const T* MN__VEC_IDENT(T, get_data)(const MN__VEC_TYPE(T)* vec)
+    T* MN__VEC_IDENT(T, get_data)(MN__VEC_TYPE(T)* vec)
 
 #define MN__VEC_IMPL_get_data(T) \
-    const T* MN__VEC_IDENT(T, get_data)(const MN__VEC_TYPE(T)* vec) { \
+    T* MN__VEC_IDENT(T, get_data)(MN__VEC_TYPE(T)* vec) { \
         return vec->_data; \
     }
 

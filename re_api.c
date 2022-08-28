@@ -98,7 +98,7 @@ re_error re_init_set(re* reg) { return re__init(reg, 1); }
 
 re_error re_set_add(re* reg, const char* regex_nt)
 {
-  return re_set_add_flags(reg, regex_nt, 0);
+  return re_set_add_sz_flags(reg, regex_nt, mn__str_slen(regex_nt), 0);
 }
 
 re_error
@@ -391,14 +391,6 @@ re_error re_is_match(
   }
 }
 
-re_error re_match_groups(
-    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
-    mn_uint32 max_group, re_span* out_groups)
-{
-  return re_match_groups_set(
-      reg, text, text_size, anchor_type, max_group, out_groups, MN_NULL);
-}
-
 re_error re_match_groups_set(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
     mn_uint32 max_group, re_span* out_groups, mn_uint32* out_set_index)
@@ -550,4 +542,12 @@ success:
   return err;
 error:
   return err;
+}
+
+re_error re_match_groups(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
+    mn_uint32 max_group, re_span* out_groups)
+{
+  return re_match_groups_set(
+      reg, text, text_size, anchor_type, max_group, out_groups, MN_NULL);
 }

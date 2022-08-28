@@ -1325,6 +1325,8 @@ struct re__exec_dfa_state {
   mn_uint32 match_index;
   mn_uint32* thrd_locs_begin;
   mn_uint32* thrd_locs_end;
+  mn_uint32 hash;
+  mn_uint32 uniq;
 #endif
 };
 
@@ -1360,6 +1362,11 @@ typedef struct re__exec_dfa {
   mn_size cache_alloc;
 } re__exec_dfa;
 
+typedef struct re__exec_dfa_state_id {
+  mn_uint32 hash;
+  mn_uint32 uniq;
+} re__exec_dfa_state_id;
+
 MN_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog);
 MN_INTERNAL void re__exec_dfa_destroy(re__exec_dfa* exec);
 MN_INTERNAL re_error re__exec_dfa_start(
@@ -1380,8 +1387,7 @@ re_error re__exec_dfa_driver(
 
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
- * ------------------------------------------------------------------------
- */
+ * ------------------------------------------------------------------------ */
 /* Internal data structure */
 struct re_data {
   mn_int32 set;

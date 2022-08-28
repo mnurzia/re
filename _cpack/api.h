@@ -10,17 +10,19 @@ typedef MN_SIZE_TYPE mn_size;
 /* bits/util/cstd */
 /* If __STDC__ is not defined, assume C89. */
 #ifndef __STDC__
-    #define MN__CSTD 1989
+#define MN__CSTD 1989
 #else
-    #if defined(__STDC_VERSION__)
-        #if __STDC_VERSION__ >= 201112L
-            #define MN__CSTD 2011
-        #elif __STDC_VERSION__ >= 199901L
-            #define MN__CSTD 1999
-        #else
-            #define MN__CSTD 1989
-        #endif
-    #endif
+#if defined(__STDC_VERSION__)
+#if __STDC_VERSION__ >= 201112L
+#define MN__CSTD 2011
+#elif __STDC_VERSION__ >= 199901L
+#define MN__CSTD 1999
+#else
+#define MN__CSTD 1989
+#endif
+#else
+#define MN__CSTD_1989
+#endif
 #endif
 
 /* bits/util/debug */
