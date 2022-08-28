@@ -1379,6 +1379,9 @@ re_error re__exec_dfa_driver(
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
     mn_size* out_pos);
 
+MN_INTERNAL re_error re__match_prepare_progs(
+    re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar);
+
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
  * ------------------------------------------------------------------------ */
@@ -1390,6 +1393,10 @@ struct re_data {
   re__ast_root ast_root;
   re__prog program;
   re__prog program_reverse;
+#if RE_USE_THREAD
+  mn__mutex program_mutex;
+  mn__mutex program_reverse_mutex;
+#endif
   re__compile compile;
   /* Note: error_string_view always points to either a static const char* that
    * is a compile-time constant or a dynamically-allocated const char* inside

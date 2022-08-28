@@ -55,6 +55,16 @@ re_error re__init(re* reg, int is_set)
   re__prog_init(&reg->data->program);
   re__prog_init(&reg->data->program_reverse);
   re__compile_init(&reg->data->compile);
+#if RE_USE_THREAD
+  mn__memset(&reg->data->program_mutex, 0, sizeof(mn__mutex));
+  mn__memset(&reg->data->program_reverse_mutex, 0, sizeof(mn__mutex));
+  if ((err = mn__mutex_init(&reg->data->program_mutex))) {
+    return err;
+  }
+  if ((err = mn__mutex_init(&reg->data->program_reverse_mutex))) {
+    return err;
+  }
+#endif
   if (is_set) {
     re__ast alt;
     re__ast_init_alt(&alt);
@@ -133,6 +143,10 @@ void re_destroy(re* reg)
   if (reg->data) {
     MN_FREE(reg->data);
   }
+#if RE_USE_THREAD
+  mn__mutex_destroy(&reg->data->program_mutex);
+  mn__mutex_destroy(&reg->data->program_reverse_mutex);
+#endif
 }
 
 const char* re_get_error(const re* reg, mn_size* error_len)
