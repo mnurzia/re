@@ -1400,39 +1400,6 @@ MN_INTERNAL re__exec_dfa_state_ptr*
 re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec_dfa_state_id id);
 #endif
 
-typedef struct re__exec_dfa {
-  re__exec_dfa_state_ptr current_state;
-  re__exec_dfa_state_ptr
-      start_states[RE__EXEC_DFA_START_STATE_COUNT * RE__PROG_ENTRY_MAX];
-  re__exec_dfa_state_ptr_vec state_pages;
-  mn_size state_page_idx;
-  mn_uint32_ptr_vec thrd_loc_pages;
-  mn_size thrd_loc_page_idx;
-  re__exec_nfa nfa;
-  /* targets a load factor of 0.75 */
-  re__exec_dfa_state** cache;
-  mn_size cache_stored;
-  mn_size cache_alloc;
-} re__exec_dfa;
-
-MN_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog);
-MN_INTERNAL void re__exec_dfa_destroy(re__exec_dfa* exec);
-MN_INTERNAL re_error re__exec_dfa_start(
-    re__exec_dfa* exec, re__prog_entry entry,
-    re__exec_dfa_start_state_flags start_state_flags);
-MN_INTERNAL re_error
-re__exec_dfa_run_byte(re__exec_dfa* exec, mn_uint8 next_byte);
-MN_INTERNAL re_error re__exec_dfa_end(re__exec_dfa* exec);
-MN_INTERNAL mn_uint32 re__exec_dfa_get_match_index(re__exec_dfa* exec);
-MN_INTERNAL mn_uint32 re__exec_dfa_get_match_priority(re__exec_dfa* exec);
-MN_INTERNAL int re__exec_dfa_get_exhaustion(re__exec_dfa* exec);
-MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec);
-re_error re__exec_dfa_driver(
-    re__exec_dfa* exec, re__prog_entry entry, int boolean_match,
-    int boolean_match_exit_early, int reversed, const mn_uint8* text,
-    mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
-    mn_size* out_pos);
-
 MN_INTERNAL re_error re__match_prepare_progs(
     re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar);
 
