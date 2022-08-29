@@ -1341,6 +1341,65 @@ typedef enum re__exec_dfa_start_state_flags {
   RE__EXEC_DFA_START_STATE_COUNT = 8
 } re__exec_dfa_start_state_flags;
 
+typedef struct re__exec_dfa_cache {
+  re__exec_nfa nfa;
+  re__exec_dfa_state_ptr
+      start_states[RE__EXEC_DFA_START_STATE_COUNT * RE__PROG_ENTRY_MAX];
+  re__exec_dfa_state_ptr_vec state_pages;
+  mn_size state_page_idx;
+  mn_uint32_ptr_vec thrd_loc_pages;
+  mn_size thrd_loc_page_idx;
+  /* targets a load factor of 0.75 */
+  re__exec_dfa_state** cache;
+  mn_size cache_stored;
+  mn_size cache_alloc;
+  mn_uint32 uniq;
+#if RE_USE_THREAD
+  mn__mutex read_try_mutex;
+  mn__mutex read_mutex;
+  mn__mutex write_mutex;
+  mn__mutex cache_mutex;
+  mn_uint32 read_count;
+  mn_uint32 write_count;
+#endif
+} re__exec_dfa_cache;
+
+MN_INTERNAL re_error
+re__exec_dfa_cache_init(re__exec_dfa_cache* cache, const re__prog* prog);
+MN_INTERNAL void re__exec_dfa_cache_destroy(re__exec_dfa_cache* cache);
+MN_INTERNAL re_error re__exec_dfa_cache_construct_start(
+    re__exec_dfa_cache* cache, re__prog_entry entry,
+    re__exec_dfa_start_state_flags start_state_flags,
+    re__exec_dfa_state_ptr* out);
+MN_INTERNAL re_error re__exec_dfa_cache_construct(
+    re__exec_dfa_cache* cache, re__exec_dfa_state_ptr state, mn_uint32 symbol,
+    re__exec_dfa_state_ptr* out);
+MN_INTERNAL re_error re__exec_dfa_cache_construct_end(
+    re__exec_dfa_cache* cache, re__exec_dfa_state_ptr state,
+    re__exec_dfa_state_ptr* out);
+re_error re__exec_dfa_cache_driver(
+    re__exec_dfa_cache* cache, re__prog_entry entry, int boolean_match,
+    int boolean_match_exit_early, int reversed, const mn_uint8* text,
+    mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
+    mn_size* out_pos);
+
+#if RE_USE_THREAD
+typedef struct re__exec_dfa_state_id {
+  mn_uint32 hash;
+  mn_uint32 uniq;
+} re__exec_dfa_state_id;
+
+MN_INTERNAL re_error re__exec_dfa_cache_construct_start_id(
+    re__exec_dfa_cache* cache, re__prog_entry entry,
+    re__exec_dfa_start_state_flags start_state_flags,
+    re__exec_dfa_state_id* out);
+MN_INTERNAL re_error re__exec_dfa_cache_construct_id(
+    re__exec_dfa_cache* cache, re__exec_dfa_state_id id, mn_uint8 symbol,
+    re__exec_dfa_state_id* out);
+MN_INTERNAL re__exec_dfa_state_ptr*
+re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec_dfa_state_id id);
+#endif
+
 typedef struct re__exec_dfa {
   re__exec_dfa_state_ptr current_state;
   re__exec_dfa_state_ptr
@@ -1355,11 +1414,6 @@ typedef struct re__exec_dfa {
   mn_size cache_stored;
   mn_size cache_alloc;
 } re__exec_dfa;
-
-typedef struct re__exec_dfa_state_id {
-  mn_uint32 hash;
-  mn_uint32 uniq;
-} re__exec_dfa_state_id;
 
 MN_INTERNAL void re__exec_dfa_init(re__exec_dfa* exec, const re__prog* prog);
 MN_INTERNAL void re__exec_dfa_destroy(re__exec_dfa* exec);
@@ -1398,6 +1452,8 @@ struct re_data {
   mn__mutex program_reverse_mutex;
 #endif
   re__compile compile;
+  re__exec_dfa_cache dfa_cache;
+  re__exec_dfa_cache dfa_cache_reverse;
   /* Note: error_string_view always points to either a static const char* that
    * is a compile-time constant or a dynamically-allocated const char* inside
    * of error_string. Either way, in OOM situations, we will not allocate more

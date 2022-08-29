@@ -59,10 +59,10 @@ re_error re__init(re* reg, int is_set)
   mn__memset(&reg->data->program_mutex, 0, sizeof(mn__mutex));
   mn__memset(&reg->data->program_reverse_mutex, 0, sizeof(mn__mutex));
   if ((err = mn__mutex_init(&reg->data->program_mutex))) {
-    return err;
+    goto error;
   }
   if ((err = mn__mutex_init(&reg->data->program_reverse_mutex))) {
-    return err;
+    goto error;
   }
 #endif
   if (is_set) {
@@ -71,9 +71,18 @@ re_error re__init(re* reg, int is_set)
     if ((err = re__ast_root_add_child(
              &reg->data->ast_root, reg->data->ast_root.root_ref, alt,
              &reg->data->set))) {
-      return err;
+      goto error;
     }
   }
+  if ((err = re__exec_dfa_cache_init(
+           &reg->data->dfa_cache, &reg->data->program))) {
+    goto error;
+  }
+  if ((err = re__exec_dfa_cache_init(
+           &reg->data->dfa_cache_reverse, &reg->data->program_reverse))) {
+    goto error;
+  }
+error:
   return err;
 }
 
@@ -147,6 +156,8 @@ void re_destroy(re* reg)
   mn__mutex_destroy(&reg->data->program_mutex);
   mn__mutex_destroy(&reg->data->program_reverse_mutex);
 #endif
+  re__exec_dfa_cache_destroy(&reg->data->dfa_cache);
+  re__exec_dfa_cache_destroy(&reg->data->dfa_cache_reverse);
 }
 
 const char* re_get_error(const re* reg, mn_size* error_len)
@@ -349,21 +360,18 @@ err_destroy_dfa:
 #endif
 
 re_error re__match_dfa_driver(
-    re__prog* program, re__prog_entry entry,
+    re__exec_dfa_cache* cache, re__prog_entry entry,
     int request, /* 0 for boolean, 1 for match pos + index */
     int bool_bail, int reversed, mn_size start_pos, const char* text,
     mn_size text_size, mn_uint32* out_match, mn_size* out_pos)
 {
-  re__exec_dfa exec;
   re_error err = RE_ERROR_NONE;
-  re__exec_dfa_init(&exec, program);
-  if ((err = re__exec_dfa_driver(
-           &exec, entry, !request, bool_bail, reversed, (const mn_uint8*)text,
+  if ((err = re__exec_dfa_cache_driver(
+           cache, entry, !request, bool_bail, reversed, (const mn_uint8*)text,
            text_size, start_pos, out_match, out_pos))) {
     goto error;
   }
 error:
-  re__exec_dfa_destroy(&exec);
   return err;
 }
 
@@ -377,28 +385,28 @@ re_error re_is_match(
       return err;
     }
     return re__match_dfa_driver(
-        &reg->data->program, RE__PROG_ENTRY_DEFAULT, 0, 0, 0, 0, text,
+        &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, 0, 0, 0, text,
         text_size, MN_NULL, MN_NULL);
   } else if (anchor_type == RE_ANCHOR_START) {
     if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
       return err;
     }
     return re__match_dfa_driver(
-        &reg->data->program, RE__PROG_ENTRY_DEFAULT, 0, 1, 0, 0, text,
+        &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, 1, 0, 0, text,
         text_size, MN_NULL, MN_NULL);
   } else if (anchor_type == RE_ANCHOR_END) {
     if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0))) {
       return err;
     }
     return re__match_dfa_driver(
-        &reg->data->program_reverse, RE__PROG_ENTRY_DEFAULT, 0, 1, 1, text_size,
-        text, text_size, MN_NULL, MN_NULL);
+        &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, 0, 1, 1,
+        text_size, text, text_size, MN_NULL, MN_NULL);
   } else if (anchor_type == RE_UNANCHORED) {
     if ((err = re__match_prepare_progs(reg, 1, 0, 1, 0))) {
       return err;
     }
     return re__match_dfa_driver(
-        &reg->data->program, RE__PROG_ENTRY_DOTSTAR, 0, 1, 0, 0, text,
+        &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, 1, 0, 0, text,
         text_size, MN_NULL, MN_NULL);
   } else {
     return RE_ERROR_INVALID;
@@ -421,7 +429,7 @@ re_error re_match_groups_set(
         goto error;
       }
       match_err = re__match_dfa_driver(
-          &reg->data->program, RE__PROG_ENTRY_DEFAULT, 1, 0, 0, 0, text,
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 1, 0, 0, 0, text,
           text_size, &out_match, &out_pos);
       if (match_err == RE_MATCH) {
         if (out_pos != text_size) {
@@ -444,7 +452,7 @@ re_error re_match_groups_set(
         goto error;
       }
       match_err = re__match_dfa_driver(
-          &reg->data->program, RE__PROG_ENTRY_DEFAULT, 1, 0, 0, 0, text,
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 1, 0, 0, 0, text,
           text_size, &out_match, &out_pos);
       if (match_err == RE_MATCH) {
         if (max_group) {
@@ -462,7 +470,7 @@ re_error re_match_groups_set(
         goto error;
       }
       match_err = re__match_dfa_driver(
-          &reg->data->program_reverse, RE__PROG_ENTRY_DEFAULT, 1, 0, 1,
+          &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, 1, 0, 1,
           text_size, text, text_size, &out_match, &out_pos);
       if (match_err == RE_MATCH) {
         if (max_group) {
@@ -480,14 +488,14 @@ re_error re_match_groups_set(
         goto error;
       }
       match_err = re__match_dfa_driver(
-          &reg->data->program, RE__PROG_ENTRY_DOTSTAR, 1, 0, 0, 0, text,
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 1, 0, 0, 0, text,
           text_size, &out_match, &out_pos);
       if (match_err == RE_MATCH) {
         if (max_group) {
           out_groups[0].end = out_pos;
           /* scan back to find the start */
           match_err = re__match_dfa_driver(
-              &reg->data->program_reverse, RE__PROG_ENTRY_DEFAULT, 1, 0, 1,
+              &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, 1, 0, 1,
               out_pos, text, text_size, &out_match, &out_pos);
           /* should ALWAYS match. */
           if (match_err != RE_MATCH) {
