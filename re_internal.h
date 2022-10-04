@@ -1381,7 +1381,7 @@ re_error re__exec_dfa_cache_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, int boolean_match,
     int boolean_match_exit_early, int reversed, const mn_uint8* text,
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
-    mn_size* out_pos);
+    mn_size* out_pos, int locked);
 
 #if RE_USE_THREAD
 typedef struct re__exec_dfa_state_id {
@@ -1396,16 +1396,33 @@ MN_INTERNAL re_error re__exec_dfa_cache_construct_start_id(
 MN_INTERNAL re_error re__exec_dfa_cache_construct_id(
     re__exec_dfa_cache* cache, re__exec_dfa_state_id id, mn_uint8 symbol,
     re__exec_dfa_state_id* out);
-MN_INTERNAL re__exec_dfa_state_ptr*
+MN_INTERNAL re__exec_dfa_state_ptr
 re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec_dfa_state_id id);
 #endif
 
 MN_INTERNAL re_error re__match_prepare_progs(
-    re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar);
+    re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar, int locked);
 
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
  * ------------------------------------------------------------------------ */
+typedef struct re__exec {
+  re* reg;
+  re_span* spans;
+  mn_uint32* set_indexes;
+  mn_uint32 max_span;
+  mn_uint32 max_set;
+  mn_int32 compile_status;
+  re__exec_nfa nfa;
+} re__exec;
+
+MN_INTERNAL void re__exec_init(re__exec* exec, re* reg);
+MN_INTERNAL void re__exec_destroy(re__exec* exec);
+MN_INTERNAL int
+re__exec_reserve(re__exec* match_data, mn_uint32 max_group, mn_uint32 max_set);
+MN_INTERNAL re_span* re__exec_get_spans(re__exec* exec);
+MN_INTERNAL mn_uint32* re__exec_get_set_indexes(re__exec* exec);
+
 /* Internal data structure */
 struct re_data {
   mn_int32 set;
@@ -1427,6 +1444,7 @@ struct re_data {
    * memory to store an error string and default to a constant. */
   mn__str error_string;
   mn__str_view error_string_view;
+  re__exec exec;
 };
 
 MN_INTERNAL re_error re__set_error_str(re* re, const mn__str* error_str);
@@ -1439,6 +1457,7 @@ struct re_mt_data {
   mn_int32 compile_status;
   mn__str error_string;
   mn__str_view error_string_view;
+  re__exec exec;
 };
 
 #endif

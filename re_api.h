@@ -61,6 +61,28 @@ MN_API re_error re_set_add_sz_flags(
     re* reg, const char* regex, mn_size regex_size,
     re_syntax_flags syntax_flags);
 
+#if 0
+/* Check whether a given string contains any matches */
+MN_API re_error re_is_match(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type);
+/* Retrieve group information about the first match in a string */
+/* Call with max_group = 1 to get match boundaries, max_group = 2+ subs */
+MN_API re_error re_match_groups(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
+    mn_uint32 max_group, re_span** out_groups);
+/* Retrieve group and set information about the first match in a string */
+/* Get up to the top max_set matches, the number of set index matches is
+ * returned in *out_set_indexes_size, the set indexes are returned in
+ * *out_set_indexes.
+ * if max_group, *out_groups is a (*out_set_indexes_size) * (max_group) array of
+ * spans */
+MN_API re_error re_match_full(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
+    mn_uint32 max_set, mn_uint32** out_set_indexes,
+    mn_uint32* out_set_indexes_size, mn_uint32 max_group,
+    re_span*** out_groups);
+#endif
+
 MN_API re_error re_is_match(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type);
 MN_API re_error re_match_groups(

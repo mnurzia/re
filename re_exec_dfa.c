@@ -49,6 +49,15 @@ re__exec_dfa_state_get_match_index(re__exec_dfa_state* state)
   return state->match_index;
 }
 
+MN_INTERNAL re__exec_dfa_state_id
+re__exec_dfa_state_get_id(re__exec_dfa_state* state)
+{
+  re__exec_dfa_state_id out;
+  out.hash = state->hash;
+  out.uniq = state->uniq;
+  return out;
+}
+
 MN__VEC_IMPL_FUNC(re__exec_dfa_state_ptr, init)
 MN__VEC_IMPL_FUNC(re__exec_dfa_state_ptr, destroy)
 MN__VEC_IMPL_FUNC(re__exec_dfa_state_ptr, push)
@@ -97,6 +106,8 @@ re__exec_dfa_cache_init(re__exec_dfa_cache* cache, const re__prog* prog)
   if ((err = mn__mutex_init(&cache->cache_mutex))) {
     goto error;
   }
+  cache->read_count = 0;
+  cache->write_count = 0;
 #endif
 error:
   return err;
@@ -325,6 +336,8 @@ re_error re__exec_dfa_cache_get_state(
       /* Set input flags (start state, etc) */
       new_state->flags |= flags;
       new_state->match_index = match_index;
+      new_state->hash = hash;
+      new_state->uniq = cache->uniq++;
       *probe = new_state;
       (*probe)->hash = hash;
       cache->cache_stored++;
@@ -469,6 +482,79 @@ re_error re__exec_dfa_cache_construct_end(
   return 0;
 }
 
+re__exec_dfa_state_ptr
+re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec_dfa_state_id id)
+{
+  re__exec_dfa_state** probe = cache->cache + (id.hash % cache->cache_alloc);
+  mn_size q = 1;
+  while (1) {
+    /* we don't handle bad lookups */
+    MN_ASSERT(*probe);
+    if ((*probe)->hash == id.hash) {
+      /* collision or found */
+      re__exec_dfa_state* state = (*probe);
+      if (id.uniq == state->uniq) {
+        return state;
+      }
+    }
+    /* otherwise, find a new slot */
+    probe = cache->cache + ((q + id.hash) % cache->cache_alloc);
+    q++;
+  }
+}
+
+#if RE_USE_THREAD
+
+void re__exec_dfa_crit_reader_enter(re__exec_dfa_cache* cache)
+{
+  mn__mutex_lock(&cache->read_try_mutex);
+  mn__mutex_lock(&cache->read_mutex);
+  cache->read_count++;
+  if (cache->read_count == 1) {
+    /* First reader, lock out the writers */
+    mn__mutex_lock(&cache->cache_mutex);
+  }
+  mn__mutex_unlock(&cache->read_mutex);
+  mn__mutex_unlock(&cache->read_try_mutex);
+}
+
+void re__exec_dfa_crit_reader_exit(re__exec_dfa_cache* cache)
+{
+  mn__mutex_lock(&cache->read_mutex);
+  cache->read_count--;
+  if (cache->read_count == 0) {
+    mn__mutex_unlock(&cache->cache_mutex);
+  }
+  mn__mutex_unlock(&cache->read_mutex);
+}
+
+void re__exec_dfa_crit_writer_enter(re__exec_dfa_cache* cache)
+{
+  mn__mutex_lock(&cache->write_mutex);
+  cache->write_count++;
+  if (cache->write_count == 1) {
+    /* Lock out readers */
+    mn__mutex_lock(&cache->read_try_mutex);
+  }
+  mn__mutex_unlock(&cache->write_mutex);
+  mn__mutex_lock(&cache->cache_mutex);
+}
+
+void re__exec_dfa_crit_writer_exit(re__exec_dfa_cache* cache)
+{
+  mn__mutex_unlock(&cache->cache_mutex);
+  mn__mutex_lock(&cache->write_mutex);
+  cache->write_count--;
+  if (cache->write_count == 0) {
+    mn__mutex_unlock(&cache->read_try_mutex);
+  }
+  mn__mutex_unlock(&cache->write_mutex);
+}
+
+#endif
+
+#define RE__EXEC_DFA_LOCK_BLOCK_SIZE 32
+
 /* Need to keep track of:
  * - Reversed
  * - Boolean match (check priority bit or not)
@@ -477,11 +563,16 @@ re_error re__exec_dfa_cache_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, int boolean_match,
     int boolean_match_exit_early, int reversed, const mn_uint8* text,
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
-    mn_size* out_pos)
+    mn_size* out_pos, int locked)
 {
   re__exec_dfa_start_state_flags start_state_flags = 0;
   re_error err = RE_ERROR_NONE;
   re__exec_dfa_state* current_state;
+  re__exec_dfa_state_id current_state_id = {0};
+#if !RE_USE_THREAD
+  /* invoke DCE */
+  locked = 0;
+#endif
   if (!reversed) {
     if (text_start_pos == 0) {
       start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
@@ -507,9 +598,16 @@ re_error re__exec_dfa_cache_driver(
           (unsigned int)(text[text_start_pos] == '\n');
     }
   }
+  if (locked) {
+    re__exec_dfa_crit_writer_enter(cache);
+  }
   if ((err = re__exec_dfa_cache_construct_start(
            cache, entry, start_state_flags, &current_state))) {
-    return err;
+    goto writer_error;
+  }
+  if (locked) {
+    current_state_id = re__exec_dfa_state_get_id(current_state);
+    re__exec_dfa_crit_writer_exit(cache);
   }
   MN_ASSERT(text_start_pos <= text_size);
   MN_ASSERT(MN__IMPLIES(boolean_match, out_match == MN_NULL));
@@ -522,12 +620,17 @@ re_error re__exec_dfa_cache_driver(
     const mn_uint8* loop_out_pos;
     mn_uint32 last_found_match = 0;
     mn_uint32 loop_out_index;
+    mn_uint32 block_idx = 0;
     re__exec_dfa_state_ptr next_state;
     start = text + text_start_pos;
     if (!reversed) {
       end = text + text_size;
     } else {
       end = text;
+    }
+    if (locked) {
+      re__exec_dfa_crit_reader_enter(cache);
+      current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
     }
     while (1) {
       if (start == end) {
@@ -538,9 +641,22 @@ re_error re__exec_dfa_cache_driver(
       }
       next_state = current_state->next[*start];
       if (next_state == MN_NULL) {
+        if (locked) {
+          current_state_id = re__exec_dfa_state_get_id(current_state);
+          re__exec_dfa_crit_reader_exit(cache);
+          re__exec_dfa_crit_writer_enter(cache);
+          current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
+        }
         if ((err = re__exec_dfa_cache_construct(
                  cache, current_state, *start, &current_state))) {
-          return err;
+          goto writer_error;
+        }
+        if (locked) {
+          current_state_id = re__exec_dfa_state_get_id(current_state);
+          re__exec_dfa_crit_writer_exit(cache);
+          re__exec_dfa_crit_reader_enter(cache);
+          current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
+          block_idx = 0;
         }
       } else {
         current_state = next_state;
@@ -573,29 +689,24 @@ re_error re__exec_dfa_cache_driver(
       if (!reversed) {
         start++;
       }
+      block_idx++;
+      if (locked) {
+        if (block_idx == RE__EXEC_DFA_LOCK_BLOCK_SIZE) {
+          /* Let the writers breathe */
+          current_state_id = re__exec_dfa_state_get_id(current_state);
+          re__exec_dfa_crit_reader_exit(cache);
+          re__exec_dfa_crit_reader_enter(cache);
+          current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
+          block_idx = 0;
+        }
+      }
     }
     err = RE_ERROR_NOMATCH;
   loop_exit_match:
-#if 0
-    static re_error (*funcs[8])(
-        re__exec_dfa*, const mn_uint8*, const mn_uint8*, const mn_uint8**,
-        mn_uint32*) = {
-        re__exec_dfa_search_fff,
-        re__exec_dfa_search_fft,
-        MN_NULL,
-        MN_NULL,
-        re__exec_dfa_search_tff,
-        re__exec_dfa_search_tft,
-        re__exec_dfa_search_ttf,
-        re__exec_dfa_search_ttt};
-    err = funcs
-        [reversed | (boolean_match_exit_early << 1) | (boolean_match << 2)](
-            exec, start, end, &loop_out_pos, &loop_out_index);
-#endif
     if (err == RE_MATCH) {
       /* Exited early */
       if (boolean_match) {
-        return err;
+        goto reader_exit;
       } else {
         MN_ASSERT(loop_out_pos >= text);
         MN_ASSERT(loop_out_pos < text + text_size);
@@ -605,84 +716,47 @@ re_error re__exec_dfa_cache_driver(
           *out_pos = (mn_size)(loop_out_pos - text) + 1;
         }
         *out_match = loop_out_index;
-        return err;
+        goto reader_exit;
       }
     } else if (err != RE_ERROR_NOMATCH) {
-      return err;
+      goto reader_exit;
+    }
+    if (locked) {
+      current_state_id = re__exec_dfa_state_get_id(current_state);
+      re__exec_dfa_crit_reader_exit(cache);
+      re__exec_dfa_crit_writer_enter(cache);
+      current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
     }
     if ((err = re__exec_dfa_cache_construct_end(
              cache, current_state, &current_state))) {
-      return err;
+      goto writer_error;
+    }
+    if (locked) {
+      current_state_id = re__exec_dfa_state_get_id(current_state);
+      re__exec_dfa_crit_writer_exit(cache);
+      re__exec_dfa_crit_reader_enter(cache);
+      current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
     }
     if (re__exec_dfa_state_is_match(current_state)) {
       if (!boolean_match) {
         *out_pos = (mn_size)(end - text);
         *out_match = re__exec_dfa_state_get_match_index(current_state);
       }
-      return RE_MATCH;
+      err = RE_MATCH;
+      goto reader_exit;
     } else {
-      return RE_NOMATCH;
+      err = RE_NOMATCH;
+      goto reader_exit;
     }
   }
+writer_error:
+  if (locked) {
+    re__exec_dfa_crit_writer_exit(cache);
+  }
+  return err;
+reader_exit:
+  if (locked) {
+    re__exec_dfa_crit_reader_exit(cache);
+  }
+  return err;
 }
-
-#if 0
-
-#include <stdio.h>
-
-MN_INTERNAL void re__exec_dfa_debug_dump_state_idx(int sym)
-{
-  if (sym < RE__EXEC_SYM_EOT) {
-    re__byte_debug_dump((mn_uint8)sym);
-  } else {
-    printf("<max>");
-  }
-}
-
-MN_INTERNAL void re__exec_dfa_debug_dump(re__exec_dfa* exec)
-{
-  const re__exec_dfa_state* state = exec->current_state;
-  printf("---------------------------------\n");
-  printf("DFA State Debug Dump (%p, dfa: %p):\n", (void*)state, (void*)exec);
-  if (state == MN_NULL) {
-    printf("  NULL STATE\n");
-    return;
-  }
-  printf(
-      "  Flags: %c%c%c%c%c\n",
-      (state->flags & RE__EXEC_DFA_FLAG_FROM_WORD ? 'W' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_BEGIN_TEXT ? 'A' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_BEGIN_LINE ? '^' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_MATCH ? 'M' : '-'),
-      (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY ? 'P' : '-'));
-  printf("  Match Index: %i\n", state->match_index);
-  printf(
-      "  Match Priority: %i\n",
-      state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
-  printf(
-      "  Threads: %u\n    ",
-      (unsigned int)(state->thrd_locs_end - state->thrd_locs_begin));
-  {
-    mn_uint32* thrd_ptr = state->thrd_locs_begin;
-    while (thrd_ptr != state->thrd_locs_end) {
-      printf("%04X ", *thrd_ptr);
-      thrd_ptr++;
-    }
-    printf("\n");
-  }
-  printf("  Nexts:\n");
-  {
-    int sym;
-    for (sym = 0; sym < RE__EXEC_SYM_MAX; sym++) {
-      re__exec_dfa_state* next = state->next[sym];
-      if (next != MN_NULL) {
-        printf("    [");
-        re__exec_dfa_debug_dump_state_idx(sym);
-        printf("]: %p\n", (void*)next);
-      }
-    }
-  }
-  printf("---------------------------------\n");
-}
-
-#endif

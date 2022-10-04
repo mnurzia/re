@@ -30,8 +30,8 @@ typedef pthread_mutex_t mn__mutex;
 
 int mn__mutex_init(mn__mutex* mutex);
 void mn__mutex_destroy(mn__mutex* mutex);
-int mn__mutex_lock(mn__mutex* mutex);
-int mn__mutex_unlock(mn__mutex* mutex);
+void mn__mutex_lock(mn__mutex* mutex);
+void mn__mutex_unlock(mn__mutex* mutex);
 #endif /* RE_USE_THREAD */
 
 /* bits/util/exports */

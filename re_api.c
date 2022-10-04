@@ -55,6 +55,17 @@ re_error re__init(re* reg, int is_set)
   re__prog_init(&reg->data->program);
   re__prog_init(&reg->data->program_reverse);
   re__compile_init(&reg->data->compile);
+  re__exec_init(&reg->data->exec, reg);
+  mn__memset(&reg->data->dfa_cache, 0, sizeof(re__exec_dfa_cache));
+  mn__memset(&reg->data->dfa_cache_reverse, 0, sizeof(re__exec_dfa_cache));
+  if ((err = re__exec_dfa_cache_init(
+           &reg->data->dfa_cache, &reg->data->program))) {
+    goto error;
+  }
+  if ((err = re__exec_dfa_cache_init(
+           &reg->data->dfa_cache_reverse, &reg->data->program_reverse))) {
+    goto error;
+  }
 #if RE_USE_THREAD
   mn__memset(&reg->data->program_mutex, 0, sizeof(mn__mutex));
   mn__memset(&reg->data->program_reverse_mutex, 0, sizeof(mn__mutex));
@@ -73,14 +84,6 @@ re_error re__init(re* reg, int is_set)
              &reg->data->set))) {
       goto error;
     }
-  }
-  if ((err = re__exec_dfa_cache_init(
-           &reg->data->dfa_cache, &reg->data->program))) {
-    goto error;
-  }
-  if ((err = re__exec_dfa_cache_init(
-           &reg->data->dfa_cache_reverse, &reg->data->program_reverse))) {
-    goto error;
   }
 error:
   return err;
@@ -149,15 +152,16 @@ void re_destroy(re* reg)
   re__rune_data_destroy(&reg->data->rune_data);
   re__parse_destroy(&reg->data->parse);
   re__error_destroy(reg);
-  if (reg->data) {
-    MN_FREE(reg->data);
-  }
+  re__exec_destroy(&reg->data->exec);
 #if RE_USE_THREAD
   mn__mutex_destroy(&reg->data->program_mutex);
   mn__mutex_destroy(&reg->data->program_reverse_mutex);
 #endif
   re__exec_dfa_cache_destroy(&reg->data->dfa_cache);
   re__exec_dfa_cache_destroy(&reg->data->dfa_cache_reverse);
+  if (reg->data) {
+    MN_FREE(reg->data);
+  }
 }
 
 const char* re_get_error(const re* reg, mn_size* error_len)
@@ -186,11 +190,12 @@ MN_INTERNAL re__assert_type re__match_next_assert_ctx(mn_size pos, mn_size len)
 }
 
 re_error re__match_prepare_progs(
-    re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar)
+    re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar, int locked)
 {
   re_error err = RE_ERROR_NONE;
   MN_ASSERT(MN__IMPLIES(fwd_dotstar, fwd));
   MN_ASSERT(MN__IMPLIES(rev_dotstar, rev));
+  MN__UNUSED(locked);
   if (fwd) {
     if (!re__prog_size(&reg->data->program)) {
       if ((err = re__compile_regex(
@@ -359,6 +364,68 @@ err_destroy_dfa:
 
 #endif
 
+MN_INTERNAL void re__exec_init(re__exec* exec, re* reg)
+{
+  exec->reg = reg;
+  exec->spans = NULL;
+  exec->set_indexes = NULL;
+  exec->max_span = 0;
+  exec->max_set = 0;
+  exec->compile_status = 0;
+}
+
+MN_INTERNAL void re__exec_destroy(re__exec* exec)
+{
+  if (exec->spans) {
+    MN_FREE(exec->spans);
+  }
+  if (exec->set_indexes) {
+    MN_FREE(exec->set_indexes);
+  }
+}
+
+MN_INTERNAL re_error
+re__exec_reserve(re__exec* exec, mn_uint32 max_group, mn_uint32 max_set)
+{
+  if (max_group * max_set > exec->max_span) {
+    re_span* new_spans;
+    if (!exec->spans) {
+      new_spans = MN_MALLOC(sizeof(re_span) * max_group * max_set);
+    } else {
+      new_spans =
+          MN_REALLOC(exec->spans, sizeof(re_span) * max_group * max_set);
+    }
+    if (!new_spans) {
+      return RE_ERROR_NOMEM;
+    }
+    exec->spans = new_spans;
+    exec->max_span = max_group * max_set;
+  }
+  if (max_set > exec->max_set) {
+    mn_uint32* new_sets;
+    if (!exec->set_indexes) {
+      new_sets = MN_MALLOC(sizeof(mn_uint32) * max_set);
+    } else {
+      new_sets = MN_REALLOC(exec->set_indexes, sizeof(mn_uint32) * max_set);
+    }
+    if (!new_sets) {
+      return RE_ERROR_NOMEM;
+    }
+    exec->set_indexes = new_sets;
+    exec->max_set = max_set;
+  }
+  mn__memset(exec->spans, 0, sizeof(re_span) * exec->max_span);
+  mn__memset(exec->set_indexes, 0, sizeof(re_span) * exec->max_set);
+  return RE_ERROR_NONE;
+}
+
+MN_INTERNAL re_span* re__exec_get_spans(re__exec* exec) { return exec->spans; }
+
+MN_INTERNAL mn_uint32* re__exec_get_set_indexes(re__exec* exec)
+{
+  return exec->set_indexes;
+}
+
 re_error re__match_dfa_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry,
     int request, /* 0 for boolean, 1 for match pos + index */
@@ -368,7 +435,7 @@ re_error re__match_dfa_driver(
   re_error err = RE_ERROR_NONE;
   if ((err = re__exec_dfa_cache_driver(
            cache, entry, !request, bool_bail, reversed, (const mn_uint8*)text,
-           text_size, start_pos, out_match, out_pos))) {
+           text_size, start_pos, out_match, out_pos, 0))) {
     goto error;
   }
 error:
@@ -381,28 +448,28 @@ re_error re_is_match(
   /* no groups -- dfa can be used in all cases */
   re_error err = RE_ERROR_NONE;
   if (anchor_type == RE_ANCHOR_BOTH) {
-    if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+    if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
       return err;
     }
     return re__match_dfa_driver(
         &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, 0, 0, 0, text,
         text_size, MN_NULL, MN_NULL);
   } else if (anchor_type == RE_ANCHOR_START) {
-    if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+    if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
       return err;
     }
     return re__match_dfa_driver(
         &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, 1, 0, 0, text,
         text_size, MN_NULL, MN_NULL);
   } else if (anchor_type == RE_ANCHOR_END) {
-    if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0))) {
+    if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0, 0))) {
       return err;
     }
     return re__match_dfa_driver(
         &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, 0, 1, 1,
         text_size, text, text_size, MN_NULL, MN_NULL);
   } else if (anchor_type == RE_UNANCHORED) {
-    if ((err = re__match_prepare_progs(reg, 1, 0, 1, 0))) {
+    if ((err = re__match_prepare_progs(reg, 1, 0, 1, 0, 0))) {
       return err;
     }
     return re__match_dfa_driver(
@@ -420,12 +487,42 @@ re_error re_match_groups_set(
   re_error err = RE_ERROR_NONE;
   mn_uint32 out_match;
   if (max_group == 0 && out_set_index == MN_NULL) {
-    return re_is_match(reg, text, text_size, anchor_type);
+    if (anchor_type == RE_ANCHOR_BOTH) {
+      if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
+        return err;
+      }
+      return re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, 0, 0, 0, text,
+          text_size, MN_NULL, MN_NULL);
+    } else if (anchor_type == RE_ANCHOR_START) {
+      if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
+        return err;
+      }
+      return re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, 1, 0, 0, text,
+          text_size, MN_NULL, MN_NULL);
+    } else if (anchor_type == RE_ANCHOR_END) {
+      if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0, 0))) {
+        return err;
+      }
+      return re__match_dfa_driver(
+          &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, 0, 1, 1,
+          text_size, text, text_size, MN_NULL, MN_NULL);
+    } else if (anchor_type == RE_UNANCHORED) {
+      if ((err = re__match_prepare_progs(reg, 1, 0, 1, 0, 0))) {
+        return err;
+      }
+      return re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, 1, 0, 0, text,
+          text_size, MN_NULL, MN_NULL);
+    } else {
+      return RE_ERROR_INVALID;
+    }
   } else if (max_group == 0 || max_group == 1) {
     mn_size out_pos;
     re_error match_err;
     if (anchor_type == RE_ANCHOR_BOTH) {
-      if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+      if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
         goto error;
       }
       match_err = re__match_dfa_driver(
@@ -448,7 +545,7 @@ re_error re_match_groups_set(
         goto error;
       }
     } else if (anchor_type == RE_ANCHOR_START) {
-      if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0))) {
+      if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
         goto error;
       }
       match_err = re__match_dfa_driver(
@@ -466,7 +563,7 @@ re_error re_match_groups_set(
         goto error;
       }
     } else if (anchor_type == RE_ANCHOR_END) {
-      if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0))) {
+      if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0, 0))) {
         goto error;
       }
       match_err = re__match_dfa_driver(
@@ -484,7 +581,7 @@ re_error re_match_groups_set(
         goto error;
       }
     } else if (anchor_type == RE_UNANCHORED) {
-      if ((err = re__match_prepare_progs(reg, 1, 1, 1, 0))) {
+      if ((err = re__match_prepare_progs(reg, 1, 1, 1, 0, 0))) {
         goto error;
       }
       match_err = re__match_dfa_driver(
@@ -573,3 +670,20 @@ re_error re_match_groups(
   return re_match_groups_set(
       reg, text, text_size, anchor_type, max_group, out_groups, MN_NULL);
 }
+#if 0
+re_error re__match(
+    re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
+    mn_uint32 max_group, mn_uint32 max_set, re__match_data* out_data,
+    int locked)
+{
+  if (max_group == 0 && max_set == 0) {
+    /* Fully boolean match [DFA] ~1GB/s */
+  } else if (max_group == 0) {
+    /* Set-index only match [DFA] ~900MB/s */
+  } else if (max_group == 1) {
+    /* Match boundaries [DFA] ~800MB/s */
+  } else {
+    /* Group / group-set search [NFA] ~300MB/s */
+  }
+}
+#endif

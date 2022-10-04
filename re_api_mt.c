@@ -20,39 +20,29 @@ error:
 
 MN_API void re_mt_destroy(re_mt* reg_mt)
 {
+  mn__str_destroy(&reg_mt->data->error_string);
   if (reg_mt->data) {
     MN_FREE(reg_mt->data);
   }
-  mn__str_destroy(&reg_mt->data->error_string);
 }
 
 MN_INTERNAL re_error re__mt_match_prepare_progs(re_mt* reg_mt, int fwd, int rev)
 {
   re_error err = RE_ERROR_NONE;
   if (fwd && !(reg_mt->data->compile_status & 1)) {
-    if ((err = mn__mutex_lock(&reg_mt->data->reg->data->program_mutex))) {
+    mn__mutex_lock(&reg_mt->data->reg->data->program_mutex);
+    if ((err = re__match_prepare_progs(reg_mt->data->reg, 1, 0, 1, 0, 1))) {
       goto error;
     }
-    if ((err = re__match_prepare_progs(reg_mt->data->reg, 1, 0, 1, 0))) {
-      goto error;
-    }
-    if ((err = mn__mutex_unlock(&reg_mt->data->reg->data->program_mutex))) {
-      goto error;
-    }
+    mn__mutex_unlock(&reg_mt->data->reg->data->program_mutex);
     reg_mt->data->compile_status |= 1;
   }
-  if (rev && (reg_mt->data->compile_status & 2)) {
-    if ((err =
-             mn__mutex_lock(&reg_mt->data->reg->data->program_reverse_mutex))) {
+  if (rev && !(reg_mt->data->compile_status & 2)) {
+    mn__mutex_lock(&reg_mt->data->reg->data->program_reverse_mutex);
+    if ((err = re__match_prepare_progs(reg_mt->data->reg, 0, 1, 0, 1, 1))) {
       goto error;
     }
-    if ((err = re__match_prepare_progs(reg_mt->data->reg, 0, 1, 0, 1))) {
-      goto error;
-    }
-    if ((err = mn__mutex_unlock(
-             &reg_mt->data->reg->data->program_reverse_mutex))) {
-      goto error;
-    }
+    mn__mutex_unlock(&reg_mt->data->reg->data->program_reverse_mutex);
     reg_mt->data->compile_status |= 2;
   }
 error:

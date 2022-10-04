@@ -28,28 +28,16 @@ void mn__mutex_destroy(mn__mutex* mutex) {
     MN__UNUSED(code);
 }
 
-int mn__mutex_lock(mn__mutex* mutex) {
+void mn__mutex_lock(mn__mutex* mutex) {
     int code = pthread_mutex_lock(mutex);
-    if (code == EAGAIN) {
-        return 1;
-    } else if (code) {
-        MN_ASSERT(0);
-    } else {
-        return 0;
-    }
-    return 0;
+    MN_ASSERT(!code);
+    MN__UNUSED(code);
 }
 
-int mn__mutex_unlock(mn__mutex* mutex) {
-    int code = pthread_mutex_lock(mutex);
-    if (code == EAGAIN) {
-        return 1;
-    } else if (code) {
-        MN_ASSERT(0);
-    } else {
-        return 0;
-    }
-    return 0;
+void mn__mutex_unlock(mn__mutex* mutex) {
+    int code = pthread_mutex_unlock(mutex);
+    MN_ASSERT(!code);
+    MN__UNUSED(code);
 }
 
 #endif
