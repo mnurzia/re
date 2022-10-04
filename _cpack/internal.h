@@ -13,27 +13,6 @@
 /* bits/math/min */
 #define MN__MIN(a, b) (((a) < (b)) ? (a) : (b))
 
-#if RE_USE_THREAD
-/* bits/thread/mutex */
-#define MN__THREADS_POSIX 0
-#define MN__THREADS_WINDOWS 1
-
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
-#define MN__THREAD_PLATFORM MN__THREADS_POSIX
-#endif
-
-#if MN__THREAD_PLATFORM == MN__THREADS_POSIX
-#include <pthread.h>
-
-typedef pthread_mutex_t mn__mutex;
-#endif
-
-int mn__mutex_init(mn__mutex* mutex);
-void mn__mutex_destroy(mn__mutex* mutex);
-void mn__mutex_lock(mn__mutex* mutex);
-void mn__mutex_unlock(mn__mutex* mutex);
-#endif /* RE_USE_THREAD */
-
 /* bits/util/exports */
 #if !defined(MN__SPLIT_BUILD)
 #define MN_INTERNAL static

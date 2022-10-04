@@ -18,6 +18,36 @@
 #endif
 
 /* ---------------------------------------------------------------------------
+ * Thread/container utilities (re_util.c)
+ * ------------------------------------------------------------------------ */
+
+#define RE__THREADS_POSIX 0
+#define RE__THREADS_WINDOWS 1
+
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#define RE__THREAD_PLATFORM RE__THREADS_POSIX
+#endif
+
+#if RE__THREAD_PLATFORM == RE__THREADS_POSIX
+#include <pthread.h>
+
+typedef pthread_mutex_t re__mutex;
+typedef pthread_rwlock_t re__rwlock;
+#endif
+
+int re__mutex_init(re__mutex* mutex);
+void re__mutex_destroy(re__mutex* mutex);
+void re__mutex_lock(re__mutex* mutex);
+void re__mutex_unlock(re__mutex* mutex);
+
+int re__rwlock_init(re__rwlock* rwlock);
+void re__rwlock_destroy(re__rwlock* rwlock);
+void re__rwlock_rlock(re__rwlock* rwlock);
+void re__rwlock_runlock(re__rwlock* rwlock);
+void re__rwlock_wlock(re__rwlock* rwlock);
+void re__rwlock_wunlock(re__rwlock* rwlock);
+
+/* ---------------------------------------------------------------------------
  * Byte ranges (re_range.c)
  * ------------------------------------------------------------------------ */
 /* POD type */
@@ -1355,12 +1385,7 @@ typedef struct re__exec_dfa_cache {
   mn_size cache_alloc;
   mn_uint32 uniq;
 #if RE_USE_THREAD
-  mn__mutex read_try_mutex;
-  mn__mutex read_mutex;
-  mn__mutex write_mutex;
-  mn__mutex cache_mutex;
-  mn_uint32 read_count;
-  mn_uint32 write_count;
+  re__rwlock rwlock;
 #endif
 } re__exec_dfa_cache;
 
@@ -1432,8 +1457,8 @@ struct re_data {
   re__prog program;
   re__prog program_reverse;
 #if RE_USE_THREAD
-  mn__mutex program_mutex;
-  mn__mutex program_reverse_mutex;
+  re__mutex program_mutex;
+  re__mutex program_reverse_mutex;
 #endif
   re__compile compile;
   re__exec_dfa_cache dfa_cache;

@@ -17,6 +17,7 @@ set(
   re_prog_data.c 
   re_rune_data.c 
   re_range.c 
+  re_util.c
   _cpack/impl.c)
 
 set(TEST_SOURCES 

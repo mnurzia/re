@@ -67,12 +67,12 @@ re_error re__init(re* reg, int is_set)
     goto error;
   }
 #if RE_USE_THREAD
-  mn__memset(&reg->data->program_mutex, 0, sizeof(mn__mutex));
-  mn__memset(&reg->data->program_reverse_mutex, 0, sizeof(mn__mutex));
-  if ((err = mn__mutex_init(&reg->data->program_mutex))) {
+  mn__memset(&reg->data->program_mutex, 0, sizeof(re__mutex));
+  mn__memset(&reg->data->program_reverse_mutex, 0, sizeof(re__mutex));
+  if ((err = re__mutex_init(&reg->data->program_mutex))) {
     goto error;
   }
-  if ((err = mn__mutex_init(&reg->data->program_reverse_mutex))) {
+  if ((err = re__mutex_init(&reg->data->program_reverse_mutex))) {
     goto error;
   }
 #endif
@@ -154,8 +154,8 @@ void re_destroy(re* reg)
   re__error_destroy(reg);
   re__exec_destroy(&reg->data->exec);
 #if RE_USE_THREAD
-  mn__mutex_destroy(&reg->data->program_mutex);
-  mn__mutex_destroy(&reg->data->program_reverse_mutex);
+  re__mutex_destroy(&reg->data->program_mutex);
+  re__mutex_destroy(&reg->data->program_reverse_mutex);
 #endif
   re__exec_dfa_cache_destroy(&reg->data->dfa_cache);
   re__exec_dfa_cache_destroy(&reg->data->dfa_cache_reverse);

@@ -30,19 +30,19 @@ MN_INTERNAL re_error re__mt_match_prepare_progs(re_mt* reg_mt, int fwd, int rev)
 {
   re_error err = RE_ERROR_NONE;
   if (fwd && !(reg_mt->data->compile_status & 1)) {
-    mn__mutex_lock(&reg_mt->data->reg->data->program_mutex);
+    re__mutex_lock(&reg_mt->data->reg->data->program_mutex);
     if ((err = re__match_prepare_progs(reg_mt->data->reg, 1, 0, 1, 0, 1))) {
       goto error;
     }
-    mn__mutex_unlock(&reg_mt->data->reg->data->program_mutex);
+    re__mutex_unlock(&reg_mt->data->reg->data->program_mutex);
     reg_mt->data->compile_status |= 1;
   }
   if (rev && !(reg_mt->data->compile_status & 2)) {
-    mn__mutex_lock(&reg_mt->data->reg->data->program_reverse_mutex);
+    re__mutex_lock(&reg_mt->data->reg->data->program_reverse_mutex);
     if ((err = re__match_prepare_progs(reg_mt->data->reg, 0, 1, 0, 1, 1))) {
       goto error;
     }
-    mn__mutex_unlock(&reg_mt->data->reg->data->program_reverse_mutex);
+    re__mutex_unlock(&reg_mt->data->reg->data->program_reverse_mutex);
     reg_mt->data->compile_status |= 2;
   }
 error:

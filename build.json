@@ -24,13 +24,7 @@
         "bits/util/preproc/stringify",
         "bits/util/swap",
         "bits/util/unreached",
-        "bits/util/unused",
-        {
-            "name": "bits/thread/mutex",
-            "flags": [
-                "RE_USE_THREAD"
-            ]
-        }
+        "bits/util/unused"
     ],
     "config": {
         "RE_USE_THREAD": {

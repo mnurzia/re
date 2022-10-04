@@ -1,48 +1,6 @@
 #include "../tests/test_config.h"
 #include "internal.h"
 
-#if RE_USE_THREAD
-/* bits/thread/mutex */
-#if MN__THREAD_PLATFORM == MN__THREADS_POSIX
-
-#include <errno.h>
-#include <unistd.h>
-
-int mn__mutex_init(mn__mutex* mutex) {
-    int code = pthread_mutex_init(mutex, NULL);
-    if (code == EAGAIN) {
-        return 1;
-    } else if (code == ENOMEM) {
-        return 1;
-    } else if (code) {
-        MN_ASSERT(0);
-    } else {
-        return 0;
-    }
-    return 0;
-}
-
-void mn__mutex_destroy(mn__mutex* mutex) {
-    int code = pthread_mutex_destroy(mutex);
-    MN_ASSERT(!code);
-    MN__UNUSED(code);
-}
-
-void mn__mutex_lock(mn__mutex* mutex) {
-    int code = pthread_mutex_lock(mutex);
-    MN_ASSERT(!code);
-    MN__UNUSED(code);
-}
-
-void mn__mutex_unlock(mn__mutex* mutex) {
-    int code = pthread_mutex_unlock(mutex);
-    MN_ASSERT(!code);
-    MN__UNUSED(code);
-}
-
-#endif
-#endif /* RE_USE_THREAD */
-
 /* bits/types/char */
 MN__STATIC_ASSERT(mn__char_is_one_byte, sizeof(mn_char) == 1);
 

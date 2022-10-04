@@ -90,24 +90,10 @@ re__exec_dfa_cache_init(re__exec_dfa_cache* cache, const re__prog* prog)
   cache->cache_alloc = 0;
   cache->uniq = 0;
 #if RE_USE_THREAD
-  mn__memset(&cache->read_try_mutex, 0, sizeof(mn__mutex));
-  mn__memset(&cache->read_mutex, 0, sizeof(mn__mutex));
-  mn__memset(&cache->write_mutex, 0, sizeof(mn__mutex));
-  mn__memset(&cache->cache_mutex, 0, sizeof(mn__mutex));
-  if ((err = mn__mutex_init(&cache->read_try_mutex))) {
+  mn__memset(&cache->rwlock, 0, sizeof(re__rwlock));
+  if ((err = re__rwlock_init(&cache->rwlock))) {
     goto error;
   }
-  if ((err = mn__mutex_init(&cache->read_mutex))) {
-    goto error;
-  }
-  if ((err = mn__mutex_init(&cache->write_mutex))) {
-    goto error;
-  }
-  if ((err = mn__mutex_init(&cache->cache_mutex))) {
-    goto error;
-  }
-  cache->read_count = 0;
-  cache->write_count = 0;
 #endif
 error:
   return err;
@@ -134,10 +120,7 @@ MN_INTERNAL void re__exec_dfa_cache_destroy(re__exec_dfa_cache* cache)
   }
   re__exec_dfa_state_ptr_vec_destroy(&cache->state_pages);
 #if RE_USE_THREAD
-  mn__mutex_destroy(&cache->read_try_mutex);
-  mn__mutex_destroy(&cache->read_mutex);
-  mn__mutex_destroy(&cache->write_mutex);
-  mn__mutex_destroy(&cache->cache_mutex);
+  re__rwlock_destroy(&cache->rwlock);
 #endif
 }
 
@@ -507,48 +490,22 @@ re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec_dfa_state_id id)
 
 void re__exec_dfa_crit_reader_enter(re__exec_dfa_cache* cache)
 {
-  mn__mutex_lock(&cache->read_try_mutex);
-  mn__mutex_lock(&cache->read_mutex);
-  cache->read_count++;
-  if (cache->read_count == 1) {
-    /* First reader, lock out the writers */
-    mn__mutex_lock(&cache->cache_mutex);
-  }
-  mn__mutex_unlock(&cache->read_mutex);
-  mn__mutex_unlock(&cache->read_try_mutex);
+  re__rwlock_rlock(&cache->rwlock);
 }
 
 void re__exec_dfa_crit_reader_exit(re__exec_dfa_cache* cache)
 {
-  mn__mutex_lock(&cache->read_mutex);
-  cache->read_count--;
-  if (cache->read_count == 0) {
-    mn__mutex_unlock(&cache->cache_mutex);
-  }
-  mn__mutex_unlock(&cache->read_mutex);
+  re__rwlock_runlock(&cache->rwlock);
 }
 
 void re__exec_dfa_crit_writer_enter(re__exec_dfa_cache* cache)
 {
-  mn__mutex_lock(&cache->write_mutex);
-  cache->write_count++;
-  if (cache->write_count == 1) {
-    /* Lock out readers */
-    mn__mutex_lock(&cache->read_try_mutex);
-  }
-  mn__mutex_unlock(&cache->write_mutex);
-  mn__mutex_lock(&cache->cache_mutex);
+  re__rwlock_wlock(&cache->rwlock);
 }
 
 void re__exec_dfa_crit_writer_exit(re__exec_dfa_cache* cache)
 {
-  mn__mutex_unlock(&cache->cache_mutex);
-  mn__mutex_lock(&cache->write_mutex);
-  cache->write_count--;
-  if (cache->write_count == 0) {
-    mn__mutex_unlock(&cache->read_try_mutex);
-  }
-  mn__mutex_unlock(&cache->write_mutex);
+  re__rwlock_wunlock(&cache->rwlock);
 }
 
 #endif
