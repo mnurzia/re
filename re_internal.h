@@ -1422,6 +1422,8 @@ struct re__exec {
   re__exec_nfa nfa;
   mn_uint32 dfa_state_hash;
   re__exec_dfa_flags dfa_state_flags;
+  mn_uint32 dfa_state_match_index;
+  mn_uint32 dfa_state_match_priority;
 };
 
 MN_INTERNAL void re__exec_init(re__exec* exec, re* reg);

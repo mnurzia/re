@@ -373,6 +373,8 @@ MN_INTERNAL void re__exec_init(re__exec* exec, re* reg)
   re__exec_nfa_init(&exec->nfa);
   exec->dfa_state_hash = 0;
   exec->dfa_state_flags = 0;
+  exec->dfa_state_match_index = 0;
+  exec->dfa_state_match_priority = 0;
 }
 
 MN_INTERNAL void re__exec_destroy(re__exec* exec)
