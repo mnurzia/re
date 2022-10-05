@@ -535,24 +535,39 @@ re_error re__exec_dfa_cache_driver(
   }
   start_state_idx =
       start_state_flags + (entry * RE__EXEC_DFA_START_STATE_COUNT);
-  /*
   if (locked) {
-    re__exec_dfa_crit_writer_enter(cache);
-  }*/
-  if (!(current_state = cache->start_states[start_state_idx])) {
-    if ((err = re__exec_dfa_construct_start(exec, entry, start_state_flags))) {
-      goto reader_exit;
-    }
-    if ((err = re__exec_dfa_cache_get_state(cache, &current_state, exec))) {
-      goto reader_exit;
-    }
-    cache->start_states[start_state_idx] = current_state;
+    re__exec_dfa_crit_reader_enter(cache);
   }
-  /*
-  if (locked) {
-    current_state_id = re__exec_dfa_state_get_id(current_state);
-    re__exec_dfa_crit_writer_exit(cache);
-  }*/
+  if (!cache->start_states[start_state_idx]) {
+    do {
+      /* Need to construct start state */
+      if ((err =
+               re__exec_dfa_construct_start(exec, entry, start_state_flags))) {
+        goto reader_exit;
+      }
+      if (locked) {
+        /* Switch to writer */
+        re__exec_dfa_crit_reader_exit(cache);
+        re__exec_dfa_crit_writer_enter(cache);
+      }
+      /* Cache the state */
+      if ((err = re__exec_dfa_cache_get_state(cache, &current_state, exec))) {
+        goto writer_error;
+      }
+      /* Write it to the start state table */
+      cache->start_states[start_state_idx] = current_state;
+      if (locked) {
+        /* Switch to reader and lookup in cache */
+        re__exec_dfa_crit_writer_exit(cache);
+        re__exec_dfa_crit_reader_enter(cache);
+        current_state = re__exec_dfa_cache_lookup(cache, exec);
+      }
+      /* Keep trying to get the state */
+    } while (locked && !current_state);
+  } else {
+    /* Grab start state, it's ready */
+    current_state = cache->start_states[start_state_idx];
+  }
   MN_ASSERT(text_start_pos <= text_size);
   MN_ASSERT(MN__IMPLIES(boolean_match, out_match == MN_NULL));
   MN_ASSERT(MN__IMPLIES(boolean_match, out_pos == MN_NULL));
@@ -572,11 +587,6 @@ re_error re__exec_dfa_cache_driver(
     } else {
       end = text;
     }
-    /*
-    if (locked) {
-      re__exec_dfa_crit_reader_enter(cache);
-      current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-    }*/
     while (1) {
       if (start == end) {
         break;
@@ -585,28 +595,29 @@ re_error re__exec_dfa_cache_driver(
         start--;
       }
       if (!(next_state = current_state->next[*start])) {
-        /*
-        if (locked) {
-          current_state_id = re__exec_dfa_state_get_id(current_state);
-          re__exec_dfa_crit_reader_exit(cache);
-          re__exec_dfa_crit_writer_enter(cache);
-          current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-        }*/
-        if ((err = re__exec_dfa_construct(exec, current_state, *start))) {
-          goto reader_exit;
-        }
-        if ((err = re__exec_dfa_cache_get_state(cache, &next_state, exec))) {
-          goto reader_exit;
-        }
-        current_state->next[*start] = next_state;
-        /*
-        if (locked) {
-          current_state_id = re__exec_dfa_state_get_id(current_state);
-          re__exec_dfa_crit_writer_exit(cache);
-          re__exec_dfa_crit_reader_enter(cache);
-          current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-          block_idx = 0;
-        }*/
+        do {
+          /* Need to construct next state */
+          if ((err = re__exec_dfa_construct(exec, current_state, *start))) {
+            goto reader_exit;
+          }
+          if (locked) {
+            /* Switch to writer */
+            re__exec_dfa_crit_reader_exit(cache);
+            re__exec_dfa_crit_writer_enter(cache);
+          }
+          /* Cache the state */
+          if ((err = re__exec_dfa_cache_get_state(cache, &next_state, exec))) {
+            goto reader_exit;
+          }
+          /* Write back to the current state */
+          current_state->next[*start] = next_state;
+          if (locked) {
+            /* Switch to reader */
+            re__exec_dfa_crit_writer_exit(cache);
+            re__exec_dfa_crit_reader_enter(cache);
+            next_state = re__exec_dfa_cache_lookup(cache, exec);
+          }
+        } while (locked && !next_state);
       }
       current_state = next_state;
       if (boolean_match) {
@@ -670,30 +681,32 @@ re_error re__exec_dfa_cache_driver(
     } else if (err != RE_ERROR_NOMATCH) {
       goto reader_exit;
     }
-    /*
-    if (locked) {
-      current_state_id = re__exec_dfa_state_get_id(current_state);
-      re__exec_dfa_crit_reader_exit(cache);
-      re__exec_dfa_crit_writer_enter(cache);
-      current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-    }*/
     if (!(next_state = current_state->next[RE__EXEC_SYM_EOT])) {
-      if ((err = re__exec_dfa_construct_end(exec, current_state))) {
-        goto reader_exit;
-      }
-      if ((err = re__exec_dfa_cache_get_state(cache, &next_state, exec))) {
-        goto reader_exit;
-      }
-      current_state->next[RE__EXEC_SYM_EOT] = next_state;
+      do {
+        /* Need to construct next state */
+        if ((err = re__exec_dfa_construct_end(exec, current_state))) {
+          goto reader_exit;
+        }
+        if (locked) {
+          /* Switch to writer */
+          re__exec_dfa_crit_reader_exit(cache);
+          re__exec_dfa_crit_writer_enter(cache);
+        }
+        /* Cache the state */
+        if ((err = re__exec_dfa_cache_get_state(cache, &next_state, exec))) {
+          goto reader_exit;
+        }
+        /* Write back to the current state */
+        current_state->next[RE__EXEC_SYM_EOT] = next_state;
+        if (locked) {
+          /* Switch to reader */
+          re__exec_dfa_crit_writer_exit(cache);
+          re__exec_dfa_crit_reader_enter(cache);
+          next_state = re__exec_dfa_cache_lookup(cache, exec);
+        }
+      } while (locked && !next_state);
     }
     current_state = next_state;
-    /*
-    if (locked) {
-      current_state_id = re__exec_dfa_state_get_id(current_state);
-      re__exec_dfa_crit_writer_exit(cache);
-      re__exec_dfa_crit_reader_enter(cache);
-      current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-    }*/
     if (re__exec_dfa_state_is_match(current_state)) {
       if (!boolean_match) {
         *out_pos = (mn_size)(end - text);
@@ -706,7 +719,7 @@ re_error re__exec_dfa_cache_driver(
       goto reader_exit;
     }
   }
-  /*writer_error:*/
+writer_error:
   if (locked) {
     re__exec_dfa_crit_writer_exit(cache);
   }
