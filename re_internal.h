@@ -1406,24 +1406,6 @@ re_error re__exec_dfa_cache_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, const mn_uint8* text,
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
     mn_size* out_pos, re__exec_dfa_run_flags run_flags, re__exec* exec);
-
-#if RE_USE_THREAD
-typedef struct re__exec_dfa_state_id {
-  mn_uint32 hash;
-  mn_uint32 uniq;
-} re__exec_dfa_state_id;
-
-MN_INTERNAL re_error re__exec_dfa_cache_construct_start_id(
-    re__exec_dfa_cache* cache, re__prog_entry entry,
-    re__exec_dfa_start_state_flags start_state_flags,
-    re__exec_dfa_state_id* out);
-MN_INTERNAL re_error re__exec_dfa_cache_construct_id(
-    re__exec_dfa_cache* cache, re__exec_dfa_state_id id, mn_uint8 symbol,
-    re__exec_dfa_state_id* out);
-MN_INTERNAL re__exec_dfa_state_ptr
-re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec_dfa_state_id id);
-#endif
-
 MN_INTERNAL re_error re__match_prepare_progs(
     re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar, int locked);
 
@@ -1438,6 +1420,8 @@ struct re__exec {
   mn_uint32 max_set;
   mn_int32 compile_status;
   re__exec_nfa nfa;
+  mn_uint32 dfa_state_hash;
+  re__exec_dfa_flags dfa_state_flags;
 };
 
 MN_INTERNAL void re__exec_init(re__exec* exec, re* reg);

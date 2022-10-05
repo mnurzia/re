@@ -371,6 +371,8 @@ MN_INTERNAL void re__exec_init(re__exec* exec, re* reg)
   exec->max_set = 0;
   exec->compile_status = 0;
   re__exec_nfa_init(&exec->nfa);
+  exec->dfa_state_hash = 0;
+  exec->dfa_state_flags = 0;
 }
 
 MN_INTERNAL void re__exec_destroy(re__exec* exec)

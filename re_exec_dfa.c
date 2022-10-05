@@ -49,15 +49,6 @@ re__exec_dfa_state_get_match_index(re__exec_dfa_state* state)
   return state->match_index;
 }
 
-MN_INTERNAL re__exec_dfa_state_id
-re__exec_dfa_state_get_id(re__exec_dfa_state* state)
-{
-  re__exec_dfa_state_id out;
-  out.hash = state->hash;
-  out.uniq = state->uniq;
-  return out;
-}
-
 MN__VEC_IMPL_FUNC(re__exec_dfa_state_ptr, init)
 MN__VEC_IMPL_FUNC(re__exec_dfa_state_ptr, destroy)
 MN__VEC_IMPL_FUNC(re__exec_dfa_state_ptr, push)
@@ -254,23 +245,13 @@ re_error re__exec_dfa_cache_get_state(
   const re__exec_thrd* thrds = re__exec_nfa_get_thrds(&exec->nfa);
   mn_uint32 match_index = re__exec_nfa_get_match_index(&exec->nfa);
   mn_uint32 match_priority = re__exec_nfa_get_match_priority(&exec->nfa);
-  mn_uint32 hash = 0;
+  mn_uint32 hash = exec->dfa_state_hash;
   MN__UNUSED(exec);
   if (match_index) {
     flags |= RE__EXEC_DFA_FLAG_MATCH;
   }
   if (match_priority) {
     flags |= RE__EXEC_DFA_FLAG_MATCH_PRIORITY;
-  }
-  /* ok to cast to uint8, no ambiguous padding inside of flags */
-  hash = mn__murmurhash3_32(hash, (const mn_uint8*)&flags, sizeof(flags));
-  {
-    mn_size i;
-    for (i = 0; i < thrds_size; i++) {
-      /* ok to cast to uint8, also no ambiguous padding */
-      hash = mn__murmurhash3_32(
-          hash, (const mn_uint8*)&thrds[i].loc, sizeof(re__prog_loc));
-    }
   }
   /* lookup in cache */
   if (!cache->cache) {
@@ -465,23 +446,117 @@ re_error re__exec_dfa_cache_construct_end(
   return 0;
 }
 
-re__exec_dfa_state_ptr
-re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec_dfa_state_id id)
+mn_uint32 re__exec_dfa_hash(re__exec* exec)
 {
-  re__exec_dfa_state** probe = cache->cache + (id.hash % cache->cache_alloc);
+  /* ok to cast to uint8, no ambiguous padding inside of flags */
+  mn_uint32 hash = mn__murmurhash3_32(
+      0, (const mn_uint8*)&exec->dfa_state_flags,
+      sizeof(exec->dfa_state_flags));
+  {
+    mn_size i;
+    mn_size sz = re__exec_nfa_get_thrds_size(&exec->nfa);
+    const re__exec_thrd* thrds = re__exec_nfa_get_thrds(&exec->nfa);
+    for (i = 0; i < sz; i++) {
+      /* ok to cast to uint8, also no ambiguous padding */
+      hash = mn__murmurhash3_32(
+          hash, (const mn_uint8*)&thrds[i].loc, sizeof(re__prog_loc));
+    }
+  }
+  return hash;
+}
+
+re_error re__exec_dfa_construct_start(
+    re__exec* exec, re__prog_entry entry,
+    re__exec_dfa_start_state_flags start_state_flags)
+{
+  re_error err = RE_ERROR_NONE;
+  exec->dfa_state_flags = 0;
+  if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD) {
+    exec->dfa_state_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
+  }
+  if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE) {
+    exec->dfa_state_flags |= RE__EXEC_DFA_FLAG_BEGIN_LINE;
+  }
+  if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT) {
+    exec->dfa_state_flags |= RE__EXEC_DFA_FLAG_BEGIN_TEXT;
+  }
+  if ((err = re__exec_nfa_start(&exec->nfa, entry))) {
+    return err;
+  }
+  exec->dfa_state_hash = re__exec_dfa_hash(exec);
+  return err;
+}
+
+re_error re__exec_dfa_construct(
+    re__exec* exec, re__exec_dfa_state_ptr current_state, mn_uint32 symbol)
+{
+  re_error err = RE_ERROR_NONE;
+  re__assert_type assert_ctx = 0;
+  unsigned int is_word_boundary;
+  is_word_boundary = re__is_word_boundary(
+      !!(current_state->flags & RE__EXEC_DFA_FLAG_FROM_WORD), symbol);
+  if (is_word_boundary) {
+    assert_ctx |= RE__ASSERT_TYPE_WORD;
+  } else {
+    assert_ctx |= RE__ASSERT_TYPE_WORD_NOT;
+  }
+  if (symbol == RE__EXEC_SYM_EOT) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END_ABSOLUTE;
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
+  }
+  if (current_state->flags & RE__EXEC_DFA_FLAG_BEGIN_LINE) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_START;
+  }
+  if (current_state->flags & RE__EXEC_DFA_FLAG_BEGIN_TEXT) {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
+  }
+  re__exec_nfa_set_thrds(
+      &exec->nfa, current_state->thrd_locs_begin,
+      (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
+  re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
+  re__exec_nfa_set_match_priority(
+      &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+  if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, symbol, 0))) {
+    return err;
+  }
+  if (re__is_word_char(symbol)) {
+    exec->dfa_state_flags |= RE__EXEC_DFA_FLAG_FROM_WORD;
+  }
+  if (symbol == '\n') {
+    assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
+    exec->dfa_state_flags |= RE__EXEC_DFA_FLAG_BEGIN_LINE;
+  }
+  exec->dfa_state_hash = re__exec_dfa_hash(exec);
+  return err;
+}
+
+re_error
+re__exec_dfa_construct_end(re__exec* exec, re__exec_dfa_state_ptr current_state)
+{
+  return re__exec_dfa_construct(exec, current_state, RE__EXEC_SYM_EOT);
+}
+
+re__exec_dfa_state_ptr
+re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec* exec)
+{
+  re__exec_dfa_state** probe =
+      cache->cache + (exec->dfa_state_hash % cache->cache_alloc);
   mn_size q = 1;
   while (1) {
     /* we don't handle bad lookups */
     MN_ASSERT(*probe);
-    if ((*probe)->hash == id.hash) {
+    if ((*probe)->hash == exec->dfa_state_hash) {
       /* collision or found */
       re__exec_dfa_state* state = (*probe);
-      if (id.uniq == state->uniq) {
+      if (re__exec_dfa_state_equal(
+              re__exec_nfa_get_thrds(&exec->nfa),
+              re__exec_nfa_get_thrds_size(&exec->nfa), exec->dfa_state_flags,
+              state)) {
         return state;
       }
     }
     /* otherwise, find a new slot */
-    probe = cache->cache + ((q + id.hash) % cache->cache_alloc);
+    probe = cache->cache + ((q + exec->dfa_state_hash) % cache->cache_alloc);
     q++;
   }
 }
@@ -524,7 +599,6 @@ re_error re__exec_dfa_cache_driver(
   re__exec_dfa_start_state_flags start_state_flags = 0;
   re_error err = RE_ERROR_NONE;
   re__exec_dfa_state* current_state;
-  re__exec_dfa_state_id current_state_id = {0};
   int boolean_match = run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH;
   int boolean_match_exit_early =
       run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY;
@@ -559,17 +633,19 @@ re_error re__exec_dfa_cache_driver(
           (unsigned int)(text[text_start_pos] == '\n');
     }
   }
+  /*
   if (locked) {
     re__exec_dfa_crit_writer_enter(cache);
-  }
+  }*/
   if ((err = re__exec_dfa_cache_construct_start(
            cache, entry, start_state_flags, &current_state, exec))) {
     goto writer_error;
   }
+  /*
   if (locked) {
     current_state_id = re__exec_dfa_state_get_id(current_state);
     re__exec_dfa_crit_writer_exit(cache);
-  }
+  }*/
   MN_ASSERT(text_start_pos <= text_size);
   MN_ASSERT(MN__IMPLIES(boolean_match, out_match == MN_NULL));
   MN_ASSERT(MN__IMPLIES(boolean_match, out_pos == MN_NULL));
@@ -589,10 +665,11 @@ re_error re__exec_dfa_cache_driver(
     } else {
       end = text;
     }
+    /*
     if (locked) {
       re__exec_dfa_crit_reader_enter(cache);
       current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-    }
+    }*/
     while (1) {
       if (start == end) {
         break;
@@ -602,23 +679,25 @@ re_error re__exec_dfa_cache_driver(
       }
       next_state = current_state->next[*start];
       if (next_state == MN_NULL) {
+        /*
         if (locked) {
           current_state_id = re__exec_dfa_state_get_id(current_state);
           re__exec_dfa_crit_reader_exit(cache);
           re__exec_dfa_crit_writer_enter(cache);
           current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-        }
+        }*/
         if ((err = re__exec_dfa_cache_construct(
                  cache, current_state, *start, &current_state, exec))) {
           goto writer_error;
         }
+        /*
         if (locked) {
           current_state_id = re__exec_dfa_state_get_id(current_state);
           re__exec_dfa_crit_writer_exit(cache);
           re__exec_dfa_crit_reader_enter(cache);
           current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
           block_idx = 0;
-        }
+        }*/
       } else {
         current_state = next_state;
       }
@@ -651,16 +730,17 @@ re_error re__exec_dfa_cache_driver(
         start++;
       }
       block_idx++;
+      /*
       if (locked) {
         if (block_idx == RE__EXEC_DFA_LOCK_BLOCK_SIZE) {
-          /* Let the writers breathe */
+           Let the writers breathe
           current_state_id = re__exec_dfa_state_get_id(current_state);
           re__exec_dfa_crit_reader_exit(cache);
           re__exec_dfa_crit_reader_enter(cache);
           current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
           block_idx = 0;
         }
-      }
+      }*/
     }
     err = RE_ERROR_NOMATCH;
   loop_exit_match:
@@ -682,22 +762,24 @@ re_error re__exec_dfa_cache_driver(
     } else if (err != RE_ERROR_NOMATCH) {
       goto reader_exit;
     }
+    /*
     if (locked) {
       current_state_id = re__exec_dfa_state_get_id(current_state);
       re__exec_dfa_crit_reader_exit(cache);
       re__exec_dfa_crit_writer_enter(cache);
       current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-    }
+    }*/
     if ((err = re__exec_dfa_cache_construct_end(
              cache, current_state, &current_state, exec))) {
       goto writer_error;
     }
+    /*
     if (locked) {
       current_state_id = re__exec_dfa_state_get_id(current_state);
       re__exec_dfa_crit_writer_exit(cache);
       re__exec_dfa_crit_reader_enter(cache);
       current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
-    }
+    }*/
     if (re__exec_dfa_state_is_match(current_state)) {
       if (!boolean_match) {
         *out_pos = (mn_size)(end - text);
