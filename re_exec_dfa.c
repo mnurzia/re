@@ -681,19 +681,9 @@ re_error re__exec_dfa_cache_driver(
             re__exec_dfa_crit_reader_enter(cache);
             current_state = re__exec_dfa_cache_lookup(cache, exec);
           }
-        }
-      }
-      /*
-      if (locked) {
-        if (block_idx == RE__EXEC_DFA_LOCK_BLOCK_SIZE) {
-           Let the writers breathe
-          current_state_id = re__exec_dfa_state_get_id(current_state);
-          re__exec_dfa_crit_reader_exit(cache);
-          re__exec_dfa_crit_reader_enter(cache);
-          current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
           block_idx = 0;
         }
-      }*/
+      }
     }
     err = RE_ERROR_NOMATCH;
   loop_exit_match:
