@@ -1399,23 +1399,15 @@ typedef enum re__exec_dfa_run_flags {
   RE__EXEC_DFA_RUN_FLAG_LOCKED = 8
 } re__exec_dfa_run_flags;
 
+typedef struct re__exec re__exec;
+
 MN_INTERNAL re_error
 re__exec_dfa_cache_init(re__exec_dfa_cache* cache, const re__prog* prog);
 MN_INTERNAL void re__exec_dfa_cache_destroy(re__exec_dfa_cache* cache);
-MN_INTERNAL re_error re__exec_dfa_cache_construct_start(
-    re__exec_dfa_cache* cache, re__prog_entry entry,
-    re__exec_dfa_start_state_flags start_state_flags,
-    re__exec_dfa_state_ptr* out);
-MN_INTERNAL re_error re__exec_dfa_cache_construct(
-    re__exec_dfa_cache* cache, re__exec_dfa_state_ptr state, mn_uint32 symbol,
-    re__exec_dfa_state_ptr* out);
-MN_INTERNAL re_error re__exec_dfa_cache_construct_end(
-    re__exec_dfa_cache* cache, re__exec_dfa_state_ptr state,
-    re__exec_dfa_state_ptr* out);
 re_error re__exec_dfa_cache_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, const mn_uint8* text,
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
-    mn_size* out_pos, re__exec_dfa_run_flags run_flags);
+    mn_size* out_pos, re__exec_dfa_run_flags run_flags, re__exec* exec);
 
 #if RE_USE_THREAD
 typedef struct re__exec_dfa_state_id {
@@ -1440,7 +1432,7 @@ MN_INTERNAL re_error re__match_prepare_progs(
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
  * ------------------------------------------------------------------------ */
-typedef struct re__exec {
+struct re__exec {
   re* reg;
   re_span* spans;
   mn_uint32* set_indexes;
@@ -1448,7 +1440,7 @@ typedef struct re__exec {
   mn_uint32 max_set;
   mn_int32 compile_status;
   re__exec_nfa nfa;
-} re__exec;
+};
 
 MN_INTERNAL void re__exec_init(re__exec* exec, re* reg);
 MN_INTERNAL void re__exec_destroy(re__exec* exec);

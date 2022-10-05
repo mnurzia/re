@@ -252,7 +252,7 @@ int re__exec_dfa_state_equal(
 
 re_error re__exec_dfa_cache_get_state(
     re__exec_dfa_cache* cache, re__exec_dfa_flags flags,
-    re__exec_dfa_state** out_state)
+    re__exec_dfa_state** out_state, re__exec* exec)
 {
   re_error err = RE_ERROR_NONE;
   re__prog_loc thrds_size = re__exec_nfa_get_thrds_size(&cache->nfa);
@@ -260,6 +260,7 @@ re_error re__exec_dfa_cache_get_state(
   mn_uint32 match_index = re__exec_nfa_get_match_index(&cache->nfa);
   mn_uint32 match_priority = re__exec_nfa_get_match_priority(&cache->nfa);
   mn_uint32 hash = 0;
+  MN__UNUSED(exec);
   if (match_index) {
     flags |= RE__EXEC_DFA_FLAG_MATCH;
   }
@@ -368,7 +369,7 @@ re_error re__exec_dfa_cache_get_state(
 MN_INTERNAL re_error re__exec_dfa_cache_construct_start(
     re__exec_dfa_cache* cache, re__prog_entry entry,
     re__exec_dfa_start_state_flags start_state_flags,
-    re__exec_dfa_state_ptr* out)
+    re__exec_dfa_state_ptr* out, re__exec* exec)
 {
   re_error err = RE_ERROR_NONE;
   unsigned int start_state_idx =
@@ -389,7 +390,8 @@ MN_INTERNAL re_error re__exec_dfa_cache_construct_start(
     if ((err = re__exec_nfa_start(&cache->nfa, entry))) {
       goto error;
     }
-    if ((err = re__exec_dfa_cache_get_state(cache, dfa_flags, start_state))) {
+    if ((err = re__exec_dfa_cache_get_state(
+             cache, dfa_flags, start_state, exec))) {
       goto error;
     }
   }
@@ -400,7 +402,7 @@ error:
 
 MN_INTERNAL re_error re__exec_dfa_cache_construct(
     re__exec_dfa_cache* cache, re__exec_dfa_state_ptr state, mn_uint32 symbol,
-    re__exec_dfa_state_ptr* out)
+    re__exec_dfa_state_ptr* out, re__exec* exec)
 {
   re_error err = RE_ERROR_NONE;
   re__assert_type assert_ctx = 0;
@@ -440,7 +442,8 @@ MN_INTERNAL re_error re__exec_dfa_cache_construct(
     assert_ctx |= RE__ASSERT_TYPE_TEXT_END;
     new_flags |= RE__EXEC_DFA_FLAG_BEGIN_LINE;
   }
-  if ((err = re__exec_dfa_cache_get_state(cache, new_flags, next_state))) {
+  if ((err =
+           re__exec_dfa_cache_get_state(cache, new_flags, next_state, exec))) {
     return err;
   }
   *out = *next_state;
@@ -449,7 +452,7 @@ MN_INTERNAL re_error re__exec_dfa_cache_construct(
 
 re_error re__exec_dfa_cache_construct_end(
     re__exec_dfa_cache* cache, re__exec_dfa_state_ptr current_state,
-    re__exec_dfa_state_ptr* out)
+    re__exec_dfa_state_ptr* out, re__exec* exec)
 {
   re__exec_dfa_state* next_state;
   re_error err = RE_ERROR_NONE;
@@ -458,7 +461,7 @@ re_error re__exec_dfa_cache_construct_end(
   next_state = current_state->next[RE__EXEC_SYM_EOT];
   if (next_state == MN_NULL) {
     if ((err = re__exec_dfa_cache_construct(
-             cache, current_state, RE__EXEC_SYM_EOT, out))) {
+             cache, current_state, RE__EXEC_SYM_EOT, out, exec))) {
       return err;
     }
   } else {
@@ -521,7 +524,7 @@ void re__exec_dfa_crit_writer_exit(re__exec_dfa_cache* cache)
 re_error re__exec_dfa_cache_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, const mn_uint8* text,
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
-    mn_size* out_pos, re__exec_dfa_run_flags run_flags)
+    mn_size* out_pos, re__exec_dfa_run_flags run_flags, re__exec* exec)
 {
   re__exec_dfa_start_state_flags start_state_flags = 0;
   re_error err = RE_ERROR_NONE;
@@ -565,7 +568,7 @@ re_error re__exec_dfa_cache_driver(
     re__exec_dfa_crit_writer_enter(cache);
   }
   if ((err = re__exec_dfa_cache_construct_start(
-           cache, entry, start_state_flags, &current_state))) {
+           cache, entry, start_state_flags, &current_state, exec))) {
     goto writer_error;
   }
   if (locked) {
@@ -611,7 +614,7 @@ re_error re__exec_dfa_cache_driver(
           current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
         }
         if ((err = re__exec_dfa_cache_construct(
-                 cache, current_state, *start, &current_state))) {
+                 cache, current_state, *start, &current_state, exec))) {
           goto writer_error;
         }
         if (locked) {
@@ -691,7 +694,7 @@ re_error re__exec_dfa_cache_driver(
       current_state = re__exec_dfa_cache_lookup(cache, current_state_id);
     }
     if ((err = re__exec_dfa_cache_construct_end(
-             cache, current_state, &current_state))) {
+             cache, current_state, &current_state, exec))) {
       goto writer_error;
     }
     if (locked) {

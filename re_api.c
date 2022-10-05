@@ -437,12 +437,12 @@ re_error re__match_dfa_driver(
 re_error re__match_dfa_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, mn_size start_pos,
     const char* text, mn_size text_size, mn_uint32* out_match, mn_size* out_pos,
-    re__exec_dfa_run_flags run_flags)
+    re__exec_dfa_run_flags run_flags, re__exec* exec)
 {
   re_error err = RE_ERROR_NONE;
   if ((err = re__exec_dfa_cache_driver(
            cache, entry, (const mn_uint8*)text, text_size, start_pos, out_match,
-           out_pos, run_flags))) {
+           out_pos, run_flags, exec))) {
     goto error;
   }
 error:
@@ -460,7 +460,8 @@ re_error re_is_match(
     }
     return re__match_dfa_driver(
         &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
-        MN_NULL, MN_NULL, RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH);
+        MN_NULL, MN_NULL, RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH,
+        &reg->data->exec);
   } else if (anchor_type == RE_ANCHOR_START) {
     if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
       return err;
@@ -469,7 +470,8 @@ re_error re_is_match(
         &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
         MN_NULL, MN_NULL,
         RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
-            RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY);
+            RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY,
+        &reg->data->exec);
   } else if (anchor_type == RE_ANCHOR_END) {
     if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0, 0))) {
       return err;
@@ -479,7 +481,8 @@ re_error re_is_match(
         text_size, MN_NULL, MN_NULL,
         RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
             RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY |
-            RE__EXEC_DFA_RUN_FLAG_REVERSED);
+            RE__EXEC_DFA_RUN_FLAG_REVERSED,
+        &reg->data->exec);
   } else if (anchor_type == RE_UNANCHORED) {
     if ((err = re__match_prepare_progs(reg, 1, 0, 1, 0, 0))) {
       return err;
@@ -488,7 +491,8 @@ re_error re_is_match(
         &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, text, text_size,
         MN_NULL, MN_NULL,
         RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
-            RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY);
+            RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY,
+        &reg->data->exec);
   } else {
     return RE_ERROR_INVALID;
   }
@@ -507,7 +511,8 @@ re_error re_match_groups_set(
       }
       return re__match_dfa_driver(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
-          MN_NULL, MN_NULL, RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH);
+          MN_NULL, MN_NULL, RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH,
+          &reg->data->exec);
     } else if (anchor_type == RE_ANCHOR_START) {
       if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
         return err;
@@ -516,7 +521,8 @@ re_error re_match_groups_set(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
           MN_NULL, MN_NULL,
           RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
-              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY);
+              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY,
+          &reg->data->exec);
     } else if (anchor_type == RE_ANCHOR_END) {
       if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0, 0))) {
         return err;
@@ -526,7 +532,8 @@ re_error re_match_groups_set(
           text, text_size, MN_NULL, MN_NULL,
           RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
               RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY |
-              RE__EXEC_DFA_RUN_FLAG_REVERSED);
+              RE__EXEC_DFA_RUN_FLAG_REVERSED,
+          &reg->data->exec);
     } else if (anchor_type == RE_UNANCHORED) {
       if ((err = re__match_prepare_progs(reg, 1, 0, 1, 0, 0))) {
         return err;
@@ -535,7 +542,8 @@ re_error re_match_groups_set(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, text, text_size,
           MN_NULL, MN_NULL,
           RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
-              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY);
+              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY,
+          &reg->data->exec);
     } else {
       return RE_ERROR_INVALID;
     }
@@ -548,7 +556,7 @@ re_error re_match_groups_set(
       }
       match_err = re__match_dfa_driver(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
-          &out_match, &out_pos, 0);
+          &out_match, &out_pos, 0, &reg->data->exec);
       if (match_err == RE_MATCH) {
         if (out_pos != text_size) {
           err = RE_NOMATCH;
@@ -571,7 +579,7 @@ re_error re_match_groups_set(
       }
       match_err = re__match_dfa_driver(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
-          &out_match, &out_pos, 0);
+          &out_match, &out_pos, 0, &reg->data->exec);
       if (match_err == RE_MATCH) {
         if (max_group) {
           out_groups[0].begin = 0;
@@ -589,8 +597,8 @@ re_error re_match_groups_set(
       }
       match_err = re__match_dfa_driver(
           &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, text_size,
-          text, text_size, &out_match, &out_pos,
-          RE__EXEC_DFA_RUN_FLAG_REVERSED);
+          text, text_size, &out_match, &out_pos, RE__EXEC_DFA_RUN_FLAG_REVERSED,
+          &reg->data->exec);
       if (match_err == RE_MATCH) {
         if (max_group) {
           out_groups[0].begin = out_pos;
@@ -608,7 +616,7 @@ re_error re_match_groups_set(
       }
       match_err = re__match_dfa_driver(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, text, text_size,
-          &out_match, &out_pos, 0);
+          &out_match, &out_pos, 0, &reg->data->exec);
       if (match_err == RE_MATCH) {
         if (max_group) {
           out_groups[0].end = out_pos;
@@ -616,7 +624,7 @@ re_error re_match_groups_set(
           match_err = re__match_dfa_driver(
               &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, out_pos,
               text, text_size, &out_match, &out_pos,
-              RE__EXEC_DFA_RUN_FLAG_REVERSED);
+              RE__EXEC_DFA_RUN_FLAG_REVERSED, &reg->data->exec);
           /* should ALWAYS match. */
           if (match_err != RE_MATCH) {
             err = match_err;
