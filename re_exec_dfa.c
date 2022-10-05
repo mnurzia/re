@@ -70,13 +70,9 @@ MN__VEC_IMPL_FUNC(mn_uint32_ptr, push)
 MN__VEC_IMPL_FUNC(mn_uint32_ptr, size)
 MN__VEC_IMPL_FUNC(mn_uint32_ptr, get)
 
-MN_INTERNAL re_error
-re__exec_dfa_cache_init(re__exec_dfa_cache* cache, const re__prog* prog)
+MN_INTERNAL re_error re__exec_dfa_cache_init(re__exec_dfa_cache* cache)
 {
   re_error err = RE_ERROR_NONE;
-  re__exec_nfa_init(&cache->nfa);
-  re__exec_nfa_set_prog(&cache->nfa, prog);
-  re__exec_nfa_set_num_groups(&cache->nfa, 0);
   {
     int i;
     for (i = 0; i < RE__EXEC_DFA_START_STATE_COUNT * RE__PROG_ENTRY_MAX; i++) {
@@ -106,7 +102,6 @@ MN_INTERNAL void re__exec_dfa_cache_destroy(re__exec_dfa_cache* cache)
   if (cache->cache) {
     MN_FREE(cache->cache);
   }
-  re__exec_nfa_destroy(&cache->nfa);
   {
     mn_size i;
     for (i = 0; i < mn_uint32_ptr_vec_size(&cache->thrd_loc_pages); i++) {
@@ -255,10 +250,10 @@ re_error re__exec_dfa_cache_get_state(
     re__exec_dfa_state** out_state, re__exec* exec)
 {
   re_error err = RE_ERROR_NONE;
-  re__prog_loc thrds_size = re__exec_nfa_get_thrds_size(&cache->nfa);
-  const re__exec_thrd* thrds = re__exec_nfa_get_thrds(&cache->nfa);
-  mn_uint32 match_index = re__exec_nfa_get_match_index(&cache->nfa);
-  mn_uint32 match_priority = re__exec_nfa_get_match_priority(&cache->nfa);
+  re__prog_loc thrds_size = re__exec_nfa_get_thrds_size(&exec->nfa);
+  const re__exec_thrd* thrds = re__exec_nfa_get_thrds(&exec->nfa);
+  mn_uint32 match_index = re__exec_nfa_get_match_index(&exec->nfa);
+  mn_uint32 match_priority = re__exec_nfa_get_match_priority(&exec->nfa);
   mn_uint32 hash = 0;
   MN__UNUSED(exec);
   if (match_index) {
@@ -387,7 +382,7 @@ MN_INTERNAL re_error re__exec_dfa_cache_construct_start(
     if (start_state_flags & RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT) {
       dfa_flags |= RE__EXEC_DFA_FLAG_BEGIN_TEXT;
     }
-    if ((err = re__exec_nfa_start(&cache->nfa, entry))) {
+    if ((err = re__exec_nfa_start(&exec->nfa, entry))) {
       goto error;
     }
     if ((err = re__exec_dfa_cache_get_state(
@@ -427,12 +422,12 @@ MN_INTERNAL re_error re__exec_dfa_cache_construct(
     assert_ctx |= RE__ASSERT_TYPE_TEXT_START_ABSOLUTE;
   }
   re__exec_nfa_set_thrds(
-      &cache->nfa, state->thrd_locs_begin,
+      &exec->nfa, state->thrd_locs_begin,
       (re__prog_loc)(state->thrd_locs_end - state->thrd_locs_begin));
-  re__exec_nfa_set_match_index(&cache->nfa, state->match_index);
+  re__exec_nfa_set_match_index(&exec->nfa, state->match_index);
   re__exec_nfa_set_match_priority(
-      &cache->nfa, state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
-  if ((err = re__exec_nfa_run_byte(&cache->nfa, assert_ctx, symbol, 0))) {
+      &exec->nfa, state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+  if ((err = re__exec_nfa_run_byte(&exec->nfa, assert_ctx, symbol, 0))) {
     return err;
   }
   if (re__is_word_char(symbol)) {

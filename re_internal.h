@@ -1375,7 +1375,6 @@ typedef enum re__exec_dfa_start_state_flags {
 } re__exec_dfa_start_state_flags;
 
 typedef struct re__exec_dfa_cache {
-  re__exec_nfa nfa;
   re__exec_dfa_state_ptr
       start_states[RE__EXEC_DFA_START_STATE_COUNT * RE__PROG_ENTRY_MAX];
   re__exec_dfa_state_ptr_vec state_pages;
@@ -1401,8 +1400,7 @@ typedef enum re__exec_dfa_run_flags {
 
 typedef struct re__exec re__exec;
 
-MN_INTERNAL re_error
-re__exec_dfa_cache_init(re__exec_dfa_cache* cache, const re__prog* prog);
+MN_INTERNAL re_error re__exec_dfa_cache_init(re__exec_dfa_cache* cache);
 MN_INTERNAL void re__exec_dfa_cache_destroy(re__exec_dfa_cache* cache);
 re_error re__exec_dfa_cache_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, const mn_uint8* text,
@@ -1448,6 +1446,8 @@ MN_INTERNAL int
 re__exec_reserve(re__exec* match_data, mn_uint32 max_group, mn_uint32 max_set);
 MN_INTERNAL re_span* re__exec_get_spans(re__exec* exec);
 MN_INTERNAL mn_uint32* re__exec_get_set_indexes(re__exec* exec);
+MN_INTERNAL void
+re__exec_prepare(re__exec* match_data, re__prog* prog, mn_uint32 max_group);
 
 /* Internal data structure */
 struct re_data {
