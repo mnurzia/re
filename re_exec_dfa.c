@@ -434,6 +434,19 @@ re__exec_dfa_construct_end(re__exec* exec, re__exec_dfa_state_ptr current_state)
   return re__exec_dfa_construct(exec, current_state, RE__EXEC_SYM_EOT);
 }
 
+void re__exec_dfa_temp_save(
+    re__exec* exec, re__exec_dfa_state_ptr current_state)
+{
+  re__exec_nfa_set_thrds(
+      &exec->nfa, current_state->thrd_locs_begin,
+      (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
+  re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
+  re__exec_nfa_set_match_priority(
+      &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+  exec->dfa_state_flags = current_state->flags;
+  exec->dfa_state_hash = current_state->hash;
+}
+
 re__exec_dfa_state_ptr
 re__exec_dfa_cache_lookup(re__exec_dfa_cache* cache, re__exec* exec)
 {
@@ -607,7 +620,7 @@ re_error re__exec_dfa_cache_driver(
           }
           /* Cache the state */
           if ((err = re__exec_dfa_cache_get_state(cache, &next_state, exec))) {
-            goto reader_exit;
+            goto writer_error;
           }
           /* Write back to the current state */
           current_state->next[*start] = next_state;
@@ -649,6 +662,27 @@ re_error re__exec_dfa_cache_driver(
         start++;
       }
       block_idx++;
+      if (locked) {
+        if (block_idx == RE__EXEC_DFA_LOCK_BLOCK_SIZE) {
+          re__exec_dfa_temp_save(exec, current_state);
+          /* Let the writers breathe */
+          re__exec_dfa_crit_reader_exit(cache);
+          re__exec_dfa_crit_reader_enter(cache);
+          current_state = re__exec_dfa_cache_lookup(cache, exec);
+          while (!current_state) {
+            /* Switch to writer */
+            re__exec_dfa_crit_reader_exit(cache);
+            re__exec_dfa_crit_writer_enter(cache);
+            if ((err = re__exec_dfa_cache_get_state(
+                     cache, &current_state, exec))) {
+              goto writer_error;
+            }
+            re__exec_dfa_crit_writer_exit(cache);
+            re__exec_dfa_crit_reader_enter(cache);
+            current_state = re__exec_dfa_cache_lookup(cache, exec);
+          }
+        }
+      }
       /*
       if (locked) {
         if (block_idx == RE__EXEC_DFA_LOCK_BLOCK_SIZE) {
@@ -694,7 +728,7 @@ re_error re__exec_dfa_cache_driver(
         }
         /* Cache the state */
         if ((err = re__exec_dfa_cache_get_state(cache, &next_state, exec))) {
-          goto reader_exit;
+          goto writer_error;
         }
         /* Write back to the current state */
         current_state->next[RE__EXEC_SYM_EOT] = next_state;
