@@ -1392,6 +1392,13 @@ typedef struct re__exec_dfa_cache {
 #endif
 } re__exec_dfa_cache;
 
+typedef enum re__exec_dfa_run_flags {
+  RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH = 1,
+  RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY = 2,
+  RE__EXEC_DFA_RUN_FLAG_REVERSED = 4,
+  RE__EXEC_DFA_RUN_FLAG_LOCKED = 8
+} re__exec_dfa_run_flags;
+
 MN_INTERNAL re_error
 re__exec_dfa_cache_init(re__exec_dfa_cache* cache, const re__prog* prog);
 MN_INTERNAL void re__exec_dfa_cache_destroy(re__exec_dfa_cache* cache);
@@ -1406,10 +1413,9 @@ MN_INTERNAL re_error re__exec_dfa_cache_construct_end(
     re__exec_dfa_cache* cache, re__exec_dfa_state_ptr state,
     re__exec_dfa_state_ptr* out);
 re_error re__exec_dfa_cache_driver(
-    re__exec_dfa_cache* cache, re__prog_entry entry, int boolean_match,
-    int boolean_match_exit_early, int reversed, const mn_uint8* text,
+    re__exec_dfa_cache* cache, re__prog_entry entry, const mn_uint8* text,
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
-    mn_size* out_pos, int locked);
+    mn_size* out_pos, re__exec_dfa_run_flags run_flags);
 
 #if RE_USE_THREAD
 typedef struct re__exec_dfa_state_id {

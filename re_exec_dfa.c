@@ -519,15 +519,19 @@ void re__exec_dfa_crit_writer_exit(re__exec_dfa_cache* cache)
  * - Boolean match (check priority bit or not)
  * - Can exit early from boolean matches */
 re_error re__exec_dfa_cache_driver(
-    re__exec_dfa_cache* cache, re__prog_entry entry, int boolean_match,
-    int boolean_match_exit_early, int reversed, const mn_uint8* text,
+    re__exec_dfa_cache* cache, re__prog_entry entry, const mn_uint8* text,
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
-    mn_size* out_pos, int locked)
+    mn_size* out_pos, re__exec_dfa_run_flags run_flags)
 {
   re__exec_dfa_start_state_flags start_state_flags = 0;
   re_error err = RE_ERROR_NONE;
   re__exec_dfa_state* current_state;
   re__exec_dfa_state_id current_state_id = {0};
+  int boolean_match = run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH;
+  int boolean_match_exit_early =
+      run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY;
+  int reversed = run_flags & RE__EXEC_DFA_RUN_FLAG_REVERSED;
+  int locked = run_flags & RE__EXEC_DFA_RUN_FLAG_LOCKED;
 #if !RE_USE_THREAD
   /* invoke DCE */
   locked = 0;
