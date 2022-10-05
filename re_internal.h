@@ -1258,8 +1258,9 @@ typedef struct re__exec_nfa {
   re__exec_save save_slots;
 } re__exec_nfa;
 
-MN_INTERNAL void re__exec_nfa_init(
-    re__exec_nfa* exec, const re__prog* prog, mn_uint32 num_groups);
+MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, mn_uint32 num_groups);
+MN_INTERNAL void
+re__exec_nfa_set_prog(re__exec_nfa* exec, const re__prog* prog);
 MN_INTERNAL re__prog_loc re__exec_nfa_get_thrds_size(re__exec_nfa* exec);
 MN_INTERNAL const re__exec_thrd* re__exec_nfa_get_thrds(re__exec_nfa* exec);
 MN_INTERNAL void re__exec_nfa_set_thrds(

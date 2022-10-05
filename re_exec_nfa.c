@@ -281,16 +281,20 @@ MN__VEC_IMPL_FUNC(re__exec_thrd, pop)
 MN__VEC_IMPL_FUNC(re__exec_thrd, clear)
 MN__VEC_IMPL_FUNC(re__exec_thrd, size)
 
-MN_INTERNAL void re__exec_nfa_init(
-    re__exec_nfa* exec, const re__prog* prog, mn_uint32 num_groups)
+MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, mn_uint32 num_groups)
 {
-  exec->prog = prog;
+  exec->prog = NULL;
   exec->num_groups = num_groups;
   re__exec_thrd_set_init(&exec->set_a);
   re__exec_thrd_set_init(&exec->set_b);
   re__exec_thrd_set_init(&exec->set_c);
   re__exec_thrd_vec_init(&exec->thrd_stk);
   re__exec_save_init(&exec->save_slots);
+}
+
+MN_INTERNAL void re__exec_nfa_set_prog(re__exec_nfa* exec, const re__prog* prog)
+{
+  exec->prog = prog;
 }
 
 MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec)
@@ -359,8 +363,10 @@ MN_INTERNAL re_error
 re__exec_nfa_start(re__exec_nfa* exec, re__prog_entry entry)
 {
   re_error err = RE_ERROR_NONE;
-  re__prog_loc set_size = re__prog_size(exec->prog);
+  re__prog_loc set_size;
   re__exec_thrd initial;
+  MN_ASSERT(exec->prog);
+  set_size = re__prog_size(exec->prog);
   re__exec_save_start(&exec->save_slots);
   if (exec->num_groups < 1) {
     re__exec_save_set_slots_per_thrd(&exec->save_slots, 0);
@@ -476,6 +482,7 @@ MN_INTERNAL re_error re__exec_nfa_run_byte(
 {
   re_error err = RE_ERROR_NONE;
   re__prog_loc i;
+  MN_ASSERT(exec->prog);
   if ((err = re__exec_nfa_run_follow(exec, assert_type, pos))) {
     return err;
   }

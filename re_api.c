@@ -615,7 +615,8 @@ re_error re_match_groups_set(
   } else {
     re__exec_nfa exec_nfa;
     mn__str_view string_view;
-    re__exec_nfa_init(&exec_nfa, &reg->data->program, max_group + 1);
+    re__exec_nfa_init(&exec_nfa, max_group + 1);
+    re__exec_nfa_set_prog(&exec_nfa, &reg->data->program);
     mn__str_view_init_n(&string_view, text, text_size);
     {
       mn_size pos;

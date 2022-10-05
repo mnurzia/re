@@ -74,7 +74,8 @@ MN_INTERNAL re_error
 re__exec_dfa_cache_init(re__exec_dfa_cache* cache, const re__prog* prog)
 {
   re_error err = RE_ERROR_NONE;
-  re__exec_nfa_init(&cache->nfa, prog, 0);
+  re__exec_nfa_init(&cache->nfa, 0);
+  re__exec_nfa_set_prog(&cache->nfa, prog);
   {
     int i;
     for (i = 0; i < RE__EXEC_DFA_START_STATE_COUNT * RE__PROG_ENTRY_MAX; i++) {
