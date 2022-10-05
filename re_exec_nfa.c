@@ -281,10 +281,10 @@ MN__VEC_IMPL_FUNC(re__exec_thrd, pop)
 MN__VEC_IMPL_FUNC(re__exec_thrd, clear)
 MN__VEC_IMPL_FUNC(re__exec_thrd, size)
 
-MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, mn_uint32 num_groups)
+MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec)
 {
   exec->prog = NULL;
-  exec->num_groups = num_groups;
+  exec->num_groups = 0;
   re__exec_thrd_set_init(&exec->set_a);
   re__exec_thrd_set_init(&exec->set_b);
   re__exec_thrd_set_init(&exec->set_c);
@@ -295,6 +295,12 @@ MN_INTERNAL void re__exec_nfa_init(re__exec_nfa* exec, mn_uint32 num_groups)
 MN_INTERNAL void re__exec_nfa_set_prog(re__exec_nfa* exec, const re__prog* prog)
 {
   exec->prog = prog;
+}
+
+MN_INTERNAL void
+re__exec_nfa_set_num_groups(re__exec_nfa* exec, mn_uint32 num_groups)
+{
+  exec->num_groups = num_groups;
 }
 
 MN_INTERNAL void re__exec_nfa_destroy(re__exec_nfa* exec)
