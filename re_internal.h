@@ -1392,10 +1392,16 @@ typedef struct re__exec_dfa_cache {
 } re__exec_dfa_cache;
 
 typedef enum re__exec_dfa_run_flags {
+  /* Just check for a match or not */
   RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH = 1,
+  /* Can we exit early and return a partial match (i.e., the wrong priority?) */
   RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY = 2,
+  /* Run the DFA backwards (must provide prog_reverse) */
   RE__EXEC_DFA_RUN_FLAG_REVERSED = 4,
-  RE__EXEC_DFA_RUN_FLAG_LOCKED = 8
+  /* Run the DFA with locks (multi-threaded context) */
+  RE__EXEC_DFA_RUN_FLAG_LOCKED = 8,
+  /* Dump thread info to the exec structure at the end of the run */
+  RE__EXEC_DFA_RUN_FLAG_DUMP_SET = 16
 } re__exec_dfa_run_flags;
 
 typedef struct re__exec re__exec;

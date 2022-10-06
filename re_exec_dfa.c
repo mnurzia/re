@@ -508,24 +508,37 @@ re_error re__exec_dfa_cache_driver(
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
     mn_size* out_pos, re__exec_dfa_run_flags run_flags, re__exec* exec)
 {
-  re__exec_dfa_start_state_flags start_state_flags = 0;
   re_error err = RE_ERROR_NONE;
   re__exec_dfa_state* current_state;
+  /* Cache int flags here */
   int boolean_match = run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH;
   int boolean_match_exit_early =
       run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY;
   int reversed = run_flags & RE__EXEC_DFA_RUN_FLAG_REVERSED;
   int locked = run_flags & RE__EXEC_DFA_RUN_FLAG_LOCKED;
+  re__exec_dfa_start_state_flags start_state_flags = 0;
   unsigned int start_state_idx;
+  /* Obvious OOB check */
+  MN_ASSERT(text_start_pos <= text_size);
+  /* Boolean matches never return a match index */
+  MN_ASSERT(MN__IMPLIES(boolean_match, out_match == MN_NULL));
+  /* Boolean matches never return a position */
+  MN_ASSERT(MN__IMPLIES(boolean_match, out_pos == MN_NULL));
+  /* Keep flags normalized, this one isn't strictly necessary */
+  MN_ASSERT(MN__IMPLIES(!boolean_match, boolean_match_exit_early == 0));
 #if !RE_USE_THREAD
   /* invoke DCE */
   locked = 0;
 #endif
+  /* Determine the start state flags for construction */
   if (!reversed) {
+    /* Forward execution */
     if (text_start_pos == 0) {
+      /* Absolute start */
       start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
                            RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
     } else {
+      /* After word / line character (cannot occur at start) */
       start_state_flags |=
           (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
            re__is_word_char((unsigned char)(text[text_start_pos - 1])));
@@ -534,10 +547,13 @@ re_error re__exec_dfa_cache_driver(
           (unsigned int)(text[text_start_pos - 1] == '\n');
     }
   } else {
+    /* Reversed execution */
     if (text_start_pos == text_size) {
+      /* Absolute end */
       start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
                            RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
     } else {
+      /* After word / line character (cannot occur at end) */
       start_state_flags |=
           (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
            re__is_word_char((unsigned char)(text[text_start_pos])));
@@ -546,18 +562,21 @@ re_error re__exec_dfa_cache_driver(
           (unsigned int)(text[text_start_pos] == '\n');
     }
   }
+  /* Compute index into cache->start_states */
   start_state_idx =
       start_state_flags + (entry * RE__EXEC_DFA_START_STATE_COUNT);
   if (locked) {
+    /* Hold cache as a reader */
     re__exec_dfa_crit_reader_enter(cache);
   }
   if (!cache->start_states[start_state_idx]) {
-    do {
-      /* Need to construct start state */
-      if ((err =
-               re__exec_dfa_construct_start(exec, entry, start_state_flags))) {
-        goto reader_exit;
-      }
+    /* Need to construct start state */
+    /* Use NFA to construct, this can be done in reader thread */
+    if ((err = re__exec_dfa_construct_start(exec, entry, start_state_flags))) {
+      goto reader_exit;
+    }
+    do { /* Analagous to a compare-swap loop, kinda? */
+      /* Construction complete */
       if (locked) {
         /* Switch to writer */
         re__exec_dfa_crit_reader_exit(cache);
@@ -578,22 +597,30 @@ re_error re__exec_dfa_cache_driver(
       /* Keep trying to get the state */
     } while (locked && !current_state);
   } else {
-    /* Grab start state, it's ready */
+    /* Grab start state, it's ready - no need to write to cache */
     current_state = cache->start_states[start_state_idx];
   }
-  MN_ASSERT(text_start_pos <= text_size);
-  MN_ASSERT(MN__IMPLIES(boolean_match, out_match == MN_NULL));
-  MN_ASSERT(MN__IMPLIES(boolean_match, out_pos == MN_NULL));
-  MN_ASSERT(MN__IMPLIES(!boolean_match, boolean_match_exit_early == 0));
   {
+    /* -- Main loop -- */
+    /* Current processed character */
     const mn_uint8* start;
+    /* The last location a match was found */
     const mn_uint8* last_found_start;
+    /* Final character (!reversed ? start + text_size : start - text_size) */
     const mn_uint8* end;
+    /* Set to the position that will be returned */
     const mn_uint8* loop_out_pos;
+    /* Last match index, correlates with last_found_start */
     mn_uint32 last_found_match = 0;
+    /* Set to the match index that will be returned */
     mn_uint32 loop_out_index;
+    /* For threading: How many characters have been processed since the last
+     * time the writers were allowed to breathe */
     mn_uint32 block_idx = 0;
+    /* Next state (temporary variable) */
     re__exec_dfa_state_ptr next_state;
+
+    /* Compute start/end locations */
     start = text + text_start_pos;
     if (!reversed) {
       end = text + text_size;
@@ -601,18 +628,20 @@ re_error re__exec_dfa_cache_driver(
       end = text;
     }
     while (1) {
+      /* Break if done */
       if (start == end) {
         break;
       }
+      /* Pre-decrement if we're reversing (this is how it's done) */
       if (reversed) {
         start--;
       }
       if (!(next_state = current_state->next[*start])) {
+        /* Need to construct next state */
+        if ((err = re__exec_dfa_construct(exec, current_state, *start))) {
+          goto reader_exit;
+        }
         do {
-          /* Need to construct next state */
-          if ((err = re__exec_dfa_construct(exec, current_state, *start))) {
-            goto reader_exit;
-          }
           if (locked) {
             /* Switch to writer */
             re__exec_dfa_crit_reader_exit(cache);
@@ -632,25 +661,32 @@ re_error re__exec_dfa_cache_driver(
           }
         } while (locked && !next_state);
       }
+      /* Advance state */
       current_state = next_state;
       if (boolean_match) {
         if (boolean_match_exit_early) {
           if (re__exec_dfa_state_is_match(current_state)) {
+            /* We found *a* match, but not *the* match. Doesn't matter though,
+             * all we need to do is report if there is *a* match. */
             err = RE_MATCH;
             goto loop_exit_match;
           }
         }
       } else {
         if (re__exec_dfa_state_is_match(current_state)) {
+          /* Record the index of this match and its starting position */
           last_found_match = re__exec_dfa_state_get_match_index(current_state);
           last_found_start = start;
           if (re__exec_dfa_state_is_priority(current_state)) {
+            /* If this is the highest-priority match, then we can exit */
             loop_out_pos = last_found_start;
             loop_out_index = last_found_match;
             err = RE_MATCH;
             goto loop_exit_match;
           } else if (
               re__exec_dfa_state_is_empty(current_state) && last_found_match) {
+            /* OR, if there are no more threads left, and we previously found a
+             * match, we can exit */
             loop_out_pos = last_found_start;
             loop_out_index = last_found_match;
             err = RE_MATCH;
@@ -658,11 +694,14 @@ re_error re__exec_dfa_cache_driver(
           }
         }
       }
+      /* Forwards-running: increment text pointer */
       if (!reversed) {
         start++;
       }
-      block_idx++;
       if (locked) {
+        /* Writer anti-starvation logic, in theory, this should allow writers
+         * to get a chance at the cache */
+        block_idx++;
         if (block_idx == RE__EXEC_DFA_LOCK_BLOCK_SIZE) {
           re__exec_dfa_temp_save(exec, current_state);
           /* Let the writers breathe */
@@ -684,16 +723,20 @@ re_error re__exec_dfa_cache_driver(
           block_idx = 0;
         }
       }
-    }
+    } /* end main loop */
+    /* If we exited this loop normally, no suitable match was ever found. */
     err = RE_ERROR_NOMATCH;
   loop_exit_match:
     if (err == RE_MATCH) {
       /* Exited early */
       if (boolean_match) {
+        /* Boolean: we can just head out and report *a* match */
         goto reader_exit;
       } else {
+        /* These asserts ensure we can cast to mn_size in the following lines */
         MN_ASSERT(loop_out_pos >= text);
         MN_ASSERT(loop_out_pos < text + text_size);
+        /* Normalize the out position */
         if (!reversed) {
           *out_pos = (mn_size)(loop_out_pos - text);
         } else {
@@ -703,14 +746,17 @@ re_error re__exec_dfa_cache_driver(
         goto reader_exit;
       }
     } else if (err != RE_ERROR_NOMATCH) {
+      /* Some other error occurred - report that */
       goto reader_exit;
     }
+    /* If we are here, err = RE_ERROR_NOMATCH, and we will try to execute the
+     * end state */
     if (!(next_state = current_state->next[RE__EXEC_SYM_EOT])) {
+      /* Need to construct next state */
+      if ((err = re__exec_dfa_construct_end(exec, current_state))) {
+        goto reader_exit;
+      }
       do {
-        /* Need to construct next state */
-        if ((err = re__exec_dfa_construct_end(exec, current_state))) {
-          goto reader_exit;
-        }
         if (locked) {
           /* Switch to writer */
           re__exec_dfa_crit_reader_exit(cache);
@@ -732,23 +778,30 @@ re_error re__exec_dfa_cache_driver(
     }
     current_state = next_state;
     if (re__exec_dfa_state_is_match(current_state)) {
+      /* Matched on the end state */
       if (!boolean_match) {
+        /* Works for both reverse and forwards */
         *out_pos = (mn_size)(end - text);
         *out_match = re__exec_dfa_state_get_match_index(current_state);
       }
       err = RE_MATCH;
       goto reader_exit;
     } else {
+      /* Didn't match on the end state */
       err = RE_NOMATCH;
       goto reader_exit;
     }
   }
+  /* Unreachable fallthrough - all previous branches go to reader_exit */
 writer_error:
+  /* This label is only reached if we encounter an error during a writer crit */
   if (locked) {
     re__exec_dfa_crit_writer_exit(cache);
   }
   return err;
 reader_exit:
+  /* This label is only reached if we wish to leave OR encounter an error during
+   * a reader crit */
   if (locked) {
     re__exec_dfa_crit_reader_exit(cache);
   }
