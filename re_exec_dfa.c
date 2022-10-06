@@ -499,10 +499,12 @@ void re__exec_dfa_crit_writer_exit(re__exec_dfa_cache* cache)
 
 #define RE__EXEC_DFA_LOCK_BLOCK_SIZE 32
 
-/* Need to keep track of:
- * - Reversed
- * - Boolean match (check priority bit or not)
- * - Can exit early from boolean matches */
+/* In its current state, the DFA relies pretty heavily on speculative execution
+ * because it checks all flags at its most inner loop. On a Mac M1, the CPU does
+ * a really good job, other processors may vary. I could do what RE2 did and
+ * rewrite inlined versions of this loop, but I'd prefer not to and if I did it
+ * would probably involve code-gen (Python scripts generating C) rather than
+ * using macros or something. */
 re_error re__exec_dfa_cache_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, const mn_uint8* text,
     mn_size text_size, mn_size text_start_pos, mn_uint32* out_match,
