@@ -362,13 +362,23 @@ err_destroy_dfa:
 
 #endif
 
+MN__VEC_IMPL_FUNC(re_span, init)
+MN__VEC_IMPL_FUNC(re_span, destroy)
+MN__VEC_IMPL_FUNC(re_span, reserve)
+MN__VEC_IMPL_FUNC(re_span, get_data)
+
+MN__VEC_IMPL_FUNC(mn_uint32, init)
+MN__VEC_IMPL_FUNC(mn_uint32, destroy)
+MN__VEC_IMPL_FUNC(mn_uint32, reserve)
+MN__VEC_IMPL_FUNC(mn_uint32, get_data)
+
 MN_INTERNAL void re__exec_init(re__exec* exec, re* reg)
 {
   exec->reg = reg;
-  exec->spans = NULL;
-  exec->set_indexes = NULL;
-  exec->max_span = 0;
-  exec->max_set = 0;
+  exec->num_groups = 0;
+  exec->num_sets = 0;
+  re_span_vec_init(&exec->spans);
+  mn_uint32_vec_init(&exec->set_indexes);
   exec->compile_status = 0;
   re__exec_nfa_init(&exec->nfa);
   exec->dfa_state_hash = 0;
@@ -379,55 +389,41 @@ MN_INTERNAL void re__exec_init(re__exec* exec, re* reg)
 
 MN_INTERNAL void re__exec_destroy(re__exec* exec)
 {
-  if (exec->spans) {
-    MN_FREE(exec->spans);
-  }
-  if (exec->set_indexes) {
-    MN_FREE(exec->set_indexes);
-  }
+  re_span_vec_destroy(&exec->spans);
+  mn_uint32_vec_destroy(&exec->set_indexes);
   re__exec_nfa_destroy(&exec->nfa);
 }
 
 MN_INTERNAL re_error
 re__exec_reserve(re__exec* exec, mn_uint32 max_group, mn_uint32 max_set)
 {
-  if (max_group * max_set > exec->max_span) {
-    re_span* new_spans;
-    if (!exec->spans) {
-      new_spans = MN_MALLOC(sizeof(re_span) * max_group * max_set);
-    } else {
-      new_spans =
-          MN_REALLOC(exec->spans, sizeof(re_span) * max_group * max_set);
-    }
-    if (!new_spans) {
-      return RE_ERROR_NOMEM;
-    }
-    exec->spans = new_spans;
-    exec->max_span = max_group * max_set;
+  re_error err = RE_ERROR_NONE;
+  exec->num_groups = max_group;
+  exec->num_sets = max_set;
+  if ((err = re_span_vec_reserve(
+           &exec->spans, exec->num_groups * exec->num_sets))) {
+    return err;
   }
-  if (max_set > exec->max_set) {
-    mn_uint32* new_sets;
-    if (!exec->set_indexes) {
-      new_sets = MN_MALLOC(sizeof(mn_uint32) * max_set);
-    } else {
-      new_sets = MN_REALLOC(exec->set_indexes, sizeof(mn_uint32) * max_set);
-    }
-    if (!new_sets) {
-      return RE_ERROR_NOMEM;
-    }
-    exec->set_indexes = new_sets;
-    exec->max_set = max_set;
+  if ((err = mn_uint32_vec_reserve(&exec->set_indexes, exec->num_sets))) {
+    return err;
   }
-  mn__memset(exec->spans, 0, sizeof(re_span) * exec->max_span);
-  mn__memset(exec->set_indexes, 0, sizeof(re_span) * exec->max_set);
+  mn__memset(
+      re_span_vec_get_data(&exec->spans), 0,
+      sizeof(re_span) * exec->num_groups);
+  mn__memset(
+      mn_uint32_vec_get_data(&exec->set_indexes), 0,
+      sizeof(mn_uint32) * exec->num_sets);
   return RE_ERROR_NONE;
 }
 
-MN_INTERNAL re_span* re__exec_get_spans(re__exec* exec) { return exec->spans; }
+MN_INTERNAL re_span* re__exec_get_spans(re__exec* exec)
+{
+  return re_span_vec_get_data(&exec->spans);
+}
 
 MN_INTERNAL mn_uint32* re__exec_get_set_indexes(re__exec* exec)
 {
-  return exec->set_indexes;
+  return mn_uint32_vec_get_data(&exec->set_indexes);
 }
 
 MN_INTERNAL void

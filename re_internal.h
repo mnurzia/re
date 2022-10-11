@@ -1415,15 +1415,18 @@ re_error re__exec_dfa_cache_driver(
 MN_INTERNAL re_error re__match_prepare_progs(
     re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar, int locked);
 
+MN__VEC_DECL(re_span);
+MN__VEC_DECL(mn_uint32);
+
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
  * ------------------------------------------------------------------------ */
 struct re__exec {
   re* reg;
-  re_span* spans;
-  mn_uint32* set_indexes;
-  mn_uint32 max_span;
-  mn_uint32 max_set;
+  mn_uint32 num_groups;
+  mn_uint32 num_sets;
+  re_span_vec spans;
+  mn_uint32_vec set_indexes;
   mn_int32 compile_status;
   re__exec_nfa nfa;
   mn_uint32 dfa_state_hash;
