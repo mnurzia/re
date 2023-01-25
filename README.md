@@ -28,25 +28,6 @@ See `re_api.h` for details on the API.
 
 The design is mostly textbook, but notably contains an implementation for compiling charclasses that is very efficient. I developed an algorithm to compute the state-minimal NFA (in bytecode instruction format) of any set of UTF-8 ranges in linear time. See `re_compile_charclass.c` for more details. To my knowledge this has not been done anywhere else before.
 
-## Syntax
-
-| Syntax | Description |
-| ------ | ----------- |
-| `ab` | Concatenation | 
-| `a|b` | Alternation |
-| `a*` | 0 or more of `a` |
-| `a?` | 0 or 1 of `a` |
-| `a+` | 1 or more of `a` |
-| `$` | Text end (absolute) |
-| `()` | Capturing group |
-| `(?:` | Non-capturing group |
-| `(?U` | Ungreedy group (swap quantifier greediness) |
-| `(?i` | Case insensitive matching |
-| `(?m` | Multiline mode: `^$` match line boundaries |
-| `(?s` | Stream mode: `.` matches `\n` |
-| `(?P<` | Named capturing group |
-| `(?<` | Named capturing group |
-
 ## Architecture
 
 ### Frontend
