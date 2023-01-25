@@ -49,12 +49,12 @@ graph TD
 
 The parser originally was a state-based parser. This is ill-suited for the regular expression syntax, for multiple reasons:
 
-- Regex grammar is really complex. Representing complex grammars with a state machine creates a huge number of confusingly-named states that is hard to decipher
-- Regex grammar is really two separate grammars: base regular expression notation, and character class notation. These grammars are different enough that parsing them requires slightly different techniques and a more advanced state machine, yet they are similar enough (e.g. escape sequences) that separating this parsing completely would be a waste of code.
+- Regex grammar is really complex. Representing complex grammars with a state machine creates a huge number of confusingly-named states that are hard to decipher
+- Regex grammar is actually two separate grammars: base regular expression notation, and character class notation. These grammars are different enough that parsing them requires slightly different techniques and a more advanced state machine, yet they are similar enough (e.g. escape sequences) that separating this parsing completely would be a waste of code.
 - Future extensions to the grammar (for example, supporting unicode set notation) would require extensive modification to the state machine.
 - Implementing state machines by hand in C is very bug-prone (one has to consider all character possibilities for every state). They are also harder to test in this regard.
 
-For these reasons I felt like the small speed boost to parse a regex in _exactly_ linear time with a state machine was not worth it, and instead chose to rewrite it as a sort of modified recursive-descent parser that parses the string in linear time, with a few backtracks along the way.
+For these reasons I felt like the small speed boost to parse a regex in _exactly_ linear time with a state machine was not worth it, and instead chose to rewrite it as a sort of modified recursive-descent parser that parses the string in linear time, with a finite number of backtracks along the way. 
 
 A recursive descent parser is simpler to implement, but carries the added risk of allowing maliciously-crafted regexes to blow out the C stack if the parser is truly recursive. Therefore, my parser uses an explicit stack to track hierarchy in the regex. This has the added benefit of tracking how large the AST's depth will be, which helps the compiler be less complex.
 
