@@ -87,17 +87,18 @@ MN_API re_error re_is_match(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type);
 MN_API re_error re_match_groups(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
-    mn_uint32 max_group, re_span* out_groups);
+    mn_uint32 groups_size, re_span* out_groups);
 MN_API re_error re_match_groups_set(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
-    mn_uint32 max_group, re_span* out_groups, mn_uint32* out_set_index);
+    mn_uint32 groups_size, re_span* out_groups, mn_uint32* out_set_index);
 MN_API re_error re_match_groups_set_pri(
     re* reg, const char* text, mn_size text_size, re_anchor_type anchor_type,
-    mn_uint32 max_group, re_span* out_groups, mn_uint32** out_set_indexes,
+    mn_uint32 groups_size, re_span* out_groups, mn_uint32** out_set_indexes,
     mn_uint32* out_set_indexes_size);
 
-MN_API const char* re_get_error(const re* reg, mn_size* error_len);
-MN_API mn_uint32 re_get_max_groups(const re* reg);
+MN_API const char* re_error_str(const re* reg);
+MN_API const char* re_error_str_n(const re* reg, mn_size* error_len);
+MN_API mn_uint32 re_group_max(const re* reg);
 
 MN_API void re_destroy(re* reg);
 

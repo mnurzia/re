@@ -806,8 +806,39 @@ error:
   PASS();
 }
 
+TEST(t_match_set)
+{
+  re reg;
+  mn_uint32 set_idx = 0;
+  re_error err = RE_ERROR_NONE;
+  if (re_init_set(&reg)) {
+    re_destroy(&reg);
+    PASS();
+  }
+  if (re_set_add(&reg, "abc")) {
+    re_destroy(&reg);
+    PASS();
+  }
+  if (re_set_add(&reg, "def")) {
+    re_destroy(&reg);
+    PASS();
+  }
+  if ((err = re_match_groups_set(
+           &reg, "abc", 3, RE_UNANCHORED, 0, NULL, &set_idx)) == RE_MATCH) {
+    ASSERT_EQ(set_idx, 1);
+  } else if (err == RE_NOMATCH) {
+    FAIL();
+  } else {
+    re_destroy(&reg);
+    PASS();
+  }
+  re_destroy(&reg);
+  PASS();
+}
+
 SUITE(s_match)
 {
   RUN_SUITE(s_match_nogroups);
   RUN_TEST(t_match_long);
+  RUN_TEST(t_match_set);
 }

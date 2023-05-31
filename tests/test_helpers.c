@@ -1,6 +1,6 @@
 #include "test_helpers.h"
 
-re_rune re_rune_rand()
+re_rune re_rune_rand(void)
 {
   int cls = (int)RAND_PARAM(4);
   re_rune ch = 0;

@@ -17,8 +17,9 @@ int re__prog_test_equals(re__prog* a, re__prog* b)
   return 1;
 }
 
-const char* re__prog_inst_type_names[] = {
-    "byte", "byte_range", "split", "match", "fail", "save", "assert"};
+const char* re__prog_inst_type_names[] = {"byte",   "byte_range", "split",
+                                          "match",  "fail",       "save",
+                                          "assert", "partition"};
 
 int re__prog_inst_to_sym(sym_build* parent, re__prog_inst prog_inst)
 {
@@ -37,6 +38,8 @@ int re__prog_inst_to_sym(sym_build* parent, re__prog_inst prog_inst)
     SYM_PUT_NUM(&build, (mn_int32)re__prog_inst_get_save_idx(&prog_inst));
   } else if (inst_type == RE__PROG_INST_TYPE_ASSERT) {
     re__assert_type_to_sym(&build, re__prog_inst_get_assert_ctx(&prog_inst));
+  } else if (inst_type == RE__PROG_INST_TYPE_PARTITION) {
+    SYM_PUT_NUM(&build, (mn_int32)re__prog_inst_get_partition_idx(&prog_inst));
   }
   if (inst_type == RE__PROG_INST_TYPE_BYTE ||
       inst_type == RE__PROG_INST_TYPE_BYTE_RANGE ||
@@ -101,6 +104,10 @@ int re__prog_inst_from_sym(sym_walk* parent, re__prog_inst* prog_inst)
     re__assert_type assert_ctx;
     SYM_GET_SUB(&walk, re__assert_type, &assert_ctx);
     re__prog_inst_init_assert(prog_inst, (mn_uint32)assert_ctx);
+  } else if (inst_type == RE__PROG_INST_TYPE_PARTITION) {
+    mn_int32 part_idx;
+    SYM_GET_NUM(&walk, &part_idx);
+    re__prog_inst_init_partition(prog_inst, (mn_uint32)part_idx);
   }
   if (inst_type == RE__PROG_INST_TYPE_BYTE ||
       inst_type == RE__PROG_INST_TYPE_BYTE_RANGE ||

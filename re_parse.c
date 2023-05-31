@@ -82,6 +82,7 @@ MN_INTERNAL re_error re__parse_error(re__parse* parse, const char* err_chars)
     mn__str_destroy(&err_str);
     return err;
   }
+  mn__str_destroy(&err_str);
   return RE_ERROR_PARSE;
 }
 

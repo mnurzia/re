@@ -1,3 +1,6 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
 #if !defined(RE_H)
 #define RE_H
 
@@ -273,17 +276,18 @@ RE_API re_error re_is_match(
     re* reg, const char* text, re_size text_size, re_anchor_type anchor_type);
 RE_API re_error re_match_groups(
     re* reg, const char* text, re_size text_size, re_anchor_type anchor_type,
-    re_uint32 max_group, re_span* out_groups);
+    re_uint32 groups_size, re_span* out_groups);
 RE_API re_error re_match_groups_set(
     re* reg, const char* text, re_size text_size, re_anchor_type anchor_type,
-    re_uint32 max_group, re_span* out_groups, re_uint32* out_set_index);
+    re_uint32 groups_size, re_span* out_groups, re_uint32* out_set_index);
 RE_API re_error re_match_groups_set_pri(
     re* reg, const char* text, re_size text_size, re_anchor_type anchor_type,
-    re_uint32 max_group, re_span* out_groups, re_uint32** out_set_indexes,
+    re_uint32 groups_size, re_span* out_groups, re_uint32** out_set_indexes,
     re_uint32* out_set_indexes_size);
 
-RE_API const char* re_get_error(const re* reg, re_size* error_len);
-RE_API re_uint32 re_get_max_groups(const re* reg);
+RE_API const char* re_error_str(const re* reg);
+RE_API const char* re_error_str_n(const re* reg, re_size* error_len);
+RE_API re_uint32 re_group_max(const re* reg);
 
 RE_API void re_destroy(re* reg);
 
@@ -341,7 +345,7 @@ RE_API re_error re_mt_match_groups_set_pri(
 #define RE_INTERNAL_DATA static
 #else
 #define RE_INTERNAL_DATA_DECL extern
-#define RE_INTERNAL_DATA 
+#define RE_INTERNAL_DATA
 #endif
 
 /* bits/util/preproc/stringify */
@@ -349,17 +353,17 @@ RE_API re_error re_mt_match_groups_set_pri(
 #define RE__STRINGIFY(x) RE__STRINGIFY_0(x)
 
 /* bits/util/preproc/token_paste */
-#define RE__PASTE_0(a, b) a ## b
+#define RE__PASTE_0(a, b) a##b
 #define RE__PASTE(a, b) RE__PASTE_0(a, b)
 
 /* bits/util/static_assert */
-#define RE__STATIC_ASSERT(name, expr) char RE__PASTE(re__, name)[(expr)==1]
+#define RE__STATIC_ASSERT(name, expr) char RE__PASTE(re__, name)[(expr) == 1]
 
 /* bits/container/str */
 typedef struct re__str {
-    re_size _size_short; /* does not include \0 */
-    re_size _alloc;      /* does not include \0 */
-    re_char* _data;
+  re_size _size_short; /* does not include \0 */
+  re_size _alloc;      /* does not include \0 */
+  re_char* _data;
 } re__str;
 
 void re__str_init(re__str* str);
@@ -382,8 +386,8 @@ void re__str_cut_end(re__str* str, re_size new_size);
 
 /* bits/container/str_view */
 typedef struct re__str_view {
-    const re_char* _data;
-    re_size _size;
+  const re_char* _data;
+  re_size _size;
 } re__str_view;
 
 void re__str_view_init(re__str_view* view, const re__str* other);
@@ -398,7 +402,12 @@ int re__str_view_cmp(const re__str_view* a, const re__str_view* b);
 void re__memset(void* ptr, int value, re_size count);
 
 /* bits/util/swap */
-#define RE__SWAP(a, b, T) { T swap_temp_ = b; b = a; a = swap_temp_; }
+#define RE__SWAP(a, b, T)                                                      \
+  {                                                                            \
+    T swap_temp_ = b;                                                          \
+    b = a;                                                                     \
+    a = swap_temp_;                                                            \
+  }
 
 /* bits/util/unreached */
 #if !defined(RE__COVERAGE)
@@ -407,7 +416,7 @@ void re__memset(void* ptr, int value, re_size count);
 
 #else
 
-#define RE__ASSERT_UNREACHED() 
+#define RE__ASSERT_UNREACHED()
 
 #endif
 
@@ -419,30 +428,25 @@ RE_INTERNAL re_uint32
 re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len);
 
 /* bits/container/vec */
-#define RE__VEC_TYPE(T) \
-    RE__PASTE(T, _vec)
+#define RE__VEC_TYPE(T) RE__PASTE(T, _vec)
 
-#define RE__VEC_IDENT(T, name) \
-    RE__PASTE(T, RE__PASTE(_vec_, name))
+#define RE__VEC_IDENT(T, name) RE__PASTE(T, RE__PASTE(_vec_, name))
 
-#define RE__VEC_IDENT_INTERNAL(T, name) \
-    RE__PASTE(T, RE__PASTE(_vec__, name))
+#define RE__VEC_IDENT_INTERNAL(T, name) RE__PASTE(T, RE__PASTE(_vec__, name))
 
-#define RE__VEC_DECL_FUNC(T, func) \
-    RE__PASTE(RE__VEC_DECL_, func)(T)
+#define RE__VEC_DECL_FUNC(T, func) RE__PASTE(RE__VEC_DECL_, func)(T)
 
-#define RE__VEC_IMPL_FUNC(T, func) \
-    RE__PASTE(RE__VEC_IMPL_, func)(T)
+#define RE__VEC_IMPL_FUNC(T, func) RE__PASTE(RE__VEC_IMPL_, func)(T)
 
 #if RE_DEBUG
 
-#define RE__VEC_CHECK(vec) \
-    do { \
-        /* ensure size is not greater than allocation size */ \
-        RE_ASSERT(vec->_size <= vec->_alloc); \
-        /* ensure that data is not null if size is greater than 0 */ \
-        RE_ASSERT(vec->_size ? vec->_data != RE_NULL : 1); \
-    } while (0)
+#define RE__VEC_CHECK(vec)                                                     \
+  do {                                                                         \
+    /* ensure size is not greater than allocation size */                      \
+    RE_ASSERT(vec->_size <= vec->_alloc);                                      \
+    /* ensure that data is not null if size is greater than 0 */               \
+    RE_ASSERT(vec->_size ? vec->_data != RE_NULL : 1);                         \
+  } while (0)
 
 #else
 
@@ -450,117 +454,119 @@ re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len);
 
 #endif
 
-#define RE__VEC_DECL(T) \
-    typedef struct RE__VEC_TYPE(T) { \
-        re_size _size; \
-        re_size _alloc; \
-        T* _data; \
-    } RE__VEC_TYPE(T)
+#define RE__VEC_DECL(T)                                                        \
+  typedef struct RE__VEC_TYPE(T) {                                             \
+    re_size _size;                                                             \
+    re_size _alloc;                                                            \
+    T* _data;                                                                  \
+  } RE__VEC_TYPE(T)
 
-#define RE__VEC_DECL_init(T) \
-    void RE__VEC_IDENT(T, init)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_init(T) void RE__VEC_IDENT(T, init)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_init(T) \
-    void RE__VEC_IDENT(T, init)(RE__VEC_TYPE(T)* vec) { \
-        vec->_size = 0; \
-        vec->_alloc = 0; \
-        vec->_data = RE_NULL; \
-    } 
+#define RE__VEC_IMPL_init(T)                                                   \
+  void RE__VEC_IDENT(T, init)(RE__VEC_TYPE(T) * vec)                           \
+  {                                                                            \
+    vec->_size = 0;                                                            \
+    vec->_alloc = 0;                                                           \
+    vec->_data = RE_NULL;                                                      \
+  }
 
-#define RE__VEC_DECL_destroy(T) \
-    void RE__VEC_IDENT(T, destroy)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_destroy(T)                                                \
+  void RE__VEC_IDENT(T, destroy)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_destroy(T) \
-    void RE__VEC_IDENT(T, destroy)(RE__VEC_TYPE(T)* vec) { \
-        RE__VEC_CHECK(vec); \
-        if (vec->_data != RE_NULL) { \
-            RE_FREE(vec->_data); \
-        } \
-    }
+#define RE__VEC_IMPL_destroy(T)                                                \
+  void RE__VEC_IDENT(T, destroy)(RE__VEC_TYPE(T) * vec)                        \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    if (vec->_data != RE_NULL) {                                               \
+      RE_FREE(vec->_data);                                                     \
+    }                                                                          \
+  }
 
-#define RE__VEC_GROW_ONE(T, vec) \
-    do { \
-        void* new_ptr; \
-        re_size new_alloc; \
-        if (vec->_size + 1 > vec->_alloc) { \
-            if (vec->_data == RE_NULL) { \
-                new_alloc = 1; \
-                new_ptr = (T*)RE_MALLOC(sizeof(T) * new_alloc); \
-            } else { \
-                new_alloc = vec->_alloc * 2; \
-                new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * new_alloc); \
-            } \
-            if (new_ptr == RE_NULL) { \
-                return -1; \
-            } \
-            vec->_alloc = new_alloc; \
-            vec->_data = new_ptr; \
-        } \
-        vec->_size = vec->_size + 1; \
-    } while (0)
+#define RE__VEC_GROW_ONE(T, vec)                                               \
+  do {                                                                         \
+    void* new_ptr;                                                             \
+    re_size new_alloc;                                                         \
+    if (vec->_size + 1 > vec->_alloc) {                                        \
+      if (vec->_data == RE_NULL) {                                             \
+        new_alloc = 1;                                                         \
+        new_ptr = (T*)RE_MALLOC(sizeof(T) * new_alloc);                        \
+      } else {                                                                 \
+        new_alloc = vec->_alloc * 2;                                           \
+        new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * new_alloc);           \
+      }                                                                        \
+      if (new_ptr == RE_NULL) {                                                \
+        return -1;                                                             \
+      }                                                                        \
+      vec->_alloc = new_alloc;                                                 \
+      vec->_data = new_ptr;                                                    \
+    }                                                                          \
+    vec->_size = vec->_size + 1;                                               \
+  } while (0)
 
-#define RE__VEC_GROW(T, vec, n) \
-    do { \
-        void* new_ptr; \
-        re_size new_alloc = vec->_alloc; \
-        re_size new_size = vec->_size + n; \
-        if (new_size > new_alloc) { \
-            if (new_alloc == 0) { \
-                new_alloc = 1; \
-            } \
-            while (new_alloc < new_size) { \
-                new_alloc *= 2; \
-            } \
-            if (vec->_data == RE_NULL) { \
-                new_ptr = (T*)RE_MALLOC(sizeof(T) * new_alloc); \
-            } else { \
-                new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * new_alloc); \
-            } \
-            if (new_ptr == RE_NULL) { \
-                return -1; \
-            } \
-            vec->_alloc = new_alloc; \
-            vec->_data = new_ptr; \
-        } \
-        vec->_size += n; \
-    } while (0)
+#define RE__VEC_GROW(T, vec, n)                                                \
+  do {                                                                         \
+    void* new_ptr;                                                             \
+    re_size new_alloc = vec->_alloc;                                           \
+    re_size new_size = vec->_size + n;                                         \
+    if (new_size > new_alloc) {                                                \
+      if (new_alloc == 0) {                                                    \
+        new_alloc = 1;                                                         \
+      }                                                                        \
+      while (new_alloc < new_size) {                                           \
+        new_alloc *= 2;                                                        \
+      }                                                                        \
+      if (vec->_data == RE_NULL) {                                             \
+        new_ptr = (T*)RE_MALLOC(sizeof(T) * new_alloc);                        \
+      } else {                                                                 \
+        new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * new_alloc);           \
+      }                                                                        \
+      if (new_ptr == RE_NULL) {                                                \
+        return -1;                                                             \
+      }                                                                        \
+      vec->_alloc = new_alloc;                                                 \
+      vec->_data = new_ptr;                                                    \
+    }                                                                          \
+    vec->_size += n;                                                           \
+  } while (0)
 
-#define RE__VEC_SETSIZE(T, vec, n) \
-    do { \
-        void* new_ptr; \
-        if (vec->_alloc < n) { \
-            if (vec->_data == RE_NULL) { \
-                new_ptr = (T*)RE_MALLOC(sizeof(T) * n); \
-            } else { \
-                new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * n); \
-            } \
-            if (new_ptr == RE_NULL) { \
-                return -1; \
-            } \
-            vec->_alloc = n; \
-            vec->_data = new_ptr; \
-        } \
-    } while (0)
+#define RE__VEC_SETSIZE(T, vec, n)                                             \
+  do {                                                                         \
+    void* new_ptr;                                                             \
+    if (vec->_alloc < n) {                                                     \
+      if (vec->_data == RE_NULL) {                                             \
+        new_ptr = (T*)RE_MALLOC(sizeof(T) * n);                                \
+      } else {                                                                 \
+        new_ptr = (T*)RE_REALLOC(vec->_data, sizeof(T) * n);                   \
+      }                                                                        \
+      if (new_ptr == RE_NULL) {                                                \
+        return -1;                                                             \
+      }                                                                        \
+      vec->_alloc = n;                                                         \
+      vec->_data = new_ptr;                                                    \
+    }                                                                          \
+  } while (0)
 
-#define RE__VEC_DECL_push(T) \
-    int RE__VEC_IDENT(T, push)(RE__VEC_TYPE(T)* vec, T elem)
+#define RE__VEC_DECL_push(T)                                                   \
+  int RE__VEC_IDENT(T, push)(RE__VEC_TYPE(T) * vec, T elem)
 
-#define RE__VEC_IMPL_push(T) \
-    int RE__VEC_IDENT(T, push)(RE__VEC_TYPE(T)* vec, T elem) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_GROW_ONE(T, vec); \
-        vec->_data[vec->_size - 1] = elem; \
-        RE__VEC_CHECK(vec); \
-        return 0; \
-    }
+#define RE__VEC_IMPL_push(T)                                                   \
+  int RE__VEC_IDENT(T, push)(RE__VEC_TYPE(T) * vec, T elem)                    \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_GROW_ONE(T, vec);                                                  \
+    vec->_data[vec->_size - 1] = elem;                                         \
+    RE__VEC_CHECK(vec);                                                        \
+    return 0;                                                                  \
+  }
 
 #if RE_DEBUG
 
-#define RE__VEC_CHECK_POP(vec) \
-    do { \
-        /* ensure that there is an element to pop */ \
-        RE_ASSERT(vec->_size > 0); \
-    } while (0)
+#define RE__VEC_CHECK_POP(vec)                                                 \
+  do {                                                                         \
+    /* ensure that there is an element to pop */                               \
+    RE_ASSERT(vec->_size > 0);                                                 \
+  } while (0)
 
 #else
 
@@ -568,313 +574,331 @@ re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len);
 
 #endif
 
-#define RE__VEC_DECL_pop(T) \
-    T RE__VEC_IDENT(T, pop)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_pop(T) T RE__VEC_IDENT(T, pop)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_pop(T) \
-    T RE__VEC_IDENT(T, pop)(RE__VEC_TYPE(T)* vec) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_POP(vec); \
-        return vec->_data[--vec->_size]; \
-    }
+#define RE__VEC_IMPL_pop(T)                                                    \
+  T RE__VEC_IDENT(T, pop)(RE__VEC_TYPE(T) * vec)                               \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_POP(vec);                                                    \
+    return vec->_data[--vec->_size];                                           \
+  }
 
-#define RE__VEC_DECL_cat(T) \
-    T RE__VEC_IDENT(T, cat)(RE__VEC_TYPE(T)* vec, RE__VEC_TYPE(T)* other)
+#define RE__VEC_DECL_cat(T)                                                    \
+  T RE__VEC_IDENT(T, cat)(RE__VEC_TYPE(T) * vec, RE__VEC_TYPE(T) * other)
 
-#define RE__VEC_IMPL_cat(T) \
-    int RE__VEC_IDENT(T, cat)(RE__VEC_TYPE(T)* vec, RE__VEC_TYPE(T)* other) { \
-        re_size i; \
-        re_size old_size = vec->_size; \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK(other); \
-        RE__VEC_GROW(T, vec, other->_size); \
-        for (i = 0; i < other->_size; i++) { \
-            vec->_data[old_size + i] = other->_data[i]; \
-        } \
-        RE__VEC_CHECK(vec); \
-        return 0; \
-    }
+#define RE__VEC_IMPL_cat(T)                                                    \
+  int RE__VEC_IDENT(T, cat)(RE__VEC_TYPE(T) * vec, RE__VEC_TYPE(T) * other)    \
+  {                                                                            \
+    re_size i;                                                                 \
+    re_size old_size = vec->_size;                                             \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK(other);                                                      \
+    RE__VEC_GROW(T, vec, other->_size);                                        \
+    for (i = 0; i < other->_size; i++) {                                       \
+      vec->_data[old_size + i] = other->_data[i];                              \
+    }                                                                          \
+    RE__VEC_CHECK(vec);                                                        \
+    return 0;                                                                  \
+  }
 
-#define RE__VEC_DECL_insert(T) \
-    int RE__VEC_IDENT(T, insert)(RE__VEC_TYPE(T)* vec, re_size index, T elem)
+#define RE__VEC_DECL_insert(T)                                                 \
+  int RE__VEC_IDENT(T, insert)(RE__VEC_TYPE(T) * vec, re_size index, T elem)
 
-#define RE__VEC_IMPL_insert(T) \
-    int RE__VEC_IDENT(T, insert)(RE__VEC_TYPE(T)* vec, re_size index, T elem) { \
-        re_size i; \
-        re_size old_size = vec->_size; \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_GROW_ONE(T, vec); \
-        if (old_size != 0) { \
-            for (i = old_size; i >= index + 1; i--) { \
-                vec->_data[i] = vec->_data[i - 1]; \
-            } \
-        } \
-        vec->_data[index] = elem; \
-        return 0; \
-    }
+#define RE__VEC_IMPL_insert(T)                                                 \
+  int RE__VEC_IDENT(T, insert)(RE__VEC_TYPE(T) * vec, re_size index, T elem)   \
+  {                                                                            \
+    re_size i;                                                                 \
+    re_size old_size = vec->_size;                                             \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_GROW_ONE(T, vec);                                                  \
+    if (old_size != 0) {                                                       \
+      for (i = old_size; i >= index + 1; i--) {                                \
+        vec->_data[i] = vec->_data[i - 1];                                     \
+      }                                                                        \
+    }                                                                          \
+    vec->_data[index] = elem;                                                  \
+    return 0;                                                                  \
+  }
 
-#define RE__VEC_DECL_peek(T) \
-    T RE__VEC_IDENT(T, peek)(const RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_peek(T)                                                   \
+  T RE__VEC_IDENT(T, peek)(const RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_peek(T) \
-    T RE__VEC_IDENT(T, peek)(const RE__VEC_TYPE(T)* vec) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_POP(vec); \
-        return vec->_data[vec->_size - 1]; \
-    }
+#define RE__VEC_IMPL_peek(T)                                                   \
+  T RE__VEC_IDENT(T, peek)(const RE__VEC_TYPE(T) * vec)                        \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_POP(vec);                                                    \
+    return vec->_data[vec->_size - 1];                                         \
+  }
 
-#define RE__VEC_DECL_clear(T) \
-    void RE__VEC_IDENT(T, clear)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_clear(T)                                                  \
+  void RE__VEC_IDENT(T, clear)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_clear(T) \
-    void RE__VEC_IDENT(T, clear)(RE__VEC_TYPE(T)* vec) { \
-        RE__VEC_CHECK(vec); \
-        vec->_size = 0; \
-    }
+#define RE__VEC_IMPL_clear(T)                                                  \
+  void RE__VEC_IDENT(T, clear)(RE__VEC_TYPE(T) * vec)                          \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    vec->_size = 0;                                                            \
+  }
 
-#define RE__VEC_DECL_size(T) \
-    re_size RE__VEC_IDENT(T, size)(const RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_size(T)                                                   \
+  re_size RE__VEC_IDENT(T, size)(const RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_size(T) \
-    re_size RE__VEC_IDENT(T, size)(const RE__VEC_TYPE(T)* vec) { \
-        return vec->_size; \
-    }
+#define RE__VEC_IMPL_size(T)                                                   \
+  re_size RE__VEC_IDENT(T, size)(const RE__VEC_TYPE(T) * vec)                  \
+  {                                                                            \
+    return vec->_size;                                                         \
+  }
 
 #if RE_DEBUG
 
-#define RE__VEC_CHECK_BOUNDS(vec, idx) \
-    do { \
-        /* ensure that idx is within bounds */ \
-        RE_ASSERT(idx < vec->_size); \
-    } while (0)
+#define RE__VEC_CHECK_BOUNDS(vec, idx)                                         \
+  do {                                                                         \
+    /* ensure that idx is within bounds */                                     \
+    RE_ASSERT(idx < vec->_size);                                               \
+  } while (0)
 
 #else
 
-#define RE__VEC_CHECK_BOUNDS(vec, idx) \
-    do { \
-        RE__UNUSED(vec); \
-        RE__UNUSED(idx); \
-    } while (0) 
+#define RE__VEC_CHECK_BOUNDS(vec, idx)                                         \
+  do {                                                                         \
+    RE__UNUSED(vec);                                                           \
+    RE__UNUSED(idx);                                                           \
+  } while (0)
 
 #endif
 
-#define RE__VEC_DECL_get(T) \
-    T RE__VEC_IDENT(T, get)(const RE__VEC_TYPE(T)* vec, re_size idx)
+#define RE__VEC_DECL_get(T)                                                    \
+  T RE__VEC_IDENT(T, get)(const RE__VEC_TYPE(T) * vec, re_size idx)
 
-#define RE__VEC_IMPL_get(T) \
-    T RE__VEC_IDENT(T, get)(const RE__VEC_TYPE(T)* vec, re_size idx) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_BOUNDS(vec, idx); \
-        return vec->_data[idx]; \
-    }
+#define RE__VEC_IMPL_get(T)                                                    \
+  T RE__VEC_IDENT(T, get)(const RE__VEC_TYPE(T) * vec, re_size idx)            \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_BOUNDS(vec, idx);                                            \
+    return vec->_data[idx];                                                    \
+  }
 
-#define RE__VEC_DECL_getref(T) \
-    T* RE__VEC_IDENT(T, getref)(RE__VEC_TYPE(T)* vec, re_size idx)
+#define RE__VEC_DECL_getref(T)                                                 \
+  T* RE__VEC_IDENT(T, getref)(RE__VEC_TYPE(T) * vec, re_size idx)
 
-#define RE__VEC_IMPL_getref(T) \
-    T* RE__VEC_IDENT(T, getref)(RE__VEC_TYPE(T)* vec, re_size idx) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_BOUNDS(vec, idx); \
-        return &vec->_data[idx]; \
-    }
+#define RE__VEC_IMPL_getref(T)                                                 \
+  T* RE__VEC_IDENT(T, getref)(RE__VEC_TYPE(T) * vec, re_size idx)              \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_BOUNDS(vec, idx);                                            \
+    return &vec->_data[idx];                                                   \
+  }
 
-#define RE__VEC_DECL_getcref(T) \
-    const T* RE__VEC_IDENT(T, getcref)(const RE__VEC_TYPE(T)* vec, re_size idx)
+#define RE__VEC_DECL_getcref(T)                                                \
+  const T* RE__VEC_IDENT(T, getcref)(const RE__VEC_TYPE(T) * vec, re_size idx)
 
-#define RE__VEC_IMPL_getcref(T) \
-    const T* RE__VEC_IDENT(T, getcref)(const RE__VEC_TYPE(T)* vec, re_size idx) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_BOUNDS(vec, idx); \
-        return &vec->_data[idx]; \
-    }
+#define RE__VEC_IMPL_getcref(T)                                                \
+  const T* RE__VEC_IDENT(T, getcref)(const RE__VEC_TYPE(T) * vec, re_size idx) \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_BOUNDS(vec, idx);                                            \
+    return &vec->_data[idx];                                                   \
+  }
 
-#define RE__VEC_DECL_set(T) \
-    void RE__VEC_IDENT(T, set)(RE__VEC_TYPE(T)* vec, re_size idx, T elem)
+#define RE__VEC_DECL_set(T)                                                    \
+  void RE__VEC_IDENT(T, set)(RE__VEC_TYPE(T) * vec, re_size idx, T elem)
 
-#define RE__VEC_IMPL_set(T) \
-    void RE__VEC_IDENT(T, set)(RE__VEC_TYPE(T)* vec, re_size idx, T elem) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_CHECK_BOUNDS(vec, idx); \
-        vec->_data[idx] = elem; \
-    }
+#define RE__VEC_IMPL_set(T)                                                    \
+  void RE__VEC_IDENT(T, set)(RE__VEC_TYPE(T) * vec, re_size idx, T elem)       \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_CHECK_BOUNDS(vec, idx);                                            \
+    vec->_data[idx] = elem;                                                    \
+  }
 
-#define RE__VEC_DECL_capacity(T) \
-    re_size RE__VEC_IDENT(T, capacity)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_capacity(T)                                               \
+  re_size RE__VEC_IDENT(T, capacity)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_capacity(T) \
-    re_size RE__VEC_IDENT(T, capacity)(RE__VEC_TYPE(T)* vec) { \
-        return vec->_alloc; \
-    }
+#define RE__VEC_IMPL_capacity(T)                                               \
+  re_size RE__VEC_IDENT(T, capacity)(RE__VEC_TYPE(T) * vec)                    \
+  {                                                                            \
+    return vec->_alloc;                                                        \
+  }
 
-#define RE__VEC_DECL_get_data(T) \
-    T* RE__VEC_IDENT(T, get_data)(RE__VEC_TYPE(T)* vec)
+#define RE__VEC_DECL_get_data(T)                                               \
+  T* RE__VEC_IDENT(T, get_data)(RE__VEC_TYPE(T) * vec)
 
-#define RE__VEC_IMPL_get_data(T) \
-    T* RE__VEC_IDENT(T, get_data)(RE__VEC_TYPE(T)* vec) { \
-        return vec->_data; \
-    }
+#define RE__VEC_IMPL_get_data(T)                                               \
+  T* RE__VEC_IDENT(T, get_data)(RE__VEC_TYPE(T) * vec) { return vec->_data; }
 
-#define RE__VEC_DECL_move(T) \
-    void RE__VEC_IDENT(T, move)(RE__VEC_TYPE(T)* vec, RE__VEC_TYPE(T)* old);
+#define RE__VEC_DECL_move(T)                                                   \
+  void RE__VEC_IDENT(T, move)(RE__VEC_TYPE(T) * vec, RE__VEC_TYPE(T) * old);
 
-#define RE__VEC_IMPL_move(T) \
-    void RE__VEC_IDENT(T, move)(RE__VEC_TYPE(T)* vec, RE__VEC_TYPE(T)* old) { \
-        RE__VEC_CHECK(old); \
-        *vec = *old; \
-        RE__VEC_IDENT(T, init)(old); \
-    }
+#define RE__VEC_IMPL_move(T)                                                   \
+  void RE__VEC_IDENT(T, move)(RE__VEC_TYPE(T) * vec, RE__VEC_TYPE(T) * old)    \
+  {                                                                            \
+    RE__VEC_CHECK(old);                                                        \
+    *vec = *old;                                                               \
+    RE__VEC_IDENT(T, init)(old);                                               \
+  }
 
-#define RE__VEC_DECL_reserve(T) \
-    int RE__VEC_IDENT(T, reserve)(RE__VEC_TYPE(T)* vec, re_size cap);
+#define RE__VEC_DECL_reserve(T)                                                \
+  int RE__VEC_IDENT(T, reserve)(RE__VEC_TYPE(T) * vec, re_size cap);
 
-#define RE__VEC_IMPL_reserve(T) \
-    int RE__VEC_IDENT(T, reserve)(RE__VEC_TYPE(T)* vec, re_size cap) { \
-        RE__VEC_CHECK(vec); \
-        RE__VEC_SETSIZE(T, vec, cap); \
-        return 0; \
-    }
+#define RE__VEC_IMPL_reserve(T)                                                \
+  int RE__VEC_IDENT(T, reserve)(RE__VEC_TYPE(T) * vec, re_size cap)            \
+  {                                                                            \
+    RE__VEC_CHECK(vec);                                                        \
+    RE__VEC_SETSIZE(T, vec, cap);                                              \
+    return 0;                                                                  \
+  }
 
 /* bits/container/arena */
 #define RE__ARENA_REF_NONE -1
 
-#define RE__ARENA_TYPE(T) \
-    RE__PASTE(T, _arena)
+#define RE__ARENA_TYPE(T) RE__PASTE(T, _arena)
 
-#define RE__ARENA_STORAGE_TYPE(T) \
-    RE__PASTE(T, __arena_storage)
+#define RE__ARENA_STORAGE_TYPE(T) RE__PASTE(T, __arena_storage)
 
-#define RE__ARENA_IDENT(T, name) \
-    RE__PASTE(T, RE__PASTE(_arena_, name))
+#define RE__ARENA_IDENT(T, name) RE__PASTE(T, RE__PASTE(_arena_, name))
 
-#define RE__ARENA_IDENT_INTERNAL(T, name) \
-    RE__PASTE(T, RE__PASTE(__arena__, name))
+#define RE__ARENA_IDENT_INTERNAL(T, name)                                      \
+  RE__PASTE(T, RE__PASTE(__arena__, name))
 
-#define RE__ARENA_DECL_FUNC(T, func) \
-    RE__PASTE(RE__ARENA_DECL_, func)(T)
+#define RE__ARENA_DECL_FUNC(T, func) RE__PASTE(RE__ARENA_DECL_, func)(T)
 
-#define RE__ARENA_IMPL_FUNC(T, func) \
-    RE__PASTE(RE__ARENA_IMPL_, func)(T)
+#define RE__ARENA_IMPL_FUNC(T, func) RE__PASTE(RE__ARENA_IMPL_, func)(T)
 
-#define RE__ARENA_DECL(T) \
-    typedef struct RE__ARENA_STORAGE_TYPE(T) { \
-        T _elem; \
-        re_int32 _next_ref; \
-        re_int32 _prev_ref; \
-    } RE__ARENA_STORAGE_TYPE(T); \
-    RE__VEC_DECL(RE__ARENA_STORAGE_TYPE(T)); \
-    typedef struct RE__ARENA_TYPE(T) { \
-        RE__VEC_TYPE(RE__ARENA_STORAGE_TYPE(T)) _vec; \
-        re_int32 _last_empty_ref; \
-        re_int32 _first_ref; \
-        re_int32 _last_ref; \
-    } RE__ARENA_TYPE(T)
+#define RE__ARENA_DECL(T)                                                      \
+  typedef struct RE__ARENA_STORAGE_TYPE(T) {                                   \
+    T _elem;                                                                   \
+    re_int32 _next_ref;                                                        \
+    re_int32 _prev_ref;                                                        \
+  } RE__ARENA_STORAGE_TYPE(T);                                                 \
+  RE__VEC_DECL(RE__ARENA_STORAGE_TYPE(T));                                     \
+  typedef struct RE__ARENA_TYPE(T) {                                           \
+    RE__VEC_TYPE(RE__ARENA_STORAGE_TYPE(T)) _vec;                              \
+    re_int32 _last_empty_ref;                                                  \
+    re_int32 _first_ref;                                                       \
+    re_int32 _last_ref;                                                        \
+  } RE__ARENA_TYPE(T)
 
-#define RE__ARENA_DECL_init(T) \
-    void RE__ARENA_IDENT(T, init)(RE__ARENA_TYPE(T)* arena);
+#define RE__ARENA_DECL_init(T)                                                 \
+  void RE__ARENA_IDENT(T, init)(RE__ARENA_TYPE(T) * arena);
 
-#define RE__ARENA_IMPL_init(T) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), init) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), destroy) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), getref) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), getcref) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), push) \
-    RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), size) \
-    void RE__ARENA_IDENT(T, init)(RE__ARENA_TYPE(T)* arena) { \
-        RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), init)(&arena->_vec); \
-        arena->_last_empty_ref = RE__ARENA_REF_NONE; \
-        arena->_first_ref = RE__ARENA_REF_NONE; \
-        arena->_last_ref = RE__ARENA_REF_NONE; \
-    }
+#define RE__ARENA_IMPL_init(T)                                                 \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), init)                           \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), destroy)                        \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), getref)                         \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), getcref)                        \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), push)                           \
+  RE__VEC_IMPL_FUNC(RE__ARENA_STORAGE_TYPE(T), size)                           \
+  void RE__ARENA_IDENT(T, init)(RE__ARENA_TYPE(T) * arena)                     \
+  {                                                                            \
+    RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), init)(&arena->_vec);              \
+    arena->_last_empty_ref = RE__ARENA_REF_NONE;                               \
+    arena->_first_ref = RE__ARENA_REF_NONE;                                    \
+    arena->_last_ref = RE__ARENA_REF_NONE;                                     \
+  }
 
-#define RE__ARENA_DECL_destroy(T) \
-    void RE__ARENA_IDENT(T, destroy)(RE__ARENA_TYPE(T)* arena);
+#define RE__ARENA_DECL_destroy(T)                                              \
+  void RE__ARENA_IDENT(T, destroy)(RE__ARENA_TYPE(T) * arena);
 
-#define RE__ARENA_IMPL_destroy(T) \
-    void RE__ARENA_IDENT(T, destroy)(RE__ARENA_TYPE(T)* arena) { \
-        RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), destroy)(&arena->_vec); \
-    }
+#define RE__ARENA_IMPL_destroy(T)                                              \
+  void RE__ARENA_IDENT(T, destroy)(RE__ARENA_TYPE(T) * arena)                  \
+  {                                                                            \
+    RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), destroy)(&arena->_vec);           \
+  }
 
-#define RE__ARENA_DECL_getref(T) \
-    T* RE__ARENA_IDENT(T, getref)(RE__ARENA_TYPE(T)* arena, re_int32 elem_ref);
+#define RE__ARENA_DECL_getref(T)                                               \
+  T* RE__ARENA_IDENT(T, getref)(RE__ARENA_TYPE(T) * arena, re_int32 elem_ref);
 
-#define RE__ARENA_IMPL_getref(T) \
-    T* RE__ARENA_IDENT(T, getref)(RE__ARENA_TYPE(T)* arena, re_int32 elem_ref) {\
-        RE_ASSERT(elem_ref != RE__ARENA_REF_NONE); \
-        return &RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(&arena->_vec, (re_size)elem_ref)->_elem; \
-    }
+#define RE__ARENA_IMPL_getref(T)                                               \
+  T* RE__ARENA_IDENT(T, getref)(RE__ARENA_TYPE(T) * arena, re_int32 elem_ref)  \
+  {                                                                            \
+    RE_ASSERT(elem_ref != RE__ARENA_REF_NONE);                                 \
+    return &RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(                  \
+                &arena->_vec, (re_size)elem_ref)                               \
+                ->_elem;                                                       \
+  }
 
-#define RE__ARENA_DECL_getcref(T) \
-    const T* RE__ARENA_IDENT(T, getcref)(const RE__ARENA_TYPE(T)* arena, re_int32 elem_ref);
+#define RE__ARENA_DECL_getcref(T)                                              \
+  const T* RE__ARENA_IDENT(T, getcref)(                                        \
+      const RE__ARENA_TYPE(T) * arena, re_int32 elem_ref);
 
-#define RE__ARENA_IMPL_getcref(T) \
-    const T* RE__ARENA_IDENT(T, getcref)(const RE__ARENA_TYPE(T)* arena, re_int32 elem_ref) {\
-        RE_ASSERT(elem_ref != RE__ARENA_REF_NONE); \
-        return &RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getcref)(&arena->_vec, (re_size)elem_ref)->_elem; \
-    }
+#define RE__ARENA_IMPL_getcref(T)                                              \
+  const T* RE__ARENA_IDENT(T, getcref)(                                        \
+      const RE__ARENA_TYPE(T) * arena, re_int32 elem_ref)                      \
+  {                                                                            \
+    RE_ASSERT(elem_ref != RE__ARENA_REF_NONE);                                 \
+    return &RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getcref)(                 \
+                &arena->_vec, (re_size)elem_ref)                               \
+                ->_elem;                                                       \
+  }
 
-#define RE__ARENA_DECL_add(T) \
-    int RE__ARENA_IDENT(T, add)(RE__ARENA_TYPE(T)* arena, T elem, re_int32* out_ref)
+#define RE__ARENA_DECL_add(T)                                                  \
+  int RE__ARENA_IDENT(T, add)(                                                 \
+      RE__ARENA_TYPE(T) * arena, T elem, re_int32 * out_ref)
 
-#define RE__ARENA_IMPL_add(T) \
-    int RE__ARENA_IDENT(T, add)(RE__ARENA_TYPE(T)* arena, T elem, re_int32* out_ref) { \
-        int err = 0; \
-        re_int32 empty_ref = arena->_last_empty_ref; \
-        RE__ARENA_STORAGE_TYPE(T)* empty; \
-        RE__ARENA_STORAGE_TYPE(T)* prev_elem_ptr; \
-        if (empty_ref != RE__ARENA_REF_NONE) { \
-            empty = RE__VEC_IDENT( \
-                RE__ARENA_STORAGE_TYPE(T), getref)( \
-                    &arena->_vec, (re_size)empty_ref); \
-            arena->_last_empty_ref = empty->_next_ref; \
-            *out_ref = empty_ref; \
-            empty->_elem = elem; \
-        } else { \
-            RE__ARENA_STORAGE_TYPE(T) new_elem; \
-            *out_ref = (re_int32)RE__VEC_IDENT( \
-                RE__ARENA_STORAGE_TYPE(T), size)(&arena->_vec); \
-            new_elem._elem = elem; \
-            if ((err = RE__VEC_IDENT( \
-                RE__ARENA_STORAGE_TYPE(T), push)(&arena->_vec, new_elem))) { \
-                return err; \
-            } \
-            empty = RE__VEC_IDENT( \
-                RE__ARENA_STORAGE_TYPE(T), getref)( \
-                    &arena->_vec, (re_size)(*out_ref)); \
-        } \
-        empty->_next_ref = RE__ARENA_REF_NONE; \
-        empty->_prev_ref = arena->_last_ref; \
-        if (arena->_last_ref != RE__ARENA_REF_NONE) { \
-            prev_elem_ptr =  \
-                RE__VEC_IDENT( \
-                    RE__ARENA_STORAGE_TYPE(T), getref)( \
-                        &arena->_vec, (re_size)arena->_last_ref); \
-            prev_elem_ptr->_next_ref = *out_ref; \
-        } \
-        if (arena->_first_ref == RE__ARENA_REF_NONE) { \
-            arena->_first_ref = *out_ref; \
-        } \
-        arena->_last_ref = *out_ref; \
-        return err; \
-    }
+#define RE__ARENA_IMPL_add(T)                                                  \
+  int RE__ARENA_IDENT(T, add)(                                                 \
+      RE__ARENA_TYPE(T) * arena, T elem, re_int32 * out_ref)                   \
+  {                                                                            \
+    int err = 0;                                                               \
+    re_int32 empty_ref = arena->_last_empty_ref;                               \
+    RE__ARENA_STORAGE_TYPE(T) * empty;                                         \
+    RE__ARENA_STORAGE_TYPE(T) * prev_elem_ptr;                                 \
+    if (empty_ref != RE__ARENA_REF_NONE) {                                     \
+      empty = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(                \
+          &arena->_vec, (re_size)empty_ref);                                   \
+      arena->_last_empty_ref = empty->_next_ref;                               \
+      *out_ref = empty_ref;                                                    \
+      empty->_elem = elem;                                                     \
+    } else {                                                                   \
+      RE__ARENA_STORAGE_TYPE(T) new_elem;                                      \
+      *out_ref = (re_int32)RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), size)(     \
+          &arena->_vec);                                                       \
+      new_elem._elem = elem;                                                   \
+      if ((err = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), push)(               \
+               &arena->_vec, new_elem))) {                                     \
+        return err;                                                            \
+      }                                                                        \
+      empty = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(                \
+          &arena->_vec, (re_size)(*out_ref));                                  \
+    }                                                                          \
+    empty->_next_ref = RE__ARENA_REF_NONE;                                     \
+    empty->_prev_ref = arena->_last_ref;                                       \
+    if (arena->_last_ref != RE__ARENA_REF_NONE) {                              \
+      prev_elem_ptr = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getref)(        \
+          &arena->_vec, (re_size)arena->_last_ref);                            \
+      prev_elem_ptr->_next_ref = *out_ref;                                     \
+    }                                                                          \
+    if (arena->_first_ref == RE__ARENA_REF_NONE) {                             \
+      arena->_first_ref = *out_ref;                                            \
+    }                                                                          \
+    arena->_last_ref = *out_ref;                                               \
+    return err;                                                                \
+  }
 
-#define RE__ARENA_DECL_begin(T) \
-    re_int32 RE__ARENA_IDENT(T, begin)(RE__ARENA_TYPE(T)* arena);
+#define RE__ARENA_DECL_begin(T)                                                \
+  re_int32 RE__ARENA_IDENT(T, begin)(RE__ARENA_TYPE(T) * arena);
 
-#define RE__ARENA_IMPL_begin(T) \
-    re_int32 RE__ARENA_IDENT(T, begin)(RE__ARENA_TYPE(T)* arena) { \
-        return arena->_first_ref; \
-    }
+#define RE__ARENA_IMPL_begin(T)                                                \
+  re_int32 RE__ARENA_IDENT(T, begin)(RE__ARENA_TYPE(T) * arena)                \
+  {                                                                            \
+    return arena->_first_ref;                                                  \
+  }
 
-#define RE__ARENA_DECL_next(T) \
-    re_int32 RE__ARENA_IDENT(T, next)(RE__ARENA_TYPE(T)* arena);
+#define RE__ARENA_DECL_next(T)                                                 \
+  re_int32 RE__ARENA_IDENT(T, next)(RE__ARENA_TYPE(T) * arena);
 
-#define RE__ARENA_IMPL_next(T) \
-    re_int32 RE__ARENA_IDENT(T, next)(RE__ARENA_TYPE(T)* arena, re_int32 prev_ref) { \
-        const RE__ARENA_STORAGE_TYPE(T)* elem_storage; \
-        RE_ASSERT(prev_ref != RE__ARENA_REF_NONE); \
-        elem_storage = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getcref)(&arena->_vec, (re_size)prev_ref); \
-        return elem_storage->_next_ref; \
-    }
+#define RE__ARENA_IMPL_next(T)                                                 \
+  re_int32 RE__ARENA_IDENT(T, next)(                                           \
+      RE__ARENA_TYPE(T) * arena, re_int32 prev_ref)                            \
+  {                                                                            \
+    const RE__ARENA_STORAGE_TYPE(T) * elem_storage;                            \
+    RE_ASSERT(prev_ref != RE__ARENA_REF_NONE);                                 \
+    elem_storage = RE__VEC_IDENT(RE__ARENA_STORAGE_TYPE(T), getcref)(          \
+        &arena->_vec, (re_size)prev_ref);                                      \
+    return elem_storage->_next_ref;                                            \
+  }
 
 /* re */
 #ifndef RE_INTERNAL_H
@@ -1579,6 +1603,16 @@ typedef enum re__prog_inst_type {
    *     |
    *     +-----> */
   RE__PROG_INST_TYPE_ASSERT,
+  /* Marker instruction used for partitioning the thread set so that the DFA can
+   * properly segregate priorities per set. */
+  /* +-------+
+   * | Part  |
+   * | Instr |
+   * +-------+
+   *   |   ^
+   *   |   |
+   *   +---+ */
+  RE__PROG_INST_TYPE_PARTITION,
   /* maximum value of enum */
   RE__PROG_INST_TYPE_MAX
 } re__prog_inst_type;
@@ -1628,6 +1662,11 @@ re__prog_inst_init_assert(re__prog_inst* inst, re_uint32 assert_context);
 RE_INTERNAL void
 re__prog_inst_init_save(re__prog_inst* inst, re_uint32 save_idx);
 
+/* Initialize an instruction as a partition instruction, given its partition
+ * index */
+RE_INTERNAL void
+re__prog_inst_init_partition(re__prog_inst* inst, re_uint32 part_idx);
+
 /* Get the primary branch target of an instruction */
 RE_INTERNAL re__prog_loc re__prog_inst_get_primary(const re__prog_inst* inst);
 
@@ -1674,9 +1713,14 @@ RE_INTERNAL re_uint32 re__prog_inst_get_match_idx(const re__prog_inst* inst);
  * RE__PROG_INST_TYPE_SAVE) */
 RE_INTERNAL re_uint32 re__prog_inst_get_save_idx(const re__prog_inst* inst);
 
+/* Get an instruction's partition index (instruction must be
+ * RE__PROG_INST_TYPE_PARTITION) */
+RE_INTERNAL re_uint32
+re__prog_inst_get_partition_idx(const re__prog_inst* inst);
+
 /* Check if two instructions are equal */
-RE_INTERNAL int
-re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b);
+RE_INTERNAL
+int re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b);
 
 /* ---------------------------------------------------------------------------
  * Program (re_prog.c)
@@ -2267,10 +2311,16 @@ typedef struct re__exec_dfa_cache {
 } re__exec_dfa_cache;
 
 typedef enum re__exec_dfa_run_flags {
+  /* Just check for a match or not */
   RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH = 1,
+  /* Can we exit early and return a partial match (i.e., the wrong priority?) */
   RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY = 2,
+  /* Run the DFA backwards (must provide prog_reverse) */
   RE__EXEC_DFA_RUN_FLAG_REVERSED = 4,
-  RE__EXEC_DFA_RUN_FLAG_LOCKED = 8
+  /* Run the DFA with locks (multi-threaded context) */
+  RE__EXEC_DFA_RUN_FLAG_LOCKED = 8,
+  /* Scan for all set info, dump set info to the exec structure */
+  RE__EXEC_DFA_RUN_FLAG_FULL_SCAN = 16
 } re__exec_dfa_run_flags;
 
 typedef struct re__exec re__exec;
@@ -2284,15 +2334,19 @@ re_error re__exec_dfa_cache_driver(
 RE_INTERNAL re_error re__match_prepare_progs(
     re* reg, int fwd, int rev, int fwd_dotstar, int rev_dotstar, int locked);
 
+RE__VEC_DECL(re_span);
+RE__VEC_DECL(re_uint32);
+
 /* ---------------------------------------------------------------------------
  * Top-level data (re_api.c)
  * ------------------------------------------------------------------------ */
 struct re__exec {
   re* reg;
-  re_span* spans;
-  re_uint32* set_indexes;
-  re_uint32 max_span;
-  re_uint32 max_set;
+  re_uint32 num_groups;
+  re_uint32 num_sets;
+  re_span_vec spans;
+  re_uint32_vec set_indexes;
+  re_uint32_vec pri_bitmap;
   re_int32 compile_status;
   re__exec_nfa nfa;
   re_uint32 dfa_state_hash;
@@ -2303,8 +2357,9 @@ struct re__exec {
 
 RE_INTERNAL void re__exec_init(re__exec* exec, re* reg);
 RE_INTERNAL void re__exec_destroy(re__exec* exec);
-RE_INTERNAL int
-re__exec_reserve(re__exec* match_data, re_uint32 max_group, re_uint32 max_set);
+RE_INTERNAL int re__exec_reserve(
+    re__exec* match_data, re_uint32 max_group, re_uint32 max_set,
+    int reserve_priority_bitmap);
 RE_INTERNAL re_span* re__exec_get_spans(re__exec* exec);
 RE_INTERNAL re_uint32* re__exec_get_set_indexes(re__exec* exec);
 RE_INTERNAL void
@@ -2358,55 +2413,55 @@ RE__STATIC_ASSERT(re__char_is_one_byte, sizeof(re_char) == 1);
 
 /* bits/container/str */
 /* Maximum size, without null terminator */
-#define RE__STR_SHORT_SIZE_MAX                                                \
-    (((sizeof(re__str) - sizeof(re_size)) / (sizeof(re_char)) - 1))
+#define RE__STR_SHORT_SIZE_MAX                                                 \
+  (((sizeof(re__str) - sizeof(re_size)) / (sizeof(re_char)) - 1))
 
 #define RE__STR_GET_SHORT(str) !((str)->_size_short & 1)
-#define RE__STR_SET_SHORT(str, short)                                         \
-    do {                                                                      \
-        re_size temp = short;                                                 \
-        (str)->_size_short &= ~((re_size)1);                                  \
-        (str)->_size_short |= !temp;                                          \
-    } while (0)
+#define RE__STR_SET_SHORT(str, short)                                          \
+  do {                                                                         \
+    re_size temp = short;                                                      \
+    (str)->_size_short &= ~((re_size)1);                                       \
+    (str)->_size_short |= !temp;                                               \
+  } while (0)
 #define RE__STR_GET_SIZE(str) ((str)->_size_short >> 1)
-#define RE__STR_SET_SIZE(str, size)                                           \
-    do {                                                                      \
-        re_size temp = size;                                                  \
-        (str)->_size_short &= 1;                                              \
-        (str)->_size_short |= temp << 1;                                      \
-    } while (0)
-#define RE__STR_DATA(str)                                                     \
-    (RE__STR_GET_SHORT(str) ? ((re_char*)&((str)->_alloc)) : (str)->_data)
+#define RE__STR_SET_SIZE(str, size)                                            \
+  do {                                                                         \
+    re_size temp = size;                                                       \
+    (str)->_size_short &= 1;                                                   \
+    (str)->_size_short |= temp << 1;                                           \
+  } while (0)
+#define RE__STR_DATA(str)                                                      \
+  (RE__STR_GET_SHORT(str) ? ((re_char*)&((str)->_alloc)) : (str)->_data)
 
 /* Round up to multiple of 32 */
 #define RE__STR_ROUND_ALLOC(alloc) (((alloc + 1) + 32) & (~((re_size)32)))
 
 #if RE_DEBUG
 
-#define RE__STR_CHECK(str)                                                    \
-    do {                                                                      \
-        if (RE__STR_GET_SHORT(str)) {                                         \
-            /* If string is short, the size must always be less than */       \
-            /* RE__STR_SHORT_SIZE_MAX. */                                     \
-            RE_ASSERT(RE__STR_GET_SIZE(str) <= RE__STR_SHORT_SIZE_MAX);       \
-        } else {                                                              \
-            /* If string is long, the size can still be less, but the other   \
-             */                                                               \
-            /* fields must be valid. */                                       \
-            /* Ensure there is enough space */                                \
-            RE_ASSERT((str)->_alloc >= RE__STR_GET_SIZE(str));                \
-            /* Ensure that the _data field isn't NULL if the size is 0 */     \
-            if (RE__STR_GET_SIZE(str) > 0) {                                  \
-                RE_ASSERT((str)->_data != RE_NULL);                           \
-            }                                                                 \
-            /* Ensure that if _alloc is 0 then _data is NULL */               \
-            if ((str)->_alloc == 0) {                                         \
-                RE_ASSERT((str)->_data == RE_NULL);                           \
-            }                                                                 \
-        }                                                                     \
-        /* Ensure that there is a null-terminator */                          \
-        RE_ASSERT(RE__STR_DATA(str)[RE__STR_GET_SIZE(str)] == '\0');          \
-    } while (0)
+#define RE__STR_CHECK(str)                                                     \
+  do {                                                                         \
+    if (RE__STR_GET_SHORT(str)) {                                              \
+      /* If string is short, the size must always be less than */              \
+      /* RE__STR_SHORT_SIZE_MAX. */                                            \
+      RE_ASSERT(RE__STR_GET_SIZE(str) <= RE__STR_SHORT_SIZE_MAX);              \
+    } else {                                                                   \
+      /* If string is long, the size can still be less, but the other          \
+       */                                                                      \
+      /* fields must be valid. */                                              \
+      /* Ensure there is enough space */                                       \
+      RE_ASSERT((str)->_alloc >= RE__STR_GET_SIZE(str));                       \
+      /* Ensure that the _data field isn't NULL if the size is 0 */            \
+      if (RE__STR_GET_SIZE(str) > 0) {                                         \
+        RE_ASSERT((str)->_data != RE_NULL);                                    \
+      }                                                                        \
+      /* Ensure that if _alloc is 0 then _data is NULL */                      \
+      if ((str)->_alloc == 0) {                                                \
+        RE_ASSERT((str)->_data == RE_NULL);                                    \
+      }                                                                        \
+    }                                                                          \
+    /* Ensure that there is a null-terminator */                               \
+    RE_ASSERT(RE__STR_DATA(str)[RE__STR_GET_SIZE(str)] == '\0');               \
+  } while (0)
 
 #else
 
@@ -2414,288 +2469,306 @@ RE__STATIC_ASSERT(re__char_is_one_byte, sizeof(re_char) == 1);
 
 #endif
 
-void re__str_init(re__str* str) {
-    str->_size_short = 0;
-    RE__STR_DATA(str)[0] = '\0';
+void re__str_init(re__str* str)
+{
+  str->_size_short = 0;
+  RE__STR_DATA(str)[0] = '\0';
 }
 
-void re__str_destroy(re__str* str) {
-    if (!RE__STR_GET_SHORT(str)) {
-        if (str->_data != RE_NULL) {
-            RE_FREE(str->_data);
-        }
+void re__str_destroy(re__str* str)
+{
+  if (!RE__STR_GET_SHORT(str)) {
+    if (str->_data != RE_NULL) {
+      RE_FREE(str->_data);
     }
+  }
 }
 
 re_size re__str_size(const re__str* str) { return RE__STR_GET_SIZE(str); }
 
-RE_INTERNAL int re__str_grow(re__str* str, re_size new_size) {
-    re_size old_size = RE__STR_GET_SIZE(str);
-    RE__STR_CHECK(str);
-    if (RE__STR_GET_SHORT(str)) {
-        if (new_size <= RE__STR_SHORT_SIZE_MAX) {
-            /* Can still be a short str */
-            RE__STR_SET_SIZE(str, new_size);
-        } else {
-            /* Needs allocation */
-            re_size new_alloc =
-              RE__STR_ROUND_ALLOC(new_size + (new_size >> 1));
-            re_char* new_data =
-              (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
-            re_size i;
-            if (new_data == RE_NULL) {
-                return -1;
-            }
-            /* Copy data from old string */
-            for (i = 0; i < old_size; i++) {
-                new_data[i] = RE__STR_DATA(str)[i];
-            }
-            /* Fill in the remaining fields */
-            RE__STR_SET_SHORT(str, 0);
-            RE__STR_SET_SIZE(str, new_size);
-            str->_data = new_data;
-            str->_alloc = new_alloc;
-        }
+RE_INTERNAL int re__str_grow(re__str* str, re_size new_size)
+{
+  re_size old_size = RE__STR_GET_SIZE(str);
+  RE__STR_CHECK(str);
+  if (RE__STR_GET_SHORT(str)) {
+    if (new_size <= RE__STR_SHORT_SIZE_MAX) {
+      /* Can still be a short str */
+      RE__STR_SET_SIZE(str, new_size);
     } else {
-        if (new_size > str->_alloc) {
-            /* Needs allocation */
-            re_size new_alloc =
-              RE__STR_ROUND_ALLOC(new_size + (new_size >> 1));
-            re_char* new_data;
-            if (str->_alloc == 0) {
-                new_data =
-                  (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
-            } else {
-                new_data = (re_char*)RE_REALLOC(
-                  str->_data, sizeof(re_char) * (new_alloc + 1));
-            }
-            if (new_data == RE_NULL) {
-                return -1;
-            }
-            str->_data = new_data;
-            str->_alloc = new_alloc;
-        }
-        RE__STR_SET_SIZE(str, new_size);
+      /* Needs allocation */
+      re_size new_alloc = RE__STR_ROUND_ALLOC(new_size + (new_size >> 1));
+      re_char* new_data =
+          (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
+      re_size i;
+      if (new_data == RE_NULL) {
+        return -1;
+      }
+      /* Copy data from old string */
+      for (i = 0; i < old_size; i++) {
+        new_data[i] = RE__STR_DATA(str)[i];
+      }
+      /* Fill in the remaining fields */
+      RE__STR_SET_SHORT(str, 0);
+      RE__STR_SET_SIZE(str, new_size);
+      str->_data = new_data;
+      str->_alloc = new_alloc;
     }
-    /* Null terminate */
-    RE__STR_DATA(str)[RE__STR_GET_SIZE(str)] = '\0';
-    RE__STR_CHECK(str);
-    return 0;
-}
-
-int re__str_push(re__str* str, re_char chr) {
-    int err = 0;
-    re_size old_size = RE__STR_GET_SIZE(str);
-    if ((err = re__str_grow(str, old_size + 1))) {
-        return err;
+  } else {
+    if (new_size > str->_alloc) {
+      /* Needs allocation */
+      re_size new_alloc = RE__STR_ROUND_ALLOC(new_size + (new_size >> 1));
+      re_char* new_data;
+      if (str->_alloc == 0) {
+        new_data = (re_char*)RE_MALLOC(sizeof(re_char) * (new_alloc + 1));
+      } else {
+        new_data =
+            (re_char*)RE_REALLOC(str->_data, sizeof(re_char) * (new_alloc + 1));
+      }
+      if (new_data == RE_NULL) {
+        return -1;
+      }
+      str->_data = new_data;
+      str->_alloc = new_alloc;
     }
-    RE__STR_DATA(str)[old_size] = chr;
-    RE__STR_CHECK(str);
-    return err;
-}
-
-re_size re__str_slen(const re_char* s) {
-    re_size out = 0;
-    while (*(s++)) {
-        out++;
-    }
-    return out;
-}
-
-int re__str_init_s(re__str* str, const re_char* s) {
-    int err = 0;
-    re_size i;
-    re_size sz = re__str_slen(s);
-    re__str_init(str);
-    if ((err = re__str_grow(str, sz))) {
-        return err;
-    }
-    for (i = 0; i < sz; i++) {
-        RE__STR_DATA(str)[i] = s[i];
-    }
-    return err;
-}
-
-int re__str_init_n(re__str* str, const re_char* chrs, re_size n) {
-    int err = 0;
-    re_size i;
-    re__str_init(str);
-    if ((err = re__str_grow(str, n))) {
-        return err;
-    }
-    for (i = 0; i < n; i++) {
-        RE__STR_DATA(str)[i] = chrs[i];
-    }
-    return err;
-}
-
-int re__str_cat(re__str* str, const re__str* other) {
-    int err = 0;
-    re_size i;
-    re_size n = RE__STR_GET_SIZE(other);
-    re_size old_size = RE__STR_GET_SIZE(str);
-    if ((err = re__str_grow(str, old_size + n))) {
-        return err;
-    }
-    /* Copy data */
-    for (i = 0; i < n; i++) {
-        RE__STR_DATA(str)[old_size + i] = RE__STR_DATA(other)[i];
-    }
-    RE__STR_CHECK(str);
-    return err;
-}
-
-int re__str_cat_n(re__str* str, const re_char* chrs, re_size n) {
-    int err = 0;
-    re_size i;
-    re_size old_size = RE__STR_GET_SIZE(str);
-    if ((err = re__str_grow(str, old_size + n))) {
-        return err;
-    }
-    /* Copy data */
-    for (i = 0; i < n; i++) {
-        RE__STR_DATA(str)[old_size + i] = chrs[i];
-    }
-    RE__STR_CHECK(str);
-    return err;
-}
-
-int re__str_cat_s(re__str* str, const re_char* chrs) {
-    re_size chrs_size = re__str_slen(chrs);
-    return re__str_cat_n(str, chrs, chrs_size);
-}
-
-int re__str_insert(re__str* str, re_size index, re_char chr) {
-    int err = 0;
-    re_size i;
-    re_size old_size = RE__STR_GET_SIZE(str);
-    /* bounds check */
-    RE_ASSERT(index <= RE__STR_GET_SIZE(str));
-    if ((err = re__str_grow(str, old_size + 1))) {
-        return err;
-    }
-    /* Shift data */
-    if (old_size != 0) {
-        for (i = old_size; i >= index + 1; i--) {
-            RE__STR_DATA(str)[i] = RE__STR_DATA(str)[i - 1];
-        }
-    }
-    RE__STR_DATA(str)[index] = chr;
-    RE__STR_CHECK(str);
-    return err;
-}
-
-const re_char* re__str_get_data(const re__str* str) {
-    return RE__STR_DATA(str);
-}
-
-int re__str_init_copy(re__str* str, const re__str* in) {
-    re_size i;
-    int err = 0;
-    re__str_init(str);
-    if ((err = re__str_grow(str, re__str_size(in)))) {
-        return err;
-    }
-    for (i = 0; i < re__str_size(str); i++) {
-        RE__STR_DATA(str)[i] = RE__STR_DATA(in)[i];
-    }
-    return err;
-}
-
-void re__str_init_move(re__str* str, re__str* old) {
-    RE__STR_CHECK(old);
-    *str = *old;
-    re__str_init(old);
-}
-
-int re__str_cmp(const re__str* str_a, const re__str* str_b) {
-    re_size a_len = re__str_size(str_a);
-    re_size b_len = re__str_size(str_b);
-    re_size i = 0;
-    const re_char* a_data = re__str_get_data(str_a);
-    const re_char* b_data = re__str_get_data(str_b);
-    while (1) {
-        if (i == a_len || i == b_len) {
-            break;
-        }
-        if (a_data[i] < b_data[i]) {
-            return -1;
-        } else if (a_data[i] > b_data[i]) {
-            return 1;
-        }
-        i++;
-    }
-    if (i == a_len) {
-        if (i == b_len) {
-            return 0;
-        } else {
-            return -1;
-        }
-    }
-    return 1;
-}
-
-void re__str_clear(re__str* str) {
-    RE__STR_SET_SIZE(str, 0);
-    RE__STR_DATA(str)[0] = '\0';
-}
-
-void re__str_cut_end(re__str* str, re_size new_size) {
-    RE_ASSERT(new_size <= RE__STR_GET_SIZE(str));
     RE__STR_SET_SIZE(str, new_size);
-    RE__STR_DATA(str)[new_size] = '\0';
+  }
+  /* Null terminate */
+  RE__STR_DATA(str)[RE__STR_GET_SIZE(str)] = '\0';
+  RE__STR_CHECK(str);
+  return 0;
+}
+
+int re__str_push(re__str* str, re_char chr)
+{
+  int err = 0;
+  re_size old_size = RE__STR_GET_SIZE(str);
+  if ((err = re__str_grow(str, old_size + 1))) {
+    return err;
+  }
+  RE__STR_DATA(str)[old_size] = chr;
+  RE__STR_CHECK(str);
+  return err;
+}
+
+re_size re__str_slen(const re_char* s)
+{
+  re_size out = 0;
+  while (*(s++)) {
+    out++;
+  }
+  return out;
+}
+
+int re__str_init_s(re__str* str, const re_char* s)
+{
+  int err = 0;
+  re_size i;
+  re_size sz = re__str_slen(s);
+  re__str_init(str);
+  if ((err = re__str_grow(str, sz))) {
+    return err;
+  }
+  for (i = 0; i < sz; i++) {
+    RE__STR_DATA(str)[i] = s[i];
+  }
+  return err;
+}
+
+int re__str_init_n(re__str* str, const re_char* chrs, re_size n)
+{
+  int err = 0;
+  re_size i;
+  re__str_init(str);
+  if ((err = re__str_grow(str, n))) {
+    return err;
+  }
+  for (i = 0; i < n; i++) {
+    RE__STR_DATA(str)[i] = chrs[i];
+  }
+  return err;
+}
+
+int re__str_cat(re__str* str, const re__str* other)
+{
+  int err = 0;
+  re_size i;
+  re_size n = RE__STR_GET_SIZE(other);
+  re_size old_size = RE__STR_GET_SIZE(str);
+  if ((err = re__str_grow(str, old_size + n))) {
+    return err;
+  }
+  /* Copy data */
+  for (i = 0; i < n; i++) {
+    RE__STR_DATA(str)[old_size + i] = RE__STR_DATA(other)[i];
+  }
+  RE__STR_CHECK(str);
+  return err;
+}
+
+int re__str_cat_n(re__str* str, const re_char* chrs, re_size n)
+{
+  int err = 0;
+  re_size i;
+  re_size old_size = RE__STR_GET_SIZE(str);
+  if ((err = re__str_grow(str, old_size + n))) {
+    return err;
+  }
+  /* Copy data */
+  for (i = 0; i < n; i++) {
+    RE__STR_DATA(str)[old_size + i] = chrs[i];
+  }
+  RE__STR_CHECK(str);
+  return err;
+}
+
+int re__str_cat_s(re__str* str, const re_char* chrs)
+{
+  re_size chrs_size = re__str_slen(chrs);
+  return re__str_cat_n(str, chrs, chrs_size);
+}
+
+int re__str_insert(re__str* str, re_size index, re_char chr)
+{
+  int err = 0;
+  re_size i;
+  re_size old_size = RE__STR_GET_SIZE(str);
+  /* bounds check */
+  RE_ASSERT(index <= RE__STR_GET_SIZE(str));
+  if ((err = re__str_grow(str, old_size + 1))) {
+    return err;
+  }
+  /* Shift data */
+  if (old_size != 0) {
+    for (i = old_size; i >= index + 1; i--) {
+      RE__STR_DATA(str)[i] = RE__STR_DATA(str)[i - 1];
+    }
+  }
+  RE__STR_DATA(str)[index] = chr;
+  RE__STR_CHECK(str);
+  return err;
+}
+
+const re_char* re__str_get_data(const re__str* str)
+{
+  return RE__STR_DATA(str);
+}
+
+int re__str_init_copy(re__str* str, const re__str* in)
+{
+  re_size i;
+  int err = 0;
+  re__str_init(str);
+  if ((err = re__str_grow(str, re__str_size(in)))) {
+    return err;
+  }
+  for (i = 0; i < re__str_size(str); i++) {
+    RE__STR_DATA(str)[i] = RE__STR_DATA(in)[i];
+  }
+  return err;
+}
+
+void re__str_init_move(re__str* str, re__str* old)
+{
+  RE__STR_CHECK(old);
+  *str = *old;
+  re__str_init(old);
+}
+
+int re__str_cmp(const re__str* str_a, const re__str* str_b)
+{
+  re_size a_len = re__str_size(str_a);
+  re_size b_len = re__str_size(str_b);
+  re_size i = 0;
+  const re_char* a_data = re__str_get_data(str_a);
+  const re_char* b_data = re__str_get_data(str_b);
+  while (1) {
+    if (i == a_len || i == b_len) {
+      break;
+    }
+    if (a_data[i] < b_data[i]) {
+      return -1;
+    } else if (a_data[i] > b_data[i]) {
+      return 1;
+    }
+    i++;
+  }
+  if (i == a_len) {
+    if (i == b_len) {
+      return 0;
+    } else {
+      return -1;
+    }
+  }
+  return 1;
+}
+
+void re__str_clear(re__str* str)
+{
+  RE__STR_SET_SIZE(str, 0);
+  RE__STR_DATA(str)[0] = '\0';
+}
+
+void re__str_cut_end(re__str* str, re_size new_size)
+{
+  RE_ASSERT(new_size <= RE__STR_GET_SIZE(str));
+  RE__STR_SET_SIZE(str, new_size);
+  RE__STR_DATA(str)[new_size] = '\0';
 }
 
 /* bits/container/str_view */
-void re__str_view_init(re__str_view* view, const re__str* other) {
-    view->_size = re__str_size(other);
-    view->_data = re__str_get_data(other);
+void re__str_view_init(re__str_view* view, const re__str* other)
+{
+  view->_size = re__str_size(other);
+  view->_data = re__str_get_data(other);
 }
 
-void re__str_view_init_s(re__str_view* view, const re_char* chars) {
-    view->_size = re__str_slen(chars);
-    view->_data = chars;
+void re__str_view_init_s(re__str_view* view, const re_char* chars)
+{
+  view->_size = re__str_slen(chars);
+  view->_data = chars;
 }
 
-void re__str_view_init_n(re__str_view* view, const re_char* chars, re_size n) {
-    view->_size = n;
-    view->_data = chars;
+void re__str_view_init_n(re__str_view* view, const re_char* chars, re_size n)
+{
+  view->_size = n;
+  view->_data = chars;
 }
 
-void re__str_view_init_null(re__str_view* view) {
-    view->_size = 0;
-    view->_data = RE_NULL;
+void re__str_view_init_null(re__str_view* view)
+{
+  view->_size = 0;
+  view->_data = RE_NULL;
 }
 
-re_size re__str_view_size(const re__str_view* view) {
-    return view->_size;
+re_size re__str_view_size(const re__str_view* view) { return view->_size; }
+
+const re_char* re__str_view_get_data(const re__str_view* view)
+{
+  return view->_data;
 }
 
-const re_char* re__str_view_get_data(const re__str_view* view) {
-    return view->_data;
-}
-
-int re__str_view_cmp(const re__str_view* view_a, const re__str_view* view_b) {
-    re_size a_len = re__str_view_size(view_a);
-    re_size b_len = re__str_view_size(view_b);
-    const re_char* a_data = re__str_view_get_data(view_a);
-    const re_char* b_data = re__str_view_get_data(view_b);
-    re_size i;
-    if (a_len < b_len) {
+int re__str_view_cmp(const re__str_view* view_a, const re__str_view* view_b)
+{
+  re_size a_len = re__str_view_size(view_a);
+  re_size b_len = re__str_view_size(view_b);
+  const re_char* a_data = re__str_view_get_data(view_a);
+  const re_char* b_data = re__str_view_get_data(view_b);
+  re_size i;
+  if (a_len < b_len) {
+    return -1;
+  } else if (a_len > b_len) {
+    return 1;
+  }
+  for (i = 0; i < a_len; i++) {
+    if (a_data[i] != b_data[i]) {
+      if (a_data[i] < b_data[i]) {
         return -1;
-    } else if (a_len > b_len) {
+      } else {
         return 1;
+      }
     }
-    for (i = 0; i < a_len; i++) {
-        if (a_data[i] != b_data[i]) {
-            if (a_data[i] < b_data[i]) {
-                return -1;
-            } else {
-                return 1;
-            }
-        }
-    }
-    return 0;
+  }
+  return 0;
 }
 
 /* bits/types/fixed/int32 */
@@ -2716,68 +2789,73 @@ RE__STATIC_ASSERT(re__uint32_is_4_bytes, sizeof(re_uint32) == 4);
  * that is 8 bits wide. */
 RE__STATIC_ASSERT(re__uint8_is_1_bytes, sizeof(re_uint8) == 1);
 /* bits/hooks/memset */
-void re__memset(void* ptr, int value, re_size count) {
-    re_size i;
-    re_uint8 trunc = (re_uint8)value;
-    for (i = 0; i < count; i++) {
-        ((re_uint8*)ptr)[i] = trunc;
-    }
+void re__memset(void* ptr, int value, re_size count)
+{
+  re_size i;
+  re_uint8 trunc = (re_uint8)value;
+  for (i = 0; i < count; i++) {
+    ((re_uint8*)ptr)[i] = trunc;
+  }
 }
 
 /* bits/algorithm/hash/murmur3 */
-RE_INTERNAL re_uint32 re__murmurhash3_rotl32(re_uint32 x, re_uint8 r) {
-    return (x << r) | (x >> (32 - r));
+RE_INTERNAL re_uint32 re__murmurhash3_rotl32(re_uint32 x, re_uint8 r)
+{
+  return (x << r) | (x >> (32 - r));
 }
 
-RE_INTERNAL re_uint32 re__murmurhash3_fmix32(re_uint32 h) {
-    h ^= h >> 16;
-    h *= 0x85EBCA6B;
-    h ^= h >> 13;
-    h *= 0xC2B2AE35;
-    h ^= h >> 16;
-    return h;
+RE_INTERNAL re_uint32 re__murmurhash3_fmix32(re_uint32 h)
+{
+  h ^= h >> 16;
+  h *= 0x85EBCA6B;
+  h ^= h >> 13;
+  h *= 0xC2B2AE35;
+  h ^= h >> 16;
+  return h;
 }
 
 /* Note: this behaves differently on machines with different endians. */
-RE_INTERNAL re_uint32 re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len) {
-    const re_size num_blocks = data_len / 4;
-    const re_uint32 c1 = 0xCC9E2D51;
-    const re_uint32 c2 = 0x1B873593;
-    re_size i;
-    const re_uint32* blocks = (const re_uint32*)data;
-    const re_uint8* tail = (const re_uint8*)(data + num_blocks * 4);
-    re_uint32 k1;
-    for (i = 0; i < num_blocks; i++) {
-        k1 = blocks[i];
-        k1 *= c1;
-        k1 = re__murmurhash3_rotl32(k1, 15);
-        k1 *= c2;
+RE_INTERNAL re_uint32
+re__murmurhash3_32(re_uint32 h1, const re_uint8* data, re_size data_len)
+{
+  const re_size num_blocks = data_len / 4;
+  const re_uint32 c1 = 0xCC9E2D51;
+  const re_uint32 c2 = 0x1B873593;
+  re_size i;
+  const re_uint32* blocks = (const re_uint32*)data;
+  const re_uint8* tail = (const re_uint8*)(data + num_blocks * 4);
+  re_uint32 k1;
+  for (i = 0; i < num_blocks; i++) {
+    k1 = blocks[i];
+    k1 *= c1;
+    k1 = re__murmurhash3_rotl32(k1, 15);
+    k1 *= c2;
 
-        h1 ^= k1;
-        h1 = re__murmurhash3_rotl32(h1, 13);
-        h1 = h1 * 5 + 0xE6546B64;
-    }
+    h1 ^= k1;
+    h1 = re__murmurhash3_rotl32(h1, 13);
+    h1 = h1 * 5 + 0xE6546B64;
+  }
 
-    k1 = 0;
-    switch (data_len & 3) {
-        case 3:
-            k1 ^= ((re_uint32)(tail[2])) << 16;
-            /* fall through */
-        case 2:
-            k1 ^= ((re_uint32)(tail[1])) << 8;
-            /* fall through */
-        case 1:
-            k1 ^= tail[0];
-            k1 *= c1;
-            k1 = re__murmurhash3_rotl32(k1, 15);
-            k1 *= c2;
-            h1 ^= k1;
-    }
+  k1 = 0;
+  switch (data_len & 3) {
+  case 3:
+    k1 ^= ((re_uint32)(tail[2])) << 16;
+    /* fall through */
+  case 2:
+    k1 ^= ((re_uint32)(tail[1])) << 8;
+    /* fall through */
+  case 1:
+    k1 ^= tail[0];
+    k1 *= c1;
+    k1 = re__murmurhash3_rotl32(k1, 15);
+    k1 *= c2;
+    h1 ^= k1;
+  }
 
-    h1 ^= (re_uint32)data_len;
-    h1 = re__murmurhash3_fmix32(h1);
+  h1 ^= (re_uint32)data_len;
+  h1 = re__murmurhash3_fmix32(h1);
 
-    return h1;
+  return h1;
 }
 
 /* re */
@@ -3871,13 +3949,25 @@ err_destroy_dfa:
 
 #endif
 
+RE__VEC_IMPL_FUNC(re_span, init)
+RE__VEC_IMPL_FUNC(re_span, destroy)
+RE__VEC_IMPL_FUNC(re_span, reserve)
+RE__VEC_IMPL_FUNC(re_span, get_data)
+
+RE__VEC_IMPL_FUNC(re_uint32, init)
+RE__VEC_IMPL_FUNC(re_uint32, destroy)
+RE__VEC_IMPL_FUNC(re_uint32, reserve)
+RE__VEC_IMPL_FUNC(re_uint32, get_data)
+RE__VEC_IMPL_FUNC(re_uint32, capacity)
+
 RE_INTERNAL void re__exec_init(re__exec* exec, re* reg)
 {
   exec->reg = reg;
-  exec->spans = NULL;
-  exec->set_indexes = NULL;
-  exec->max_span = 0;
-  exec->max_set = 0;
+  exec->num_groups = 0;
+  exec->num_sets = 0;
+  re_span_vec_init(&exec->spans);
+  re_uint32_vec_init(&exec->set_indexes);
+  re_uint32_vec_init(&exec->pri_bitmap);
   exec->compile_status = 0;
   re__exec_nfa_init(&exec->nfa);
   exec->dfa_state_hash = 0;
@@ -3888,55 +3978,52 @@ RE_INTERNAL void re__exec_init(re__exec* exec, re* reg)
 
 RE_INTERNAL void re__exec_destroy(re__exec* exec)
 {
-  if (exec->spans) {
-    RE_FREE(exec->spans);
-  }
-  if (exec->set_indexes) {
-    RE_FREE(exec->set_indexes);
-  }
+  re_span_vec_destroy(&exec->spans);
+  re_uint32_vec_destroy(&exec->set_indexes);
+  re_uint32_vec_destroy(&exec->pri_bitmap);
   re__exec_nfa_destroy(&exec->nfa);
 }
 
-RE_INTERNAL re_error
-re__exec_reserve(re__exec* exec, re_uint32 max_group, re_uint32 max_set)
+RE_INTERNAL re_error re__exec_reserve(
+    re__exec* exec, re_uint32 max_group, re_uint32 max_set,
+    int reserve_priority_bitmap)
 {
-  if (max_group * max_set > exec->max_span) {
-    re_span* new_spans;
-    if (!exec->spans) {
-      new_spans = RE_MALLOC(sizeof(re_span) * max_group * max_set);
-    } else {
-      new_spans =
-          RE_REALLOC(exec->spans, sizeof(re_span) * max_group * max_set);
-    }
-    if (!new_spans) {
-      return RE_ERROR_NOMEM;
-    }
-    exec->spans = new_spans;
-    exec->max_span = max_group * max_set;
+  re_error err = RE_ERROR_NONE;
+  exec->num_groups = max_group;
+  exec->num_sets = max_set;
+  if ((err = re_span_vec_reserve(
+           &exec->spans, exec->num_groups * exec->num_sets))) {
+    return err;
   }
-  if (max_set > exec->max_set) {
-    re_uint32* new_sets;
-    if (!exec->set_indexes) {
-      new_sets = RE_MALLOC(sizeof(re_uint32) * max_set);
-    } else {
-      new_sets = RE_REALLOC(exec->set_indexes, sizeof(re_uint32) * max_set);
-    }
-    if (!new_sets) {
-      return RE_ERROR_NOMEM;
-    }
-    exec->set_indexes = new_sets;
-    exec->max_set = max_set;
+  if ((err = re_uint32_vec_reserve(&exec->set_indexes, exec->num_sets))) {
+    return err;
   }
-  re__memset(exec->spans, 0, sizeof(re_span) * exec->max_span);
-  re__memset(exec->set_indexes, 0, sizeof(re_span) * exec->max_set);
+  re__memset(
+      re_span_vec_get_data(&exec->spans), 0,
+      sizeof(re_span) * exec->num_groups);
+  re__memset(
+      re_uint32_vec_get_data(&exec->set_indexes), 0,
+      sizeof(re_uint32) * exec->num_sets);
+  if (reserve_priority_bitmap) {
+    /* Reserve just enough space in the bitmap */
+    if ((err = re_uint32_vec_reserve(
+             &exec->pri_bitmap, (exec->num_sets + 15) / 16))) {
+    }
+    re__memset(
+        re_uint32_vec_get_data(&exec->pri_bitmap), 0,
+        sizeof(re_uint32) * ((exec->num_sets + 15) / 16));
+  }
   return RE_ERROR_NONE;
 }
 
-RE_INTERNAL re_span* re__exec_get_spans(re__exec* exec) { return exec->spans; }
+RE_INTERNAL re_span* re__exec_get_spans(re__exec* exec)
+{
+  return re_span_vec_get_data(&exec->spans);
+}
 
 RE_INTERNAL re_uint32* re__exec_get_set_indexes(re__exec* exec)
 {
-  return exec->set_indexes;
+  return re_uint32_vec_get_data(&exec->set_indexes);
 }
 
 RE_INTERNAL void
@@ -4234,6 +4321,258 @@ re_error re_match_groups(
   return re_match_groups_set(
       reg, text, text_size, anchor_type, max_group, out_groups, RE_NULL);
 }
+
+re_error re__match_prepare_progs_new(
+    re* reg, re__exec* exec, int fwd, int rev, int fwd_dotstar, int rev_dotstar,
+    int locked)
+{
+  re_error err = RE_ERROR_NONE;
+  RE_ASSERT(RE__IMPLIES(fwd_dotstar, fwd));
+  RE_ASSERT(RE__IMPLIES(rev_dotstar, rev));
+  if (fwd && !(exec->compile_status & 1)) {
+    if (locked) {
+      re__mutex_lock(&reg->data->program_mutex);
+    }
+    if (!re__prog_size(&reg->data->program)) {
+      if ((err = re__compile_regex(
+               &reg->data->compile, &reg->data->ast_root, &reg->data->program,
+               0, reg->data->set))) {
+        return err;
+      }
+    }
+    if (locked) {
+      re__mutex_unlock(&reg->data->program_mutex);
+    }
+    exec->compile_status |= 1;
+  }
+  if (fwd_dotstar && !(exec->compile_status & 2)) {
+    if (locked) {
+      re__mutex_lock(&reg->data->program_mutex);
+    }
+    if (re__prog_get_entry(&reg->data->program, RE__PROG_ENTRY_DOTSTAR) ==
+        RE__PROG_LOC_INVALID) {
+      if ((err = re__compile_dotstar(
+               &reg->data->program, RE__PROG_DATA_ID_DOT_FWD_REJSURR_REJNL))) {
+        return err;
+      }
+    }
+    if (locked) {
+      re__mutex_unlock(&reg->data->program_mutex);
+    }
+    exec->compile_status |= 2;
+  }
+  if (rev && !(exec->compile_status & 4)) {
+    if (locked) {
+      re__mutex_lock(&reg->data->program_reverse_mutex);
+    }
+    if (!re__prog_size(&reg->data->program_reverse)) {
+      if ((err = re__compile_regex(
+               &reg->data->compile, &reg->data->ast_root,
+               &reg->data->program_reverse, 1, reg->data->set))) {
+        return err;
+      }
+    }
+    if (locked) {
+      re__mutex_unlock(&reg->data->program_reverse_mutex);
+    }
+    exec->compile_status |= 4;
+  }
+  if (rev_dotstar && !(exec->compile_status & 8)) {
+    if (locked) {
+      re__mutex_lock(&reg->data->program_reverse_mutex);
+    }
+    if (re__prog_get_entry(
+            &reg->data->program_reverse, RE__PROG_ENTRY_DOTSTAR) ==
+        RE__PROG_LOC_INVALID) {
+      if ((err = re__compile_dotstar(
+               &reg->data->program_reverse,
+               RE__PROG_DATA_ID_DOT_REV_REJSURR_REJNL))) {
+        return err;
+      }
+    }
+    if (locked) {
+      re__mutex_unlock(&reg->data->program_reverse_mutex);
+    }
+    exec->compile_status |= 8;
+  }
+  return err;
+}
+
+#if 1
+re_error re__match(
+    re* reg, re__exec* exec, const char* text, re_size text_size,
+    re_anchor_type anchor_type, re_uint32 max_group, re_span** out_spans,
+    re_uint32 max_set, re_uint32** set_indexes, int locked)
+{
+  re_error err = RE_ERROR_NONE;
+  re_span* spans;
+  re__exec_dfa_run_flags run_flags = locked ? RE__EXEC_DFA_RUN_FLAG_LOCKED : 0;
+  if ((err = re__exec_reserve(exec, max_group, max_set, 0))) {
+    return err;
+  }
+  RE__UNUSED(set_indexes);
+  RE__UNUSED(out_spans);
+  RE__UNUSED(locked);
+  spans = re_span_vec_get_data(&exec->spans);
+  if (max_group == 0 && max_set == 0) {
+    /* Fully boolean match (is_match) */
+    if (anchor_type == RE_ANCHOR_BOTH) {
+      if ((err = re__match_prepare_progs_new(reg, exec, 1, 0, 0, 0, 1))) {
+        return err;
+      }
+      re__exec_prepare(exec, &reg->data->program, 0);
+      return re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
+          RE_NULL, RE_NULL, RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH | run_flags,
+          exec);
+    } else if (anchor_type == RE_ANCHOR_START) {
+      if ((err = re__match_prepare_progs_new(reg, exec, 1, 0, 0, 0, 0))) {
+        return err;
+      }
+      re__exec_prepare(exec, &reg->data->program, 0);
+      return re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
+          RE_NULL, RE_NULL,
+          RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
+              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY | run_flags,
+          exec);
+    } else if (anchor_type == RE_ANCHOR_END) {
+      if ((err = re__match_prepare_progs_new(reg, exec, 0, 1, 0, 0, 0))) {
+        return err;
+      }
+      re__exec_prepare(exec, &reg->data->program_reverse, 0);
+      return re__match_dfa_driver(
+          &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, text_size,
+          text, text_size, RE_NULL, RE_NULL,
+          RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
+              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY |
+              RE__EXEC_DFA_RUN_FLAG_REVERSED | run_flags,
+          exec);
+    } else if (anchor_type == RE_UNANCHORED) {
+      if ((err = re__match_prepare_progs_new(reg, exec, 1, 0, 1, 0, 0))) {
+        return err;
+      }
+      re__exec_prepare(exec, &reg->data->program, 0);
+      return re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, text, text_size,
+          RE_NULL, RE_NULL,
+          RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
+              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY | run_flags,
+          exec);
+    } else {
+      return RE_ERROR_INVALID;
+    }
+  } else if (max_group == 0 || max_group == 1) {
+    /* Bounds-only or set-index-only match [DFA] */
+    re_size out_pos;
+    re_uint32 out_match;
+    re_error match_err;
+    if (anchor_type == RE_ANCHOR_BOTH) {
+      if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
+        return err;
+      }
+      re__exec_prepare(&reg->data->exec, &reg->data->program, 0);
+      match_err = re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
+          &out_match, &out_pos, run_flags, &reg->data->exec);
+      if (match_err == RE_MATCH) {
+        if (out_pos != text_size) {
+          err = RE_NOMATCH;
+          goto success;
+        } else {
+          if (max_group) {
+            spans[0].begin = 0;
+            spans[0].end = out_pos;
+          }
+          err = RE_MATCH;
+          goto success;
+        }
+      } else {
+        err = match_err;
+        goto error;
+      }
+    } else if (anchor_type == RE_ANCHOR_START) {
+      if ((err = re__match_prepare_progs(reg, 1, 0, 0, 0, 0))) {
+        goto error;
+      }
+      re__exec_prepare(&reg->data->exec, &reg->data->program, 0);
+      match_err = re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
+          &out_match, &out_pos, run_flags, &reg->data->exec);
+      if (match_err == RE_MATCH) {
+        if (max_group) {
+          spans[0].begin = 0;
+          spans[0].end = out_pos;
+        }
+        err = RE_MATCH;
+        goto success;
+      } else {
+        err = match_err;
+        goto error;
+      }
+    } else if (anchor_type == RE_ANCHOR_END) {
+      if ((err = re__match_prepare_progs(reg, 0, 1, 0, 0, 0))) {
+        goto error;
+      }
+      re__exec_prepare(&reg->data->exec, &reg->data->program_reverse, 0);
+      match_err = re__match_dfa_driver(
+          &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, text_size,
+          text, text_size, &out_match, &out_pos,
+          RE__EXEC_DFA_RUN_FLAG_REVERSED | run_flags, &reg->data->exec);
+      if (match_err == RE_MATCH) {
+        if (max_group) {
+          spans[0].begin = out_pos;
+          spans[0].end = text_size;
+        }
+        err = RE_MATCH;
+        goto success;
+      } else {
+        err = match_err;
+        goto error;
+      }
+    } else if (anchor_type == RE_UNANCHORED) {
+      if ((err = re__match_prepare_progs(reg, 1, 1, 1, 0, 0))) {
+        goto error;
+      }
+      re__exec_prepare(&reg->data->exec, &reg->data->program, 0);
+      match_err = re__match_dfa_driver(
+          &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, text, text_size,
+          &out_match, &out_pos, run_flags, &reg->data->exec);
+      if (match_err == RE_MATCH) {
+        if (max_group) {
+          spans[0].end = out_pos;
+          /* scan back to find the start */
+          re__exec_prepare(&reg->data->exec, &reg->data->program_reverse, 0);
+          match_err = re__match_dfa_driver(
+              &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, out_pos,
+              text, text_size, &out_match, &out_pos,
+              RE__EXEC_DFA_RUN_FLAG_REVERSED | run_flags, &reg->data->exec);
+          /* should ALWAYS match. */
+          if (match_err != RE_MATCH) {
+            err = match_err;
+            goto error;
+          }
+          RE_ASSERT(match_err == RE_MATCH);
+          spans[0].begin = out_pos;
+        }
+        err = RE_MATCH;
+        goto success;
+      } else {
+        err = match_err;
+        goto error;
+      }
+    } else {
+      err = RE_ERROR_INVALID;
+      goto error;
+    }
+  }
+success:
+  return err;
+error:
+  return err;
+}
+#endif
+
 #if 0
 re_error re__match(
     re* reg, const char* text, re_size text_size, re_anchor_type anchor_type,
@@ -6194,6 +6533,7 @@ RE_INTERNAL re_error re__compile_do_alt(
    *                                                      +---10-> ...
    */
   re_error err = RE_ERROR_NONE;
+  int is_root_set = compile->set == frame->ast_base_ref;
   RE_ASSERT(ast->first_child_ref != RE__AST_NONE);
   /* Unlike concats, we still go through alterations in the correct order. */
   /* if (!compile->reversed || compile->reversed) { */
@@ -6212,6 +6552,19 @@ RE_INTERNAL re_error re__compile_do_alt(
       if ((err = re__prog_add(prog, new_inst))) {
         return err;
       }
+      if (is_root_set) {
+        /* When compiling the root set, we insert a split instruction and then a
+         * partition instruction. */
+        re__prog_inst_init_split(
+            &new_inst, re__prog_size(prog) + 1, re__prog_size(prog) + 2);
+        if ((err = re__prog_add(prog, new_inst))) {
+          return err;
+        }
+        re__prog_inst_init_partition(&new_inst, (re_uint32)frame->rep_idx + 1);
+        if ((err = re__prog_add(prog, new_inst))) {
+          return err;
+        }
+      }
     }
     compile->should_push_child = 1;
     compile->should_push_child_ref = ast->first_child_ref;
@@ -6219,7 +6572,7 @@ RE_INTERNAL re_error re__compile_do_alt(
   } else {
     const re__ast* prev_child =
         re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
-    if (compile->set != frame->ast_base_ref) {
+    if (!is_root_set) {
       /* Collect outgoing branches (5, 6, 7, 8, 9, 10). */
       re__compile_patches_merge(
           &frame->patches, prog, &compile->returned_frame.patches);
@@ -6233,6 +6586,7 @@ RE_INTERNAL re_error re__compile_do_alt(
       if ((err = re__prog_add(prog, new_inst))) {
         return err;
       }
+      /* Link all outgoing patches to the match instruction */
       re__compile_patches_patch(
           &compile->returned_frame.patches, prog, re__prog_size(prog) - 1);
     }
@@ -6243,7 +6597,11 @@ RE_INTERNAL re_error re__compile_do_alt(
       /* top.seg.end points to the instruction after the old split
        * instruction, since we didn't set the endpoint before the
        * first child. */
-      re__prog_loc old_split_loc = frame->end - 1;
+      /* If we are compiling the root set, we choose the second previous
+       * instruction in order to skip the other SPLIT instruction and the
+       * PARTITION instruction. */
+      re__prog_loc old_split_loc =
+          is_root_set ? frame->end - 3 : frame->end - 1;
       re__prog_inst* old_inst = re__prog_get(prog, old_split_loc);
       const re__ast* child;
       /* Patch outgoing branch (2). */
@@ -6260,6 +6618,20 @@ RE_INTERNAL re_error re__compile_do_alt(
             RE__PROG_LOC_INVALID                /* Outgoing branch (4) */
         );
         /* Add it to the program. */
+        if ((err = re__prog_add(prog, new_inst))) {
+          return err;
+        }
+      }
+      /* Before intermediate children */
+      if (is_root_set) {
+        /* Add the SPLIT and PARTITION instructions needed */
+        re__prog_inst new_inst;
+        re__prog_inst_init_split(
+            &new_inst, re__prog_size(prog) + 1, re__prog_size(prog) + 2);
+        if ((err = re__prog_add(prog, new_inst))) {
+          return err;
+        }
+        re__prog_inst_init_partition(&new_inst, (re_uint32)frame->rep_idx + 1);
         if ((err = re__prog_add(prog, new_inst))) {
           return err;
         }
@@ -6775,7 +7147,7 @@ RE_INTERNAL int re__exec_dfa_state_is_match(re__exec_dfa_state* state)
 
 RE_INTERNAL int re__exec_dfa_state_is_priority(re__exec_dfa_state* state)
 {
-  return !(state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+  return (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
 }
 
 RE_INTERNAL int re__exec_dfa_state_is_empty(re__exec_dfa_state* state)
@@ -7149,7 +7521,8 @@ re_error re__exec_dfa_construct(
   }
   re__exec_nfa_set_thrds(
       &exec->nfa, current_state->thrd_locs_begin,
-      (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
+      (re__prog_loc)(current_state->thrd_locs_end -
+                     current_state->thrd_locs_begin));
   re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
   re__exec_nfa_set_match_priority(
       &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
@@ -7179,7 +7552,8 @@ void re__exec_dfa_temp_save(
 {
   re__exec_nfa_set_thrds(
       &exec->nfa, current_state->thrd_locs_begin,
-      (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
+      (re__prog_loc)(current_state->thrd_locs_end -
+                     current_state->thrd_locs_begin));
   re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
   re__exec_nfa_set_match_priority(
       &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
@@ -7237,35 +7611,124 @@ void re__exec_dfa_crit_writer_exit(re__exec_dfa_cache* cache)
 
 #endif
 
+RE__VEC_DECL_FUNC(re_uint32, get_data);
+RE__VEC_DECL_FUNC(re_uint32, capacity);
+RE__VEC_DECL_FUNC(re_span, get_data);
+
+void re__exec_dfa_state_save_partitions(
+    const re__exec_dfa_state* state, re__exec* exec, const re__prog* prog,
+    re_size pos, int reversed)
+{
+  re_uint32* thrds_ptr = state->thrd_locs_begin;
+  re_uint32 cur_part = 0;
+  re_uint32 low_pri_part = 0;
+  re_uint32* pri_data = re_uint32_vec_get_data(&exec->pri_bitmap);
+  while (thrds_ptr != state->thrd_locs_end) {
+    re__prog_loc loc = (re__prog_loc)*thrds_ptr;
+    const re__prog_inst* inst = re__prog_get_const(prog, loc);
+    if (re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_PARTITION) {
+      cur_part = re__prog_inst_get_partition_idx(inst);
+      low_pri_part = cur_part;
+    } else if (re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_MATCH) {
+      re_uint32 pri_data_word_idx = cur_part / 16;
+      re_uint32 pri_data_bit_idx = (cur_part & 3) * 2;
+      int cur_flag = (pri_data[pri_data_word_idx] >> pri_data_bit_idx) & 3;
+      re_span* out_span = re_span_vec_get_data(&exec->spans) + cur_part;
+      re_size* out_pos = !reversed ? &out_span->end : &out_span->begin;
+      /* Match instructions should always be matched up with the correct
+       * partition instruction. */
+      RE_ASSERT(re__prog_inst_get_match_idx(inst) == cur_part);
+      if (cur_flag == 2 || cur_flag == 3) {
+        /* Already found highest priority match. Do nothing. */
+        /* Flag is now in {2, 3} */
+      } else if (cur_flag == 1 || cur_flag == 0) {
+        /* Either no low-pri match found or one was found. */
+        if (cur_part == low_pri_part) {
+          /* Replace lower priority match with absolute best match. */
+          pri_data[pri_data_word_idx] |= 2U << pri_data_bit_idx;
+          *out_pos = pos;
+          /* Flag is now in {2, 3} */
+        } else {
+          /* Replace lower priority match with this match. */
+          pri_data[pri_data_word_idx] |= 1U << pri_data_bit_idx;
+          *out_pos = pos;
+          /* Flag is now {1} */
+        }
+      }
+      cur_part = 0;
+    } else {
+      cur_part = 0;
+    }
+    thrds_ptr++;
+  }
+}
+
+void re__exec_dfa_coalesce_partitioned_sets(re__exec* exec)
+{
+  re_uint32 part = 0;
+  re_uint32 write_idx = 0;
+  re_span* spans = re_span_vec_get_data(&exec->spans);
+  re_uint32* set_idxs = re_uint32_vec_get_data(&exec->set_indexes);
+  re_uint32* pri_data = re_uint32_vec_get_data(&exec->pri_bitmap);
+  for (part = 0; part < exec->num_sets; part++) {
+    re_uint32 pri_data_word_idx = part / 16;
+    re_uint32 pri_data_bit_idx = (part & 3) * 2;
+    re_uint32 cur_flag = (pri_data[pri_data_word_idx] >> pri_data_bit_idx) & 3;
+    if (cur_flag) {
+      spans[write_idx] = spans[part];
+      set_idxs[write_idx] = part;
+      if (write_idx++ == exec->num_sets) {
+        break;
+      }
+    }
+  }
+}
+
 #define RE__EXEC_DFA_LOCK_BLOCK_SIZE 32
 
-/* Need to keep track of:
- * - Reversed
- * - Boolean match (check priority bit or not)
- * - Can exit early from boolean matches */
+/* In its current state, the DFA relies pretty heavily on speculative execution
+ * because it checks all flags at its most inner loop. On a Mac M1, the CPU does
+ * a really good job, other processors may vary. I could do what RE2 did and
+ * rewrite inlined versions of this loop, but I'd prefer not to and if I did it
+ * would probably involve code-gen (Python scripts generating C) rather than
+ * using macros or something. */
 re_error re__exec_dfa_cache_driver(
     re__exec_dfa_cache* cache, re__prog_entry entry, const re_uint8* text,
     re_size text_size, re_size text_start_pos, re_uint32* out_match,
     re_size* out_pos, re__exec_dfa_run_flags run_flags, re__exec* exec)
 {
-  re__exec_dfa_start_state_flags start_state_flags = 0;
   re_error err = RE_ERROR_NONE;
   re__exec_dfa_state* current_state;
+  /* Cache int flags here */
   int boolean_match = run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH;
   int boolean_match_exit_early =
       run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY;
   int reversed = run_flags & RE__EXEC_DFA_RUN_FLAG_REVERSED;
   int locked = run_flags & RE__EXEC_DFA_RUN_FLAG_LOCKED;
+  int full_scan = run_flags & RE__EXEC_DFA_RUN_FLAG_FULL_SCAN;
+  re__exec_dfa_start_state_flags start_state_flags = 0;
   unsigned int start_state_idx;
+  /* Obvious OOB check */
+  RE_ASSERT(text_start_pos <= text_size);
+  /* Boolean matches never return a match index */
+  RE_ASSERT(RE__IMPLIES(boolean_match, out_match == RE_NULL));
+  /* Boolean matches never return a position */
+  RE_ASSERT(RE__IMPLIES(boolean_match, out_pos == RE_NULL));
+  /* Keep flags normalized, this one isn't strictly necessary */
+  RE_ASSERT(RE__IMPLIES(!boolean_match, boolean_match_exit_early == 0));
 #if !RE_USE_THREAD
   /* invoke DCE */
   locked = 0;
 #endif
+  /* Determine the start state flags for construction */
   if (!reversed) {
+    /* Forward execution */
     if (text_start_pos == 0) {
+      /* Absolute start */
       start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
                            RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
     } else {
+      /* After word / line character (cannot occur at start) */
       start_state_flags |=
           (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
            re__is_word_char((unsigned char)(text[text_start_pos - 1])));
@@ -7274,10 +7737,13 @@ re_error re__exec_dfa_cache_driver(
           (unsigned int)(text[text_start_pos - 1] == '\n');
     }
   } else {
+    /* Reversed execution */
     if (text_start_pos == text_size) {
+      /* Absolute end */
       start_state_flags |= RE__EXEC_DFA_START_STATE_FLAG_BEGIN_TEXT |
                            RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE;
     } else {
+      /* After word / line character (cannot occur at end) */
       start_state_flags |=
           (RE__EXEC_DFA_START_STATE_FLAG_AFTER_WORD *
            re__is_word_char((unsigned char)(text[text_start_pos])));
@@ -7286,18 +7752,29 @@ re_error re__exec_dfa_cache_driver(
           (unsigned int)(text[text_start_pos] == '\n');
     }
   }
+  if (full_scan) {
+    /* Zero out the set tracking bitmap */
+    re_uint32* bmp_ptr = re_uint32_vec_get_data(&exec->pri_bitmap);
+    re_uint32 i;
+    for (i = 0; i < (re_uint32)re_uint32_vec_capacity(&exec->pri_bitmap); i++) {
+      bmp_ptr[i] = 0;
+    }
+  }
+  /* Compute index into cache->start_states */
   start_state_idx =
       start_state_flags + (entry * RE__EXEC_DFA_START_STATE_COUNT);
   if (locked) {
+    /* Hold cache as a reader */
     re__exec_dfa_crit_reader_enter(cache);
   }
   if (!cache->start_states[start_state_idx]) {
-    do {
-      /* Need to construct start state */
-      if ((err =
-               re__exec_dfa_construct_start(exec, entry, start_state_flags))) {
-        goto reader_exit;
-      }
+    /* Need to construct start state */
+    /* Use NFA to construct, this can be done in reader thread */
+    if ((err = re__exec_dfa_construct_start(exec, entry, start_state_flags))) {
+      goto reader_exit;
+    }
+    do { /* Analagous to a compare-swap loop, kinda? */
+      /* Construction complete */
       if (locked) {
         /* Switch to writer */
         re__exec_dfa_crit_reader_exit(cache);
@@ -7318,22 +7795,30 @@ re_error re__exec_dfa_cache_driver(
       /* Keep trying to get the state */
     } while (locked && !current_state);
   } else {
-    /* Grab start state, it's ready */
+    /* Grab start state, it's ready - no need to write to cache */
     current_state = cache->start_states[start_state_idx];
   }
-  RE_ASSERT(text_start_pos <= text_size);
-  RE_ASSERT(RE__IMPLIES(boolean_match, out_match == RE_NULL));
-  RE_ASSERT(RE__IMPLIES(boolean_match, out_pos == RE_NULL));
-  RE_ASSERT(RE__IMPLIES(!boolean_match, boolean_match_exit_early == 0));
   {
+    /* -- Main loop -- */
+    /* Current processed character */
     const re_uint8* start;
+    /* The last location a match was found */
     const re_uint8* last_found_start;
+    /* Final character (!reversed ? start + text_size : start - text_size) */
     const re_uint8* end;
+    /* Set to the position that will be returned */
     const re_uint8* loop_out_pos;
+    /* Last match index, correlates with last_found_start */
     re_uint32 last_found_match = 0;
+    /* Set to the match index that will be returned */
     re_uint32 loop_out_index;
+    /* For threading: How many characters have been processed since the last
+     * time the writers were allowed to breathe */
     re_uint32 block_idx = 0;
+    /* Next state (temporary variable) */
     re__exec_dfa_state_ptr next_state;
+
+    /* Compute start/end locations */
     start = text + text_start_pos;
     if (!reversed) {
       end = text + text_size;
@@ -7341,18 +7826,20 @@ re_error re__exec_dfa_cache_driver(
       end = text;
     }
     while (1) {
+      /* Break if done */
       if (start == end) {
         break;
       }
+      /* Pre-decrement if we're reversing (this is how it's done) */
       if (reversed) {
         start--;
       }
       if (!(next_state = current_state->next[*start])) {
+        /* Need to construct next state */
+        if ((err = re__exec_dfa_construct(exec, current_state, *start))) {
+          goto reader_exit;
+        }
         do {
-          /* Need to construct next state */
-          if ((err = re__exec_dfa_construct(exec, current_state, *start))) {
-            goto reader_exit;
-          }
           if (locked) {
             /* Switch to writer */
             re__exec_dfa_crit_reader_exit(cache);
@@ -7372,37 +7859,79 @@ re_error re__exec_dfa_cache_driver(
           }
         } while (locked && !next_state);
       }
+      /* Advance state */
       current_state = next_state;
       if (boolean_match) {
         if (boolean_match_exit_early) {
           if (re__exec_dfa_state_is_match(current_state)) {
+            /* We found *a* match, but not *the* match. Doesn't matter though,
+             * all we need to do is report if there is *a* match. */
             err = RE_MATCH;
             goto loop_exit_match;
           }
         }
       } else {
-        if (re__exec_dfa_state_is_match(current_state)) {
-          last_found_match = re__exec_dfa_state_get_match_index(current_state);
-          last_found_start = start;
-          if (re__exec_dfa_state_is_priority(current_state)) {
-            loop_out_pos = last_found_start;
-            loop_out_index = last_found_match;
-            err = RE_MATCH;
-            goto loop_exit_match;
-          } else if (
-              re__exec_dfa_state_is_empty(current_state) && last_found_match) {
-            loop_out_pos = last_found_start;
-            loop_out_index = last_found_match;
-            err = RE_MATCH;
-            goto loop_exit_match;
+        if (!full_scan) {
+          if (re__exec_dfa_state_is_match(current_state)) {
+            /* Record the index of this match and its starting position */
+            last_found_match =
+                re__exec_dfa_state_get_match_index(current_state);
+            last_found_start = start;
+            if (re__exec_dfa_state_is_priority(current_state)) {
+              /* If this is the highest-priority match, then we can exit */
+              loop_out_pos = last_found_start;
+              loop_out_index = last_found_match;
+              err = RE_MATCH;
+              goto loop_exit_match;
+            }
+          } else if (re__exec_dfa_state_is_empty(current_state)) {
+            if (last_found_match) {
+              /* OR, if there are no more threads left, and we previously found
+               * a match, we can exit */
+              loop_out_pos = last_found_start;
+              loop_out_index = last_found_match;
+              err = RE_MATCH;
+              goto loop_exit_match;
+            } else {
+              err = RE_NOMATCH;
+              goto loop_exit_nomatch;
+            }
+          }
+        } else {
+          /* Scanning for multiple matches */
+          if (re__exec_dfa_state_is_match(current_state)) {
+            /* Some match in the state. Scan threads. */
+            re__exec_dfa_state_save_partitions(
+                current_state, exec, exec->nfa.prog,
+                (re_size)(start - text) + (re_size)reversed, reversed);
+            /* Must continue match to search for more. */
+          } else {
+            /* Empty state. Return what we found; no use continuing. */
+            /* We can quickly check if we found a match by scanning the bitmap
+             * for any non-zero value. */
+            re_uint32 bmp_idx;
+            for (bmp_idx = 0;
+                 bmp_idx < (re_uint32)re_uint32_vec_capacity(&exec->pri_bitmap);
+                 bmp_idx++) {
+              if (re_uint32_vec_get_data(&exec->pri_bitmap)[bmp_idx]) {
+                err = RE_MATCH;
+                goto loop_exit_match;
+              }
+            }
+            /* No match found. */
+            err = RE_NOMATCH;
+            goto loop_exit_nomatch;
           }
         }
       }
+      /* Forwards-running: increment text pointer */
       if (!reversed) {
         start++;
       }
-      block_idx++;
       if (locked) {
+        /* Writer anti-starvation logic, in theory, this should allow writers
+         * to get a chance at the cache */
+        block_idx++;
         if (block_idx == RE__EXEC_DFA_LOCK_BLOCK_SIZE) {
           re__exec_dfa_temp_save(exec, current_state);
           /* Let the writers breathe */
@@ -7424,33 +7953,17 @@ re_error re__exec_dfa_cache_driver(
           block_idx = 0;
         }
       }
-    }
+    } /* end main loop */
+    /* If we exited this loop normally, no suitable match was ever found. */
     err = RE_ERROR_NOMATCH;
-  loop_exit_match:
-    if (err == RE_MATCH) {
-      /* Exited early */
-      if (boolean_match) {
-        goto reader_exit;
-      } else {
-        RE_ASSERT(loop_out_pos >= text);
-        RE_ASSERT(loop_out_pos < text + text_size);
-        if (!reversed) {
-          *out_pos = (re_size)(loop_out_pos - text);
-        } else {
-          *out_pos = (re_size)(loop_out_pos - text) + 1;
-        }
-        *out_match = loop_out_index;
+    /* If we are here, err = RE_ERROR_NOMATCH, and we will try to execute the
+     * end state */
+    if (!(next_state = current_state->next[RE__EXEC_SYM_EOT])) {
+      /* Need to construct next state */
+      if ((err = re__exec_dfa_construct_end(exec, current_state))) {
         goto reader_exit;
       }
-    } else if (err != RE_ERROR_NOMATCH) {
-      goto reader_exit;
-    }
-    if (!(next_state = current_state->next[RE__EXEC_SYM_EOT])) {
       do {
-        /* Need to construct next state */
-        if ((err = re__exec_dfa_construct_end(exec, current_state))) {
-          goto reader_exit;
-        }
         if (locked) {
           /* Switch to writer */
           re__exec_dfa_crit_reader_exit(cache);
@@ -7472,23 +7985,52 @@ re_error re__exec_dfa_cache_driver(
     }
     current_state = next_state;
     if (re__exec_dfa_state_is_match(current_state)) {
+      /* Matched on the end state */
       if (!boolean_match) {
+        /* Works for both reverse and forwards */
         *out_pos = (re_size)(end - text);
         *out_match = re__exec_dfa_state_get_match_index(current_state);
       }
       err = RE_MATCH;
       goto reader_exit;
     } else {
+      /* Didn't match on the end state */
       err = RE_NOMATCH;
       goto reader_exit;
     }
+  /* Unreachable fallthrough - all previous branches must go to reader_exit */
+  loop_exit_match:
+    /* Early exit from loop - match case */
+    err = RE_MATCH;
+    /* Exited early */
+    if (boolean_match) {
+      /* Boolean: we can just head out and report *a* match */
+    } else if (!full_scan) {
+      /* These asserts ensure we can cast to re_size in the following lines
+       */
+      RE_ASSERT(loop_out_pos >= text);
+      RE_ASSERT(loop_out_pos < text + text_size);
+      /* Normalize the out position */
+      *out_pos = (re_size)(loop_out_pos - text) + (re_size) !!reversed;
+      *out_match = loop_out_index;
+    } else {
+      /* Full scans are handled outside of the DFA */
+    }
+    goto reader_exit;
+  loop_exit_nomatch:
+    /* Early exit from loop - nonmatch case */
+    err = RE_NOMATCH;
+    goto reader_exit;
   }
 writer_error:
+  /* This label is only reached if we encounter an error during a writer crit */
   if (locked) {
     re__exec_dfa_crit_writer_exit(cache);
   }
   return err;
 reader_exit:
+  /* This label is only reached if we wish to leave OR encounter an error during
+   * a reader crit */
   if (locked) {
     re__exec_dfa_crit_reader_exit(cache);
   }
@@ -7708,6 +8250,11 @@ re__exec_thrd_set_add(re__exec_thrd_set* set, re__exec_thrd thrd)
   set->dense[set->n] = thrd;
   set->sparse[thrd.loc] = set->n;
   set->n++;
+}
+
+RE_INTERNAL re__exec_thrd re__exec_thrd_set_remove_last(re__exec_thrd_set* set)
+{
+  return set->dense[--set->n];
 }
 
 RE_INTERNAL void re__exec_thrd_set_clear(re__exec_thrd_set* set)
@@ -7969,6 +8516,9 @@ RE_INTERNAL re_error re__exec_nfa_run_follow(
         } else {
           re__exec_save_dec_refs(&exec->save_slots, primary_thrd.save_slot);
         }
+      } else if (inst_type == RE__PROG_INST_TYPE_PARTITION) {
+        /* Queue this partition instruction. */
+        re__exec_thrd_set_add(&exec->set_b, top);
       } else {
         RE__ASSERT_UNREACHED();
       }
@@ -7984,6 +8534,7 @@ RE_INTERNAL re_error re__exec_nfa_run_byte(
 {
   re_error err = RE_ERROR_NONE;
   re__prog_loc i;
+  re_uint32 priority = 0;
   RE_ASSERT(exec->prog);
   if ((err = re__exec_nfa_run_follow(exec, assert_type, pos))) {
     return err;
@@ -8018,11 +8569,36 @@ RE_INTERNAL re_error re__exec_nfa_run_byte(
       re_uint32 match_index = re__prog_inst_get_match_idx(cur_inst);
       if (!exec->set_a.match_index) {
         exec->set_a.match_index = match_index;
-        exec->set_a.match_priority = exec->set_a.n;
+        exec->set_a.match_priority = !priority;
       }
       re__exec_save_dec_refs(&exec->save_slots, cur_thrd.save_slot);
+    } else if (cur_inst_type == RE__PROG_INST_TYPE_PARTITION) {
+      /* Delete the previous partition if it is the last item in the output
+       * threads list. */
+      if (exec->set_a.n) {
+        re__exec_thrd prev_thrd = exec->set_a.dense[exec->set_a.n - 1];
+        if (re__prog_inst_get_type(re__prog_get_const(
+                exec->prog, prev_thrd.loc)) == RE__PROG_INST_TYPE_PARTITION) {
+          /* Prev instruction is a partition. */
+          re__exec_thrd_set_remove_last(&exec->set_a);
+        }
+      }
+      re__exec_thrd_set_add(&exec->set_a, cur_thrd);
     } else {
       RE__ASSERT_UNREACHED();
+    }
+    if (cur_inst_type != RE__PROG_INST_TYPE_PARTITION) {
+      priority++;
+    }
+  }
+  /* Delete the previous partition if it is the last item in the output
+   * threads list. */
+  if (exec->set_a.n) {
+    re__exec_thrd prev_thrd = exec->set_a.dense[exec->set_a.n - 1];
+    if (re__prog_inst_get_type(re__prog_get_const(exec->prog, prev_thrd.loc)) ==
+        RE__PROG_INST_TYPE_PARTITION) {
+      /* Prev instruction is a partition. */
+      re__exec_thrd_set_remove_last(&exec->set_a);
     }
   }
   return err;
@@ -8171,6 +8747,7 @@ RE_INTERNAL re_error re__parse_error(re__parse* parse, const char* err_chars)
     re__str_destroy(&err_str);
     return err;
   }
+  re__str_destroy(&err_str);
   return RE_ERROR_PARSE;
 }
 
@@ -9916,6 +10493,13 @@ re__prog_inst_init_save(re__prog_inst* inst, re_uint32 save_idx)
   inst->data1 = save_idx;
 }
 
+RE_INTERNAL void
+re__prog_inst_init_partition(re__prog_inst* inst, re_uint32 match_idx)
+{
+  re__prog_inst_init(inst, RE__PROG_INST_TYPE_PARTITION);
+  inst->data1 = match_idx;
+}
+
 RE_INTERNAL re__prog_loc re__prog_inst_get_primary(const re__prog_inst* inst)
 {
   return inst->data0 >> 3;
@@ -9982,6 +10566,12 @@ RE_INTERNAL re_uint32 re__prog_inst_get_assert_ctx(const re__prog_inst* inst)
   return inst->data1;
 }
 
+RE_INTERNAL re_uint32 re__prog_inst_get_partition_idx(const re__prog_inst* inst)
+{
+  RE_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_PARTITION);
+  return inst->data1;
+}
+
 RE_INTERNAL int
 re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b)
 {
@@ -10009,6 +10599,10 @@ re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b)
   } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_ASSERT) {
     eq &= (re__prog_inst_get_assert_ctx(a) == re__prog_inst_get_assert_ctx(b));
     eq &= (re__prog_inst_get_primary(a) == re__prog_inst_get_primary(b));
+  } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_PARTITION) {
+    eq &=
+        (re__prog_inst_get_partition_idx(a) ==
+         re__prog_inst_get_partition_idx(b));
   }
   return eq;
 }
@@ -10113,6 +10707,9 @@ RE_INTERNAL void re__prog_debug_dump(const re__prog* prog)
       break;
     case RE__PROG_INST_TYPE_ASSERT:
       printf("ASSERT ctx=%u", re__prog_inst_get_assert_ctx(inst));
+      break;
+    case RE__PROG_INST_TYPE_PARTITION:
+      printf("PARTITION idx=%u", re__prog_inst_get_partition_idx(inst));
       break;
     default:
       RE__ASSERT_UNREACHED();
@@ -11572,3 +12169,6 @@ RE_INTERNAL re_rune re__rune_data_casefold_next(re_rune r)
 
 #endif /* RE_IMPLEMENTATION */
 #endif /* RE_H */
+#ifdef __cplusplus
+}
+#endif

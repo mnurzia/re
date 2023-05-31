@@ -35,7 +35,7 @@ MN_INTERNAL int re__exec_dfa_state_is_match(re__exec_dfa_state* state)
 
 MN_INTERNAL int re__exec_dfa_state_is_priority(re__exec_dfa_state* state)
 {
-  return !(state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
+  return (state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
 }
 
 MN_INTERNAL int re__exec_dfa_state_is_empty(re__exec_dfa_state* state)
@@ -409,7 +409,8 @@ re_error re__exec_dfa_construct(
   }
   re__exec_nfa_set_thrds(
       &exec->nfa, current_state->thrd_locs_begin,
-      (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
+      (re__prog_loc)(current_state->thrd_locs_end -
+                     current_state->thrd_locs_begin));
   re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
   re__exec_nfa_set_match_priority(
       &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
@@ -439,7 +440,8 @@ void re__exec_dfa_temp_save(
 {
   re__exec_nfa_set_thrds(
       &exec->nfa, current_state->thrd_locs_begin,
-      (re__prog_loc)(current_state->thrd_locs_end - current_state->thrd_locs_begin));
+      (re__prog_loc)(current_state->thrd_locs_end -
+                     current_state->thrd_locs_begin));
   re__exec_nfa_set_match_index(&exec->nfa, current_state->match_index);
   re__exec_nfa_set_match_priority(
       &exec->nfa, current_state->flags & RE__EXEC_DFA_FLAG_MATCH_PRIORITY);
@@ -497,6 +499,79 @@ void re__exec_dfa_crit_writer_exit(re__exec_dfa_cache* cache)
 
 #endif
 
+MN__VEC_DECL_FUNC(mn_uint32, get_data);
+MN__VEC_DECL_FUNC(mn_uint32, capacity);
+MN__VEC_DECL_FUNC(re_span, get_data);
+
+void re__exec_dfa_state_save_partitions(
+    const re__exec_dfa_state* state, re__exec* exec, const re__prog* prog,
+    mn_size pos, int reversed)
+{
+  mn_uint32* thrds_ptr = state->thrd_locs_begin;
+  mn_uint32 cur_part = 0;
+  mn_uint32 low_pri_part = 0;
+  mn_uint32* pri_data = mn_uint32_vec_get_data(&exec->pri_bitmap);
+  while (thrds_ptr != state->thrd_locs_end) {
+    re__prog_loc loc = (re__prog_loc)*thrds_ptr;
+    const re__prog_inst* inst = re__prog_get_const(prog, loc);
+    if (re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_PARTITION) {
+      cur_part = re__prog_inst_get_partition_idx(inst);
+      low_pri_part = cur_part;
+    } else if (re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_MATCH) {
+      mn_uint32 pri_data_word_idx = cur_part / 16;
+      mn_uint32 pri_data_bit_idx = (cur_part & 3) * 2;
+      int cur_flag = (pri_data[pri_data_word_idx] >> pri_data_bit_idx) & 3;
+      re_span* out_span = re_span_vec_get_data(&exec->spans) + cur_part;
+      mn_size* out_pos = !reversed ? &out_span->end : &out_span->begin;
+      /* Match instructions should always be matched up with the correct
+       * partition instruction. */
+      MN_ASSERT(re__prog_inst_get_match_idx(inst) == cur_part);
+      if (cur_flag == 2 || cur_flag == 3) {
+        /* Already found highest priority match. Do nothing. */
+        /* Flag is now in {2, 3} */
+      } else if (cur_flag == 1 || cur_flag == 0) {
+        /* Either no low-pri match found or one was found. */
+        if (cur_part == low_pri_part) {
+          /* Replace lower priority match with absolute best match. */
+          pri_data[pri_data_word_idx] |= 2U << pri_data_bit_idx;
+          *out_pos = pos;
+          /* Flag is now in {2, 3} */
+        } else {
+          /* Replace lower priority match with this match. */
+          pri_data[pri_data_word_idx] |= 1U << pri_data_bit_idx;
+          *out_pos = pos;
+          /* Flag is now {1} */
+        }
+      }
+      cur_part = 0;
+    } else {
+      cur_part = 0;
+    }
+    thrds_ptr++;
+  }
+}
+
+void re__exec_dfa_coalesce_partitioned_sets(re__exec* exec)
+{
+  mn_uint32 part = 0;
+  mn_uint32 write_idx = 0;
+  re_span* spans = re_span_vec_get_data(&exec->spans);
+  mn_uint32* set_idxs = mn_uint32_vec_get_data(&exec->set_indexes);
+  mn_uint32* pri_data = mn_uint32_vec_get_data(&exec->pri_bitmap);
+  for (part = 0; part < exec->num_sets; part++) {
+    mn_uint32 pri_data_word_idx = part / 16;
+    mn_uint32 pri_data_bit_idx = (part & 3) * 2;
+    mn_uint32 cur_flag = (pri_data[pri_data_word_idx] >> pri_data_bit_idx) & 3;
+    if (cur_flag) {
+      spans[write_idx] = spans[part];
+      set_idxs[write_idx] = part;
+      if (write_idx++ == exec->num_sets) {
+        break;
+      }
+    }
+  }
+}
+
 #define RE__EXEC_DFA_LOCK_BLOCK_SIZE 32
 
 /* In its current state, the DFA relies pretty heavily on speculative execution
@@ -518,6 +593,7 @@ re_error re__exec_dfa_cache_driver(
       run_flags & RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY;
   int reversed = run_flags & RE__EXEC_DFA_RUN_FLAG_REVERSED;
   int locked = run_flags & RE__EXEC_DFA_RUN_FLAG_LOCKED;
+  int full_scan = run_flags & RE__EXEC_DFA_RUN_FLAG_FULL_SCAN;
   re__exec_dfa_start_state_flags start_state_flags = 0;
   unsigned int start_state_idx;
   /* Obvious OOB check */
@@ -562,6 +638,14 @@ re_error re__exec_dfa_cache_driver(
       start_state_flags |=
           (unsigned int)RE__EXEC_DFA_START_STATE_FLAG_BEGIN_LINE *
           (unsigned int)(text[text_start_pos] == '\n');
+    }
+  }
+  if (full_scan) {
+    /* Zero out the set tracking bitmap */
+    mn_uint32* bmp_ptr = mn_uint32_vec_get_data(&exec->pri_bitmap);
+    mn_uint32 i;
+    for (i = 0; i < (mn_uint32)mn_uint32_vec_capacity(&exec->pri_bitmap); i++) {
+      bmp_ptr[i] = 0;
     }
   }
   /* Compute index into cache->start_states */
@@ -675,24 +759,56 @@ re_error re__exec_dfa_cache_driver(
           }
         }
       } else {
-        if (re__exec_dfa_state_is_match(current_state)) {
-          /* Record the index of this match and its starting position */
-          last_found_match = re__exec_dfa_state_get_match_index(current_state);
-          last_found_start = start;
-          if (re__exec_dfa_state_is_priority(current_state)) {
-            /* If this is the highest-priority match, then we can exit */
-            loop_out_pos = last_found_start;
-            loop_out_index = last_found_match;
-            err = RE_MATCH;
-            goto loop_exit_match;
-          } else if (
-              re__exec_dfa_state_is_empty(current_state) && last_found_match) {
-            /* OR, if there are no more threads left, and we previously found a
-             * match, we can exit */
-            loop_out_pos = last_found_start;
-            loop_out_index = last_found_match;
-            err = RE_MATCH;
-            goto loop_exit_match;
+        if (!full_scan) {
+          if (re__exec_dfa_state_is_match(current_state)) {
+            /* Record the index of this match and its starting position */
+            last_found_match =
+                re__exec_dfa_state_get_match_index(current_state);
+            last_found_start = start;
+            if (re__exec_dfa_state_is_priority(current_state)) {
+              /* If this is the highest-priority match, then we can exit */
+              loop_out_pos = last_found_start;
+              loop_out_index = last_found_match;
+              err = RE_MATCH;
+              goto loop_exit_match;
+            }
+          } else if (re__exec_dfa_state_is_empty(current_state)) {
+            if (last_found_match) {
+              /* OR, if there are no more threads left, and we previously found
+               * a match, we can exit */
+              loop_out_pos = last_found_start;
+              loop_out_index = last_found_match;
+              err = RE_MATCH;
+              goto loop_exit_match;
+            } else {
+              err = RE_NOMATCH;
+              goto loop_exit_nomatch;
+            }
+          }
+        } else {
+          /* Scanning for multiple matches */
+          if (re__exec_dfa_state_is_match(current_state)) {
+            /* Some match in the state. Scan threads. */
+            re__exec_dfa_state_save_partitions(
+                current_state, exec, exec->nfa.prog,
+                (mn_size)(start - text) + (mn_size)reversed, reversed);
+            /* Must continue match to search for more. */
+          } else if (re__exec_dfa_state_is_empty(current_state)) {
+            /* Empty state. Return what we found; no use continuing. */
+            /* We can quickly check if we found a match by scanning the bitmap
+             * for any non-zero value. */
+            mn_uint32 bmp_idx;
+            for (bmp_idx = 0;
+                 bmp_idx < (mn_uint32)mn_uint32_vec_capacity(&exec->pri_bitmap);
+                 bmp_idx++) {
+              if (mn_uint32_vec_get_data(&exec->pri_bitmap)[bmp_idx]) {
+                err = RE_MATCH;
+                goto loop_exit_match;
+              }
+            }
+            /* No match found. */
+            err = RE_NOMATCH;
+            goto loop_exit_nomatch;
           }
         }
       }
@@ -728,29 +844,6 @@ re_error re__exec_dfa_cache_driver(
     } /* end main loop */
     /* If we exited this loop normally, no suitable match was ever found. */
     err = RE_ERROR_NOMATCH;
-  loop_exit_match:
-    if (err == RE_MATCH) {
-      /* Exited early */
-      if (boolean_match) {
-        /* Boolean: we can just head out and report *a* match */
-        goto reader_exit;
-      } else {
-        /* These asserts ensure we can cast to mn_size in the following lines */
-        MN_ASSERT(loop_out_pos >= text);
-        MN_ASSERT(loop_out_pos < text + text_size);
-        /* Normalize the out position */
-        if (!reversed) {
-          *out_pos = (mn_size)(loop_out_pos - text);
-        } else {
-          *out_pos = (mn_size)(loop_out_pos - text) + 1;
-        }
-        *out_match = loop_out_index;
-        goto reader_exit;
-      }
-    } else if (err != RE_ERROR_NOMATCH) {
-      /* Some other error occurred - report that */
-      goto reader_exit;
-    }
     /* If we are here, err = RE_ERROR_NOMATCH, and we will try to execute the
      * end state */
     if (!(next_state = current_state->next[RE__EXEC_SYM_EOT])) {
@@ -793,8 +886,30 @@ re_error re__exec_dfa_cache_driver(
       err = RE_NOMATCH;
       goto reader_exit;
     }
+  /* Unreachable fallthrough - all previous branches must go to reader_exit */
+  loop_exit_match:
+    /* Early exit from loop - match case */
+    err = RE_MATCH;
+    /* Exited early */
+    if (boolean_match) {
+      /* Boolean: we can just head out and report *a* match */
+    } else if (!full_scan) {
+      /* These asserts ensure we can cast to mn_size in the following lines
+       */
+      MN_ASSERT(loop_out_pos >= text);
+      MN_ASSERT(loop_out_pos < text + text_size);
+      /* Normalize the out position */
+      *out_pos = (mn_size)(loop_out_pos - text) + (mn_size) !!reversed;
+      *out_match = loop_out_index;
+    } else {
+      /* Full scans are handled outside of the DFA */
+    }
+    goto reader_exit;
+  loop_exit_nomatch:
+    /* Early exit from loop - nonmatch case */
+    err = RE_NOMATCH;
+    goto reader_exit;
   }
-  /* Unreachable fallthrough - all previous branches go to reader_exit */
 writer_error:
   /* This label is only reached if we encounter an error during a writer crit */
   if (locked) {

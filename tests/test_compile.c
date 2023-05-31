@@ -1083,10 +1083,14 @@ TEST(t_compile_set_two)
       "    (rune 'b'))))",
       "(prog"
       "  (fail)"
-      "  (split 2 4)"
-      "  (byte 'a' 3)"
+      "  (split 2 6)"
+      "  (split 3 4)"
+      "  (partition 1)"
+      "  (byte 'a' 5)"
       "  (match 1 0)"
-      "  (byte 'b' 5)"
+      "  (split 7 8)"
+      "  (partition 2)"
+      "  (byte 'b' 9)"
       "  (match 2 0))",
       0));
   PASS();
@@ -1102,13 +1106,19 @@ TEST(t_compile_set_three)
       "    (rune 'c'))))",
       "(prog"
       "  (fail)"
-      "  (split 2 4)"
-      "  (byte 'a' 3)"
+      "  (split 2 6)"
+      "  (split 3 4)"
+      "  (partition 1)"
+      "  (byte 'a' 5)"
       "  (match 1 0)"
-      "  (split 5 7)"
-      "  (byte 'b' 6)"
+      "  (split 7 11)"
+      "  (split 8 9)"
+      "  (partition 2)"
+      "  (byte 'b' 10)"
       "  (match 2 0)"
-      "  (byte 'c' 8)"
+      "  (split 12 13)"
+      "  (partition 3)"
+      "  (byte 'c' 14)"
       "  (match 3 0))",
       0));
   PASS();
@@ -1127,18 +1137,24 @@ TEST(t_compile_set_complex_0)
       "      (rune 'c'))))))",
       "(prog"
       "  (fail)"
-      "  (split 2 7)"
-      "  (byte 'b' 3)"
-      "  (byte 'l' 4)"
-      "  (byte 'a' 5)"
-      "  (byte 'h' 6)"
+      "  (split 2 9)"
+      "  (split 3 4)"
+      "  (partition 1)"
+      "  (byte 'b' 5)"
+      "  (byte 'l' 6)"
+      "  (byte 'a' 7)"
+      "  (byte 'h' 8)"
       "  (match 1 0)"
-      "  (split 8 10)"
-      "  (assert (text_end) 9)"
+      "  (split 10 14)"
+      "  (split 11 12)"
+      "  (partition 2)"
+      "  (assert (text_end) 13)"
       "  (match 2 0)"
-      "  (byte 'a' 11)"
-      "  (byte 'b' 12)"
-      "  (byte 'c' 13)"
+      "  (split 15 16)"
+      "  (partition 3)"
+      "  (byte 'a' 17)"
+      "  (byte 'b' 18)"
+      "  (byte 'c' 19)"
       "  (match 3 0))",
       0));
   PASS();
@@ -1153,14 +1169,18 @@ TEST(t_compile_set_complex_1)
       "    (str test))))",
       "(prog"
       "  (fail)"
-      "  (split 2 5)"
+      "  (split 2 7)"
       "  (split 3 4)"
-      "  (byte 'a' 2)"
+      "  (partition 1)"
+      "  (split 5 6)"
+      "  (byte 'a' 4)"
       "  (match 1 0)"
-      "  (byte 't' 6)"
-      "  (byte 'e' 7)"
-      "  (byte 's' 8)"
-      "  (byte 't' 9)"
+      "  (split 8 9)"
+      "  (partition 2)"
+      "  (byte 't' 10)"
+      "  (byte 'e' 11)"
+      "  (byte 's' 12)"
+      "  (byte 't' 13)"
       "  (match 2 0))",
       0));
   PASS();

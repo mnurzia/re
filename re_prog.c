@@ -59,6 +59,13 @@ re__prog_inst_init_save(re__prog_inst* inst, mn_uint32 save_idx)
   inst->data1 = save_idx;
 }
 
+MN_INTERNAL void
+re__prog_inst_init_partition(re__prog_inst* inst, mn_uint32 match_idx)
+{
+  re__prog_inst_init(inst, RE__PROG_INST_TYPE_PARTITION);
+  inst->data1 = match_idx;
+}
+
 MN_INTERNAL re__prog_loc re__prog_inst_get_primary(const re__prog_inst* inst)
 {
   return inst->data0 >> 3;
@@ -125,6 +132,12 @@ MN_INTERNAL mn_uint32 re__prog_inst_get_assert_ctx(const re__prog_inst* inst)
   return inst->data1;
 }
 
+MN_INTERNAL mn_uint32 re__prog_inst_get_partition_idx(const re__prog_inst* inst)
+{
+  MN_ASSERT(re__prog_inst_get_type(inst) == RE__PROG_INST_TYPE_PARTITION);
+  return inst->data1;
+}
+
 MN_INTERNAL int
 re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b)
 {
@@ -152,6 +165,10 @@ re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b)
   } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_ASSERT) {
     eq &= (re__prog_inst_get_assert_ctx(a) == re__prog_inst_get_assert_ctx(b));
     eq &= (re__prog_inst_get_primary(a) == re__prog_inst_get_primary(b));
+  } else if (re__prog_inst_get_type(a) == RE__PROG_INST_TYPE_PARTITION) {
+    eq &=
+        (re__prog_inst_get_partition_idx(a) ==
+         re__prog_inst_get_partition_idx(b));
   }
   return eq;
 }
@@ -256,6 +273,9 @@ MN_INTERNAL void re__prog_debug_dump(const re__prog* prog)
       break;
     case RE__PROG_INST_TYPE_ASSERT:
       printf("ASSERT ctx=%u", re__prog_inst_get_assert_ctx(inst));
+      break;
+    case RE__PROG_INST_TYPE_PARTITION:
+      printf("PARTITION idx=%u", re__prog_inst_get_partition_idx(inst));
       break;
     default:
       MN__ASSERT_UNREACHED();

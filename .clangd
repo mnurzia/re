@@ -1,0 +1,8 @@
+CompileFlags:
+  Add: [-Wall, -Werror, -Wextra, -pedantic, -std=c89, -DRE_IMPLEMENTATION, -DRE__SPLIT_BUILD]
+InlayHints:
+  Enabled: false
+Diagnostics:
+  UnusedIncludes: Strict
+  ClangTidy:
+    Add: linuxkernel-*

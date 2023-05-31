@@ -704,6 +704,16 @@ typedef enum re__prog_inst_type {
    *     |
    *     +-----> */
   RE__PROG_INST_TYPE_ASSERT,
+  /* Marker instruction used for partitioning the thread set so that the DFA can
+   * properly segregate priorities per set. */
+  /* +-------+
+   * | Part  |
+   * | Instr |
+   * +-------+
+   *   |   ^
+   *   |   |
+   *   +---+ */
+  RE__PROG_INST_TYPE_PARTITION,
   /* maximum value of enum */
   RE__PROG_INST_TYPE_MAX
 } re__prog_inst_type;
@@ -753,6 +763,11 @@ re__prog_inst_init_assert(re__prog_inst* inst, mn_uint32 assert_context);
 MN_INTERNAL void
 re__prog_inst_init_save(re__prog_inst* inst, mn_uint32 save_idx);
 
+/* Initialize an instruction as a partition instruction, given its partition
+ * index */
+MN_INTERNAL void
+re__prog_inst_init_partition(re__prog_inst* inst, mn_uint32 part_idx);
+
 /* Get the primary branch target of an instruction */
 MN_INTERNAL re__prog_loc re__prog_inst_get_primary(const re__prog_inst* inst);
 
@@ -799,9 +814,14 @@ MN_INTERNAL mn_uint32 re__prog_inst_get_match_idx(const re__prog_inst* inst);
  * RE__PROG_INST_TYPE_SAVE) */
 MN_INTERNAL mn_uint32 re__prog_inst_get_save_idx(const re__prog_inst* inst);
 
+/* Get an instruction's partition index (instruction must be
+ * RE__PROG_INST_TYPE_PARTITION) */
+MN_INTERNAL mn_uint32
+re__prog_inst_get_partition_idx(const re__prog_inst* inst);
+
 /* Check if two instructions are equal */
-MN_INTERNAL int
-re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b);
+MN_INTERNAL
+int re__prog_inst_equals(const re__prog_inst* a, const re__prog_inst* b);
 
 /* ---------------------------------------------------------------------------
  * Program (re_prog.c)
@@ -1400,8 +1420,8 @@ typedef enum re__exec_dfa_run_flags {
   RE__EXEC_DFA_RUN_FLAG_REVERSED = 4,
   /* Run the DFA with locks (multi-threaded context) */
   RE__EXEC_DFA_RUN_FLAG_LOCKED = 8,
-  /* Dump thread info to the exec structure at the end of the run */
-  RE__EXEC_DFA_RUN_FLAG_DUMP_SET = 16
+  /* Scan for all set info, dump set info to the exec structure */
+  RE__EXEC_DFA_RUN_FLAG_FULL_SCAN = 16
 } re__exec_dfa_run_flags;
 
 typedef struct re__exec re__exec;
@@ -1427,6 +1447,7 @@ struct re__exec {
   mn_uint32 num_sets;
   re_span_vec spans;
   mn_uint32_vec set_indexes;
+  mn_uint32_vec pri_bitmap;
   mn_int32 compile_status;
   re__exec_nfa nfa;
   mn_uint32 dfa_state_hash;
@@ -1437,8 +1458,9 @@ struct re__exec {
 
 MN_INTERNAL void re__exec_init(re__exec* exec, re* reg);
 MN_INTERNAL void re__exec_destroy(re__exec* exec);
-MN_INTERNAL int
-re__exec_reserve(re__exec* match_data, mn_uint32 max_group, mn_uint32 max_set);
+MN_INTERNAL int re__exec_reserve(
+    re__exec* match_data, mn_uint32 max_group, mn_uint32 max_set,
+    int reserve_priority_bitmap);
 MN_INTERNAL re_span* re__exec_get_spans(re__exec* exec);
 MN_INTERNAL mn_uint32* re__exec_get_set_indexes(re__exec* exec);
 MN_INTERNAL void

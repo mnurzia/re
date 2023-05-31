@@ -371,6 +371,7 @@ MN__VEC_IMPL_FUNC(mn_uint32, init)
 MN__VEC_IMPL_FUNC(mn_uint32, destroy)
 MN__VEC_IMPL_FUNC(mn_uint32, reserve)
 MN__VEC_IMPL_FUNC(mn_uint32, get_data)
+MN__VEC_IMPL_FUNC(mn_uint32, capacity)
 
 MN_INTERNAL void re__exec_init(re__exec* exec, re* reg)
 {
@@ -379,6 +380,7 @@ MN_INTERNAL void re__exec_init(re__exec* exec, re* reg)
   exec->num_sets = 0;
   re_span_vec_init(&exec->spans);
   mn_uint32_vec_init(&exec->set_indexes);
+  mn_uint32_vec_init(&exec->pri_bitmap);
   exec->compile_status = 0;
   re__exec_nfa_init(&exec->nfa);
   exec->dfa_state_hash = 0;
@@ -391,11 +393,13 @@ MN_INTERNAL void re__exec_destroy(re__exec* exec)
 {
   re_span_vec_destroy(&exec->spans);
   mn_uint32_vec_destroy(&exec->set_indexes);
+  mn_uint32_vec_destroy(&exec->pri_bitmap);
   re__exec_nfa_destroy(&exec->nfa);
 }
 
-MN_INTERNAL re_error
-re__exec_reserve(re__exec* exec, mn_uint32 max_group, mn_uint32 max_set)
+MN_INTERNAL re_error re__exec_reserve(
+    re__exec* exec, mn_uint32 max_group, mn_uint32 max_set,
+    int reserve_priority_bitmap)
 {
   re_error err = RE_ERROR_NONE;
   exec->num_groups = max_group;
@@ -413,6 +417,15 @@ re__exec_reserve(re__exec* exec, mn_uint32 max_group, mn_uint32 max_set)
   mn__memset(
       mn_uint32_vec_get_data(&exec->set_indexes), 0,
       sizeof(mn_uint32) * exec->num_sets);
+  if (reserve_priority_bitmap) {
+    /* Reserve just enough space in the bitmap */
+    if ((err = mn_uint32_vec_reserve(
+             &exec->pri_bitmap, (exec->num_sets + 15) / 16))) {
+    }
+    mn__memset(
+        mn_uint32_vec_get_data(&exec->pri_bitmap), 0,
+        sizeof(mn_uint32) * ((exec->num_sets + 15) / 16));
+  }
   return RE_ERROR_NONE;
 }
 
@@ -798,18 +811,22 @@ re_error re__match_prepare_progs_new(
   return err;
 }
 
-#if 0
+#if 1
 re_error re__match(
     re* reg, re__exec* exec, const char* text, mn_size text_size,
     re_anchor_type anchor_type, mn_uint32 max_group, re_span** out_spans,
     mn_uint32 max_set, mn_uint32** set_indexes, int locked)
 {
   re_error err = RE_ERROR_NONE;
-  if ((err = re__exec_reserve(exec, max_group, max_set))) {
+  re_span* spans;
+  re__exec_dfa_run_flags run_flags = locked ? RE__EXEC_DFA_RUN_FLAG_LOCKED : 0;
+  if ((err = re__exec_reserve(exec, max_group, max_set, 0))) {
     return err;
   }
-  re_span* spans = exec->spans;
-  mn_uint32* set_indexes = exec->set_indexes;
+  MN__UNUSED(set_indexes);
+  MN__UNUSED(out_spans);
+  MN__UNUSED(locked);
+  spans = re_span_vec_get_data(&exec->spans);
   if (max_group == 0 && max_set == 0) {
     /* Fully boolean match (is_match) */
     if (anchor_type == RE_ANCHOR_BOTH) {
@@ -819,7 +836,8 @@ re_error re__match(
       re__exec_prepare(exec, &reg->data->program, 0);
       return re__match_dfa_driver(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
-          MN_NULL, MN_NULL, RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH, &exec);
+          MN_NULL, MN_NULL, RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH | run_flags,
+          exec);
     } else if (anchor_type == RE_ANCHOR_START) {
       if ((err = re__match_prepare_progs_new(reg, exec, 1, 0, 0, 0, 0))) {
         return err;
@@ -829,7 +847,7 @@ re_error re__match(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
           MN_NULL, MN_NULL,
           RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
-              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY,
+              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY | run_flags,
           exec);
     } else if (anchor_type == RE_ANCHOR_END) {
       if ((err = re__match_prepare_progs_new(reg, exec, 0, 1, 0, 0, 0))) {
@@ -841,7 +859,7 @@ re_error re__match(
           text, text_size, MN_NULL, MN_NULL,
           RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
               RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY |
-              RE__EXEC_DFA_RUN_FLAG_REVERSED,
+              RE__EXEC_DFA_RUN_FLAG_REVERSED | run_flags,
           exec);
     } else if (anchor_type == RE_UNANCHORED) {
       if ((err = re__match_prepare_progs_new(reg, exec, 1, 0, 1, 0, 0))) {
@@ -852,7 +870,7 @@ re_error re__match(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, text, text_size,
           MN_NULL, MN_NULL,
           RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH |
-              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY,
+              RE__EXEC_DFA_RUN_FLAG_BOOLEAN_MATCH_EXIT_EARLY | run_flags,
           exec);
     } else {
       return RE_ERROR_INVALID;
@@ -869,15 +887,15 @@ re_error re__match(
       re__exec_prepare(&reg->data->exec, &reg->data->program, 0);
       match_err = re__match_dfa_driver(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
-          &out_match, &out_pos, 0, &reg->data->exec);
+          &out_match, &out_pos, run_flags, &reg->data->exec);
       if (match_err == RE_MATCH) {
         if (out_pos != text_size) {
           err = RE_NOMATCH;
           goto success;
         } else {
           if (max_group) {
-            out_groups[0].begin = 0;
-            out_groups[0].end = out_pos;
+            spans[0].begin = 0;
+            spans[0].end = out_pos;
           }
           err = RE_MATCH;
           goto success;
@@ -893,11 +911,11 @@ re_error re__match(
       re__exec_prepare(&reg->data->exec, &reg->data->program, 0);
       match_err = re__match_dfa_driver(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DEFAULT, 0, text, text_size,
-          &out_match, &out_pos, 0, &reg->data->exec);
+          &out_match, &out_pos, run_flags, &reg->data->exec);
       if (match_err == RE_MATCH) {
         if (max_group) {
-          out_groups[0].begin = 0;
-          out_groups[0].end = out_pos;
+          spans[0].begin = 0;
+          spans[0].end = out_pos;
         }
         err = RE_MATCH;
         goto success;
@@ -912,12 +930,12 @@ re_error re__match(
       re__exec_prepare(&reg->data->exec, &reg->data->program_reverse, 0);
       match_err = re__match_dfa_driver(
           &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, text_size,
-          text, text_size, &out_match, &out_pos, RE__EXEC_DFA_RUN_FLAG_REVERSED,
-          &reg->data->exec);
+          text, text_size, &out_match, &out_pos,
+          RE__EXEC_DFA_RUN_FLAG_REVERSED | run_flags, &reg->data->exec);
       if (match_err == RE_MATCH) {
         if (max_group) {
-          out_groups[0].begin = out_pos;
-          out_groups[0].end = text_size;
+          spans[0].begin = out_pos;
+          spans[0].end = text_size;
         }
         err = RE_MATCH;
         goto success;
@@ -932,23 +950,23 @@ re_error re__match(
       re__exec_prepare(&reg->data->exec, &reg->data->program, 0);
       match_err = re__match_dfa_driver(
           &reg->data->dfa_cache, RE__PROG_ENTRY_DOTSTAR, 0, text, text_size,
-          &out_match, &out_pos, 0, &reg->data->exec);
+          &out_match, &out_pos, run_flags, &reg->data->exec);
       if (match_err == RE_MATCH) {
         if (max_group) {
-          out_groups[0].end = out_pos;
+          spans[0].end = out_pos;
           /* scan back to find the start */
           re__exec_prepare(&reg->data->exec, &reg->data->program_reverse, 0);
           match_err = re__match_dfa_driver(
               &reg->data->dfa_cache_reverse, RE__PROG_ENTRY_DEFAULT, out_pos,
               text, text_size, &out_match, &out_pos,
-              RE__EXEC_DFA_RUN_FLAG_REVERSED, &reg->data->exec);
+              RE__EXEC_DFA_RUN_FLAG_REVERSED | run_flags, &reg->data->exec);
           /* should ALWAYS match. */
           if (match_err != RE_MATCH) {
             err = match_err;
             goto error;
           }
           MN_ASSERT(match_err == RE_MATCH);
-          out_groups[0].begin = out_pos;
+          spans[0].begin = out_pos;
         }
         err = RE_MATCH;
         goto success;
@@ -961,6 +979,8 @@ re_error re__match(
       goto error;
     }
   }
+success:
+  return err;
 error:
   return err;
 }

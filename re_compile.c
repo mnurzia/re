@@ -424,6 +424,7 @@ MN_INTERNAL re_error re__compile_do_alt(
    *                                                      +---10-> ...
    */
   re_error err = RE_ERROR_NONE;
+  int is_root_set = compile->set == frame->ast_base_ref;
   MN_ASSERT(ast->first_child_ref != RE__AST_NONE);
   /* Unlike concats, we still go through alterations in the correct order. */
   /* if (!compile->reversed || compile->reversed) { */
@@ -442,6 +443,19 @@ MN_INTERNAL re_error re__compile_do_alt(
       if ((err = re__prog_add(prog, new_inst))) {
         return err;
       }
+      if (is_root_set) {
+        /* When compiling the root set, we insert a split instruction and then a
+         * partition instruction. */
+        re__prog_inst_init_split(
+            &new_inst, re__prog_size(prog) + 1, re__prog_size(prog) + 2);
+        if ((err = re__prog_add(prog, new_inst))) {
+          return err;
+        }
+        re__prog_inst_init_partition(&new_inst, (mn_uint32)frame->rep_idx + 1);
+        if ((err = re__prog_add(prog, new_inst))) {
+          return err;
+        }
+      }
     }
     compile->should_push_child = 1;
     compile->should_push_child_ref = ast->first_child_ref;
@@ -449,7 +463,7 @@ MN_INTERNAL re_error re__compile_do_alt(
   } else {
     const re__ast* prev_child =
         re__ast_root_get_const(compile->ast_root, frame->ast_child_ref);
-    if (compile->set != frame->ast_base_ref) {
+    if (!is_root_set) {
       /* Collect outgoing branches (5, 6, 7, 8, 9, 10). */
       re__compile_patches_merge(
           &frame->patches, prog, &compile->returned_frame.patches);
@@ -463,6 +477,7 @@ MN_INTERNAL re_error re__compile_do_alt(
       if ((err = re__prog_add(prog, new_inst))) {
         return err;
       }
+      /* Link all outgoing patches to the match instruction */
       re__compile_patches_patch(
           &compile->returned_frame.patches, prog, re__prog_size(prog) - 1);
     }
@@ -473,7 +488,11 @@ MN_INTERNAL re_error re__compile_do_alt(
       /* top.seg.end points to the instruction after the old split
        * instruction, since we didn't set the endpoint before the
        * first child. */
-      re__prog_loc old_split_loc = frame->end - 1;
+      /* If we are compiling the root set, we choose the second previous
+       * instruction in order to skip the other SPLIT instruction and the
+       * PARTITION instruction. */
+      re__prog_loc old_split_loc =
+          is_root_set ? frame->end - 3 : frame->end - 1;
       re__prog_inst* old_inst = re__prog_get(prog, old_split_loc);
       const re__ast* child;
       /* Patch outgoing branch (2). */
@@ -490,6 +509,20 @@ MN_INTERNAL re_error re__compile_do_alt(
             RE__PROG_LOC_INVALID                /* Outgoing branch (4) */
         );
         /* Add it to the program. */
+        if ((err = re__prog_add(prog, new_inst))) {
+          return err;
+        }
+      }
+      /* Before intermediate children */
+      if (is_root_set) {
+        /* Add the SPLIT and PARTITION instructions needed */
+        re__prog_inst new_inst;
+        re__prog_inst_init_split(
+            &new_inst, re__prog_size(prog) + 1, re__prog_size(prog) + 2);
+        if ((err = re__prog_add(prog, new_inst))) {
+          return err;
+        }
+        re__prog_inst_init_partition(&new_inst, (mn_uint32)frame->rep_idx + 1);
         if ((err = re__prog_add(prog, new_inst))) {
           return err;
         }

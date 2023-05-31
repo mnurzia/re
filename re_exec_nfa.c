@@ -214,6 +214,11 @@ re__exec_thrd_set_add(re__exec_thrd_set* set, re__exec_thrd thrd)
   set->n++;
 }
 
+MN_INTERNAL re__exec_thrd re__exec_thrd_set_remove_last(re__exec_thrd_set* set)
+{
+  return set->dense[--set->n];
+}
+
 MN_INTERNAL void re__exec_thrd_set_clear(re__exec_thrd_set* set)
 {
   set->n = 0;
@@ -343,7 +348,7 @@ MN_INTERNAL mn_uint32 re__exec_nfa_get_match_index(re__exec_nfa* exec)
 
 MN_INTERNAL mn_uint32 re__exec_nfa_get_match_priority(re__exec_nfa* exec)
 {
-  return exec->set_a.match_priority;
+  return !exec->set_a.match_priority;
 }
 
 MN_INTERNAL void
@@ -473,6 +478,9 @@ MN_INTERNAL re_error re__exec_nfa_run_follow(
         } else {
           re__exec_save_dec_refs(&exec->save_slots, primary_thrd.save_slot);
         }
+      } else if (inst_type == RE__PROG_INST_TYPE_PARTITION) {
+        /* Queue this partition instruction. */
+        re__exec_thrd_set_add(&exec->set_b, top);
       } else {
         MN__ASSERT_UNREACHED();
       }
@@ -488,6 +496,7 @@ MN_INTERNAL re_error re__exec_nfa_run_byte(
 {
   re_error err = RE_ERROR_NONE;
   re__prog_loc i;
+  mn_uint32 pri_mod = 0;
   MN_ASSERT(exec->prog);
   if ((err = re__exec_nfa_run_follow(exec, assert_type, pos))) {
     return err;
@@ -522,11 +531,35 @@ MN_INTERNAL re_error re__exec_nfa_run_byte(
       mn_uint32 match_index = re__prog_inst_get_match_idx(cur_inst);
       if (!exec->set_a.match_index) {
         exec->set_a.match_index = match_index;
-        exec->set_a.match_priority = exec->set_a.n;
+        exec->set_a.match_priority = exec->set_a.n - pri_mod;
       }
       re__exec_save_dec_refs(&exec->save_slots, cur_thrd.save_slot);
+    } else if (cur_inst_type == RE__PROG_INST_TYPE_PARTITION) {
+      /* Delete the previous partition if it is the last item in the output
+       * threads list. */
+      if (exec->set_a.n) {
+        re__exec_thrd prev_thrd = exec->set_a.dense[exec->set_a.n - 1];
+        if (re__prog_inst_get_type(re__prog_get_const(
+                exec->prog, prev_thrd.loc)) == RE__PROG_INST_TYPE_PARTITION) {
+          /* Prev instruction is a partition. */
+          re__exec_thrd_set_remove_last(&exec->set_a);
+          pri_mod--;
+        }
+      }
+      re__exec_thrd_set_add(&exec->set_a, cur_thrd);
+      pri_mod++;
     } else {
       MN__ASSERT_UNREACHED();
+    }
+  }
+  /* Delete the previous partition if it is the last item in the output
+   * threads list. */
+  if (exec->set_a.n) {
+    re__exec_thrd prev_thrd = exec->set_a.dense[exec->set_a.n - 1];
+    if (re__prog_inst_get_type(re__prog_get_const(exec->prog, prev_thrd.loc)) ==
+        RE__PROG_INST_TYPE_PARTITION) {
+      /* Prev instruction is a partition. */
+      re__exec_thrd_set_remove_last(&exec->set_a);
     }
   }
   return err;
